@@ -33,6 +33,24 @@ class TestMechanics(unittest.TestCase):
         self.assertIn(result, [True, False])
         self.assertLessEqual(hero.hp, hero.max_hp)
         self.assertGreaterEqual(hero.hp, 0)
+class TestCorruptedDryadAbilities(unittest.TestCase):
+    def test_cursed_thorns(self):
+        hero = sim.Hero("Hero", 10, [])
+        hero.hp = 10
+        hero.armor_pool = 3
+        sim.cursed_thorns(hero)
+        self.assertEqual(hero.hp, 7)
+        self.assertEqual(hero.armor_pool, 0)
+
+    def test_disturbed_flow(self):
+        ctx = {}
+        sim.disturbed_flow(ctx)
+        hero = sim.Hero("Hero", 10, [])
+        hero.fate = 4
+        sim.RNG.seed(1)
+        result = sim.roll_die(5, hero=hero, allow_reroll=not ctx.get("no_reroll", False))
+        self.assertEqual(result, 3)
+        self.assertEqual(hero.fate, 4)
 
     def test_aerial_combat_modifier(self):
         sim.RNG.seed(5)

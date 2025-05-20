@@ -9,24 +9,44 @@ from collections import Counter
 from enum import Enum, auto
 
 # ╭───────────────────────── 0. INITIAL GAUNTLET STATE ─────────────────────────╮
-HP0   = [1, 1, 1, 4, 1, 1, 1, 4]
-BANDS = [
-    [1, 0, 1, 0],
-    [1, 1, 1, 2],
-    [0, 2, 0, 0],
-    [6, 1, 1, 1],
-    [1, 0, 6, 1],
-    [5, 0, 2, 3],
-    [3, 1, 2, 0],
-    [2, 0, 1, 0],
-]                      # each inner list = [band0, band1, band2, band3]
 
-DEF0   = [4, 4, 4, 4, 4, 4, 5, 4]
-GROUP  = [3, 2, 2, 1, 3, 2, 2, 1]        # monsters per wave
-BAND_CAP = {1:12, 2:7, 3:6}              # max damage per band by group size
+from dataclasses import dataclass
+from typing import Callable, Optional, List
 
-# per-wave vulnerabilities to attack types (None, CardType.MELEE, or CardType.RANGED)
-VULN = [None] * 8
+
+@dataclass
+class Enemy:
+    """Description of a single enemy archetype."""
+
+    hp: int
+    defense: int
+    band: List[int]
+    vuln: Optional[CardType] = None
+    ability: Optional[Callable[["Hero", dict], None]] = None
+
+
+@dataclass
+class Wave:
+    """Descriptor for one combat wave."""
+
+    count: int
+    enemy: Enemy
+
+
+BAND_CAP = {1: 12, 2: 7, 3: 6}  # max damage per band by group size
+
+# enemy waves (count, Enemy)
+WAVES: List[Wave] = [
+    Wave(3, Enemy(1, 4, [1, 0, 1, 0])),
+    Wave(2, Enemy(1, 4, [1, 1, 1, 2])),
+    Wave(2, Enemy(1, 4, [0, 2, 0, 0])),
+    Wave(1, Enemy(4, 4, [6, 1, 1, 1])),
+    Wave(3, Enemy(1, 4, [1, 0, 6, 1])),
+    Wave(2, Enemy(1, 4, [5, 0, 2, 3])),
+    Wave(2, Enemy(1, 5, [3, 1, 2, 0])),
+    Wave(1, Enemy(4, 4, [2, 0, 1, 0])),
+]  # vulnerabilities and abilities can be filled per-wave if needed
+
 
 # target bands
 TARGET_LO, TARGET_HI = 0.45, 0.60        # desired hero win-rate window
@@ -189,11 +209,12 @@ def fight_one(proto: Hero, record=False):
     h = copy.deepcopy(proto)
     h.reset_between_runs()
     h.deck.start_combat()
-    wave_hit = [False] * 8
+    wave_hit = [False] * len(WAVES)
     cfx = {}
 
-    for w, (g, hpE, DF, band) in enumerate(zip(GROUP, HP0, DEF0, BANDS)):
-        ctx = {'enemy_hp': [hpE] * g, 'bleed': 0, 'sky': 0, 'cfx': cfx, 'efx': {}}
+    for w, wave in enumerate(WAVES):
+        enemies = [copy.deepcopy(wave.enemy) for _ in range(wave.count)]
+        ctx = {'enemies': enemies, 'bleed': 0, 'sky': 0, 'cfx': cfx, 'efx': {}}
         for exch in range(4):
             ctx['efx'] = {}
             h.armor_pool = 0
@@ -211,56 +232,62 @@ def fight_one(proto: Hero, record=False):
             # RANGED
             while True:
                 c = h.deck.pop_first(CardType.RANGED)
-                if not c or not ctx['enemy_hp']: break
+                if not c or not ctx['enemies']: break
                 rer = ctx['efx'].pop('reroll', 0)
                 if ctx['cfx'].get('global_reroll'):
                     rer += c.dice
-                dmg = roll_hits(c.dice + ctx['sky'], DF, hero=h, rerolls=rer)
+                tgt = ctx['enemies'][0]
+                dmg = roll_hits(c.dice + ctx['sky'], tgt.defense, hero=h, rerolls=rer)
                 if c.fx:
                     c.fx(h, ctx)
-                ctx['enemy_hp'][0] -= dmg * (2 if VULN[w] == CardType.RANGED else 1)
-                if ctx['enemy_hp'][0] <= 0:
-                    ctx['enemy_hp'].pop(0)
+                ctx['enemies'][0].hp -= dmg * (2 if tgt.vuln == CardType.RANGED else 1)
+                if ctx['enemies'][0].hp <= 0:
+                    ctx['enemies'].pop(0)
                 h.deck.disc.append(c)
-            if not ctx['enemy_hp']:
+            if not ctx['enemies']:
                 break
 
             # MONSTER STRIKE
-            raw = max(0, band[(d8() - 1)//2] - h.plate) * len(ctx['enemy_hp'])
-            soak = min(raw, h.armor_pool)
-            raw -= soak
-            if raw:
+            raw_total = 0
+            for e in ctx['enemies']:
+                if e.ability:
+                    e.ability(h, ctx)
+                raw_total += max(0, e.band[(d8() - 1)//2] - h.plate)
+            soak = min(raw_total, h.armor_pool)
+            raw_total -= soak
+            if raw_total:
                 wave_hit[w] = True
-            h.hp -= raw
+            h.hp -= raw_total
             if h.hp <= 0:
                 return False, (wave_hit if record else None)
 
             # MELEE
             while True:
                 c = h.deck.pop_first(CardType.MELEE)
-                if not c or not ctx['enemy_hp']: break
+                if not c or not ctx['enemies']: break
                 h.armor_pool += c.armor
                 rer = ctx['efx'].pop('reroll', 0)
                 if ctx['cfx'].get('global_reroll'):
                     rer += c.dice
-                dmg = roll_hits(c.dice + ctx['sky'], DF, hero=h, rerolls=rer)
+                tgt = ctx['enemies'][0]
+                dmg = roll_hits(c.dice + ctx['sky'], tgt.defense, hero=h, rerolls=rer)
                 if c.fx:
                     c.fx(h, ctx)
-                ctx['enemy_hp'][0] -= dmg * (2 if VULN[w] == CardType.MELEE else 1)
-                if ctx['enemy_hp'][0] <= 0:
-                    ctx['enemy_hp'].pop(0)
+                ctx['enemies'][0].hp -= dmg * (2 if tgt.vuln == CardType.MELEE else 1)
+                if ctx['enemies'][0].hp <= 0:
+                    ctx['enemies'].pop(0)
                 h.deck.disc.append(c)
 
             # BLEED tick
-            if ctx['bleed'] and ctx['enemy_hp']:
-                ctx['enemy_hp'][0] -= ctx['bleed']
-                if ctx['enemy_hp'][0] <= 0:
-                    ctx['enemy_hp'].pop(0)
+            if ctx['bleed'] and ctx['enemies']:
+                ctx['enemies'][0].hp -= ctx['bleed']
+                if ctx['enemies'][0].hp <= 0:
+                    ctx['enemies'].pop(0)
 
-            if not ctx['enemy_hp']:
+            if not ctx['enemies']:
                 break
 
-        if ctx['enemy_hp']:
+        if ctx['enemies']:
             return False, (wave_hit if record else None)
 
         h.gain_upgrades()
@@ -269,12 +296,13 @@ def fight_one(proto: Hero, record=False):
 
 # ╭───────────────────────── 5. SAMPLERS & METRICS ────────────────────╮
 def _sample(n: int):
-    wins = Counter(); threats = [0] * 8
+    wins = Counter(); threats = [0] * len(WAVES)
     for hero in HEROES:
         for _ in range(n):
             ok, waves = fight_one(hero, record=True)
             if ok: wins[hero.key] += 1
-            for i, f in enumerate(waves): threats[i] += f
+            for i, f in enumerate(waves):
+                threats[i] += f
     rates = {h.key: wins[h.key] / n for h in HEROES}
     threats = [t / (n * len(HEROES)) for t in threats]
     return rates, threats
@@ -322,8 +350,9 @@ def blocker(rates, thr):
 
 # ╭───────────────────────── 6. BAND POST-PROCESS ─────────────────────╮
 def band_fix():
-    for w, row in enumerate(BANDS):
-        cap = BAND_CAP[GROUP[w]]
+    for wave in WAVES:
+        cap = BAND_CAP[wave.count]
+        row = wave.enemy.band
         seen0 = False
         for j, x in enumerate(row):
             if x == 0 and seen0:
@@ -334,8 +363,8 @@ def band_fix():
 # ╭───────────────────────── 7. OPTIMISER ─────────────────────────────╮
 def optimise():
     band_fix()
-    best_HP = HP0[:]
-    best_B  = [r[:] for r in BANDS]
+    best_HP = [w.enemy.hp for w in WAVES]
+    best_B  = [w.enemy.band[:] for w in WAVES]
     best_err = float('inf')
     last_improve = time.time()
 
@@ -355,16 +384,16 @@ def optimise():
         jump = 1 + min(MAX_JUMP_CAP - 1, stall // STALL_MAX)
 
         # propose *both* an HP and a Band tweak
-        hp_idx = RNG.randrange(8)
-        b_w    = RNG.randrange(8)
+        hp_idx = RNG.randrange(len(WAVES))
+        b_w    = RNG.randrange(len(WAVES))
         b_j    = RNG.randrange(4)
 
         d_hp = RNG.choice([-jump, jump])
         d_bd = RNG.choice([-jump, jump])
 
-        HP0[hp_idx]       = clamp(HP0[hp_idx] + d_hp, 1, 15)
-        BANDS[b_w][b_j]   = clamp(BANDS[b_w][b_j] + d_bd,
-                                  0, BAND_CAP[GROUP[b_w]])
+        WAVES[hp_idx].enemy.hp = clamp(WAVES[hp_idx].enemy.hp + d_hp, 1, 15)
+        cap = BAND_CAP[WAVES[b_w].count]
+        WAVES[b_w].enemy.band[b_j] = clamp(WAVES[b_w].enemy.band[b_j] + d_bd, 0, cap)
 
         # evaluate – Code-1 & Code-2 use the same sampler here
         t_rates, t_thr = sample_rates(T)
@@ -377,8 +406,8 @@ def optimise():
         if accept:
             if dE < 0:
                 best_err = err
-                best_HP  = HP0[:]
-                best_B   = [r[:] for r in BANDS]
+                best_HP  = [w.enemy.hp for w in WAVES]
+                best_B   = [w.enemy.band[:] for w in WAVES]
                 last_improve = time.time()
                 stall = 0
                 print(f"G{gen:05d} obj={best_err:.4f} T={T:.3f}")
@@ -390,9 +419,9 @@ def optimise():
                 stall += 1
         else:
             # revert
-            HP0[:] = best_HP
-            for w in range(8):
-                BANDS[w][:] = best_B[w][:]
+            for i, wave in enumerate(WAVES):
+                wave.enemy.hp = best_HP[i]
+                wave.enemy.band = best_B[i][:]
             stall += 1
 
         # temperature schedule
@@ -405,7 +434,7 @@ def optimise():
 
     # final dump
     print("\nBest error:", best_err)
-    print("HP0 :", best_HP)
+    print("HP  :", best_HP)
     print("BANDS:")
     for row in best_B:
         print(" ", row)

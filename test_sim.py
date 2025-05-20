@@ -34,5 +34,22 @@ class TestMechanics(unittest.TestCase):
         self.assertLessEqual(hero.hp, hero.max_hp)
         self.assertGreaterEqual(hero.hp, 0)
 
+class TestAbilities(unittest.TestCase):
+    def test_curse_of_torment(self):
+        hero = sim.Hero("Test", 5, [])
+        sim.curse_of_torment(hero, 1)
+        self.assertEqual(hero.hp, 4)
+        sim.curse_of_torment(hero, 3)
+        self.assertEqual(hero.hp, 4)
+
+    def test_void_barrier(self):
+        enemy = sim.Enemy(2, 3, sim.Element.BRUTAL, "void_barrier")
+        sim.void_barrier(enemy, sim.Element.DIVINE)
+        self.assertEqual(enemy.armor_pool, 1)
+        sim.void_barrier(enemy, sim.Element.DIVINE)
+        self.assertEqual(enemy.armor_pool, 1)
+        sim.void_barrier(enemy, sim.Element.ARCANE)
+        self.assertEqual(enemy.armor_pool, 2)
+
 if __name__ == "__main__":
     unittest.main()

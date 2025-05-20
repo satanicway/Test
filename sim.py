@@ -9,7 +9,7 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple, Set
 
 RNG = random.Random()
 
@@ -159,6 +159,8 @@ class Enemy:
     defense: int
     vulnerability: Element = Element.NONE
     ability: Optional[str] = None
+    armor_pool: int = 0
+    barrier_elems: Set[Element] = field(default_factory=set)
 
 # ---------------------------------------------------------------------------
 # Helper functions
@@ -179,10 +181,13 @@ def roll_hits(num_dice: int, defense: int, mod: int = 0, *,
               hero: Optional[Hero] = None,
               element: Element = Element.NONE,
               vulnerability: Element = Element.NONE,
-              allow_reroll: bool = True) -> int:
+              allow_reroll: bool = True,
+              enemy: Optional[Enemy] = None) -> int:
     dmg = 0
     for _ in range(num_dice):
         r = roll_die(defense, mod, hero=hero, allow_reroll=allow_reroll)
+        if enemy and enemy.ability == "curse_of_torment" and hero:
+            curse_of_torment(hero, r)
         if r >= defense:
             hit = 2 if r == 8 else 1
             if element != Element.NONE and element == vulnerability:
@@ -237,6 +242,21 @@ def end_hymns_fx(hero: Hero, ctx: Dict[str, object]) -> None:
     hero.active_hymns.clear()
     hero.combat_effects = [p for p in hero.combat_effects if not p[1].hymn]
     hero.exchange_effects = [p for p in hero.exchange_effects if not p[1].hymn]
+
+# ---------------------------------------------------------------------------
+# Enemy ability helpers
+# ---------------------------------------------------------------------------
+def curse_of_torment(hero: Hero, roll: int) -> None:
+    """Inflict 1 damage when ``roll`` is 1 or 2."""
+    if roll in (1, 2):
+        hero.hp -= 1
+
+
+def void_barrier(enemy: Enemy, element: Element) -> None:
+    """Grant armor when hit by a new damage element."""
+    if element != Element.NONE and element not in enemy.barrier_elems:
+        enemy.barrier_elems.add(element)
+        enemy.armor_pool += 1
 
 # ---------------------------------------------------------------------------
 # Card helpers to create attack cards
@@ -304,6 +324,7 @@ ENEMY_WAVES = [
     (EnemyType("Dryad", 2, 4, [0, 0, 1, 1], Element.BRUTAL, "cursed-thorns"), 3),
     (EnemyType("Minotaur", 4, 3, [0, 0, 1, 3], Element.PRECISE, "cleaving"), 2),
     (EnemyType("Wizard", 2, 3, [0, 1, 1, 3], Element.BRUTAL, "curse-of-torment"), 2),
+    (EnemyType("Dark Wizard", 2, 3, [0, 1, 1, 3], Element.BRUTAL, "curse_of_torment"), 2),
     (EnemyType("Shadow Banshee", 3, 5, [0, 0, 1, 2], Element.DIVINE, "ghostly"), 2),
     (EnemyType("Gryphon", 4, 5, [0, 1, 3, 4], Element.SPIRITUAL, "aerial-combat"), 1),
     (EnemyType("Treant", 7, 6, [0, 1, 1, 4], Element.DIVINE, "power-sap"), 1),
@@ -314,6 +335,7 @@ ENEMY_WAVES = [
     (EnemyType("Elite Dryad", 2, 5, [0, 1, 1, 2], Element.BRUTAL, "disturbed-flow"), 3),
     (EnemyType("Elite Minotaur", 5, 3, [0, 0, 2, 4], Element.PRECISE, "enrage"), 2),
     (EnemyType("Elite Wizard", 2, 4, [0, 2, 2, 3], Element.BRUTAL, "void-barrier"), 2),
+    (EnemyType("Elite Dark Wizard", 2, 4, [0, 2, 2, 3], Element.BRUTAL, "void_barrier"), 2),
     (EnemyType("Elite Banshee", 4, 5, [0, 0, 1, 3], Element.DIVINE, "banshee-wail"), 2),
     (EnemyType("Elite Gryphon", 5, 5, [0, 2, 4, 6], Element.SPIRITUAL, "ephemeral-wings"), 1),
     (EnemyType("Elite Treant", 8, 7, [0, 1, 3, 5], Element.DIVINE, "roots-of-despair"), 1),
@@ -334,8 +356,14 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
     targets = enemies[:] if card.multi else [enemies[0]]
     for e in targets[:]:
         vuln = ctx.pop("temp_vuln", e.vulnerability)
-        dmg = roll_hits(card.dice, e.defense, hero=hero, element=card.element,
-                        vulnerability=vuln)
+        dmg = roll_hits(
+            card.dice,
+            e.defense,
+            hero=hero,
+            element=card.element,
+            vulnerability=vuln,
+            enemy=e,
+        )
         if (
             card.multi
             and e.ability == "dark-phalanx"
@@ -344,7 +372,12 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
             dmg = max(1, dmg - 1)
         area = ctx.pop("area_damage", 0)
         dmg += area
+        soak = min(e.armor_pool, dmg)
+        e.armor_pool -= soak
+        dmg -= soak
         e.hp -= dmg
+        if dmg > 0 and e.ability == "void_barrier":
+            void_barrier(e, card.element)
         if e.hp <= 0:
             enemies.remove(e)
     if card.effect:

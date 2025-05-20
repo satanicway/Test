@@ -483,11 +483,33 @@ class TestMerlinCards(unittest.TestCase):
     def test_heal_effect(self):
         hero = sim.Hero("Hero", 10, [])
         hero.hp = 5
-        heal = sim.atk("Heal", sim.CardType.UTIL, 0, effect=sim.heal_fx(3))
+        heal = sim.atk("Heal", sim.CardType.UTIL, 0, effect=sim.heal(3))
         enemy = sim.Enemy("Dummy", 1, 5, sim.Element.NONE, [0, 0, 0, 0])
         ctx = {"enemies": [enemy]}
         sim.resolve_attack(hero, heal, ctx)
         self.assertEqual(hero.hp, 8)
+
+    def test_heal_capped(self):
+        hero = sim.Hero("Hero", 10, [])
+        hero.hp = 9
+        heal = sim.atk("Heal", sim.CardType.UTIL, 0, effect=sim.heal(5))
+        enemy = sim.Enemy("Dummy", 1, 5, sim.Element.NONE, [0, 0, 0, 0])
+        ctx = {"enemies": [enemy]}
+        sim.resolve_attack(hero, heal, ctx)
+        self.assertEqual(hero.hp, 10)
+
+    def test_fate_for_bonus_damage(self):
+        sim.RNG.seed(0)
+        hero = sim.Hero("Hero", 10, [])
+        hero.fate = 1
+        buff = sim.atk("Buff", sim.CardType.UTIL, 0, effect=sim.fate_for_bonus(1, damage=2))
+        attack = sim.atk("Strike", sim.CardType.MELEE, 1)
+        enemy = sim.Enemy("Dummy", 3, 1, sim.Element.NONE, [0, 0, 0, 0])
+        ctx = {"enemies": [enemy]}
+        sim.resolve_attack(hero, buff, ctx)
+        self.assertEqual(hero.fate, 0)
+        sim.resolve_attack(hero, attack, ctx)
+        self.assertEqual(enemy.hp, 0)
 
 if __name__ == "__main__":
     unittest.main()

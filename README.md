@@ -38,3 +38,6 @@ present.
 After clearing a wave the hero gains one upgrade which is drawn from that
 hero's upgrade pool and permanently added to the deck.  Upgrades allow the deck
 to grow stronger over the course of a run.
+Each pool contains common, uncommon and rare cards weighted 3‑2‑1.  When an
+upgrade is gained, a card is randomly selected from the remaining pool and
+added to the deck.

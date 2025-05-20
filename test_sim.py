@@ -34,22 +34,24 @@ class TestMechanics(unittest.TestCase):
         self.assertLessEqual(hero.hp, hero.max_hp)
         self.assertGreaterEqual(hero.hp, 0)
 
-class TestAbilities(unittest.TestCase):
-    def test_curse_of_torment(self):
-        hero = sim.Hero("Test", 5, [])
-        sim.curse_of_torment(hero, 1)
-        self.assertEqual(hero.hp, 4)
-        sim.curse_of_torment(hero, 3)
-        self.assertEqual(hero.hp, 4)
+class TestCorruptedDryadAbilities(unittest.TestCase):
+    def test_cursed_thorns(self):
+        hero = sim.Hero("Hero", 10, [])
+        hero.hp = 10
+        hero.armor_pool = 3
+        sim.cursed_thorns(hero)
+        self.assertEqual(hero.hp, 7)
+        self.assertEqual(hero.armor_pool, 0)
 
-    def test_void_barrier(self):
-        enemy = sim.Enemy(2, 3, sim.Element.BRUTAL, "void_barrier")
-        sim.void_barrier(enemy, sim.Element.DIVINE)
-        self.assertEqual(enemy.armor_pool, 1)
-        sim.void_barrier(enemy, sim.Element.DIVINE)
-        self.assertEqual(enemy.armor_pool, 1)
-        sim.void_barrier(enemy, sim.Element.ARCANE)
-        self.assertEqual(enemy.armor_pool, 2)
+    def test_disturbed_flow(self):
+        ctx = {}
+        sim.disturbed_flow(ctx)
+        hero = sim.Hero("Hero", 10, [])
+        hero.fate = 4
+        sim.RNG.seed(1)
+        result = sim.roll_die(5, hero=hero, allow_reroll=not ctx.get("no_reroll", False))
+        self.assertEqual(result, 3)
+        self.assertEqual(hero.fate, 4)
 
 if __name__ == "__main__":
     unittest.main()

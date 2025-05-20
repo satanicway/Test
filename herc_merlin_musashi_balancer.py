@@ -6,6 +6,7 @@
 
 import random, copy, time, math
 from collections import Counter
+from enum import Enum, auto
 
 # ╭───────────────────────── 0. INITIAL GAUNTLET STATE ─────────────────────────╮
 HP0   = [1, 1, 1, 4, 1, 1, 1, 4]
@@ -24,7 +25,7 @@ DEF0   = [4, 4, 4, 4, 4, 4, 5, 4]
 GROUP  = [3, 2, 2, 1, 3, 2, 2, 1]        # monsters per wave
 BAND_CAP = {1:12, 2:7, 3:6}              # max damage per band by group size
 
-# per-wave vulnerabilities to attack types (None, 'Melee', or 'Ranged')
+# per-wave vulnerabilities to attack types (None, CardType.MELEE, or CardType.RANGED)
 VULN = [None] * 8
 
 # target bands
@@ -38,6 +39,11 @@ MAX_JUMP_CAP = 7               # absolute max ±delta per step
 
 # hero fate parameters
 FATE_MAX = 10
+
+class CardType(Enum):
+    MELEE = auto()
+    RANGED = auto()
+    UTIL = auto()
 
 # ╭───────────────────────── 1. DICE & HELPER FUNCTIONS ─────────────────────────╮
 RNG = random.Random()
@@ -117,41 +123,41 @@ class Hero:
 
 # ── Hercules cards
 HERC_COMMON = (
-    [atk("Pillar", "Melee", 2)] * 3 +
-    [atk("Strangle", "Melee", 1,
+    [atk("Pillar", CardType.MELEE, 2)] * 3 +
+    [atk("Strangle", CardType.MELEE, 1,
          fx=lambda h, ctx: ctx.__setitem__('bleed', ctx.get('bleed', 0) + 1))] +
-    [atk("Demigod", "Melee", 1, armor=1, fx=armor_add(1))] * 3 +
-    [atk("SkyJav", "Ranged", 2,
+    [atk("Demigod", CardType.MELEE, 1, armor=1, fx=armor_add(1))] * 3 +
+    [atk("SkyJav", CardType.RANGED, 2,
          fx=lambda h, ctx: ctx.__setitem__('sky', ctx.get('sky', 0) + 1))] +
-    [atk("Spin", "Melee", 1)] * 2 +
-    [atk("Atlas", "Util", 0, armor=3, fx=armor_add(3))] * 2
+    [atk("Spin", CardType.MELEE, 1)] * 2 +
+    [atk("Atlas", CardType.UTIL, 0, armor=3, fx=armor_add(3))] * 2
 )
-HERC_UPG = [atk(f"HUpg{i}", "Melee", 3) for i in range(1, 31)]
+HERC_UPG = [atk(f"HUpg{i}", CardType.MELEE, 3) for i in range(1, 31)]
 hercules = Hero("Hercules", 25, 1.0, HERC_COMMON, HERC_UPG)
 
 # ── Merlin cards
 MER_COMMON = (
-    [atk("Volley", "Ranged", 1)] * 3 +
-    [atk("Warden", "Melee", 2, armor=1, fx=armor_add(1))] +
-    [atk("Weaver", "Ranged", 1,
+    [atk("Volley", CardType.RANGED, 1)] * 3 +
+    [atk("Warden", CardType.MELEE, 2, armor=1, fx=armor_add(1))] +
+    [atk("Weaver", CardType.RANGED, 1,
          fx=lambda h, ctx: ctx['efx'].__setitem__('reroll', ctx['efx'].get('reroll', 0) + 2))] * 2 +
-    [atk("Staff", "Melee", 1)] * 2 +
-    [atk("Mists", "Ranged", 1,
+    [atk("Staff", CardType.MELEE, 1)] * 2 +
+    [atk("Mists", CardType.RANGED, 1,
          fx=lambda h, ctx: ctx.__setitem__('spell+', ctx.get('spell+', 0) + 1))] * 3 +
-    [atk("Circle", "Ranged", 1,
+    [atk("Circle", CardType.RANGED, 1,
          fx=lambda h, ctx: ctx['cfx'].__setitem__('global_reroll', True))]
 )
-MER_UPG = [atk(f"MUpg{i}", "Ranged", 3) for i in range(1, 31)]
+MER_UPG = [atk(f"MUpg{i}", CardType.RANGED, 3) for i in range(1, 31)]
 merlin = Hero("Merlin", 15, 0.5, MER_COMMON, MER_UPG)
 
 # ── Musashi cards  (compact pool)
 MUS_COMMON = (
-    [atk("Swallow-Cut", "Melee", 1)] * 2 +
-    [atk("Cross-River", "Melee", 2)] * 2 +
-    [atk("Heaven-Earth", "Melee", 2)] * 2 +
-    [atk("Water Parry", "Melee", 1, armor=1)] * 2 +
-    [atk("Dual-Moon Guard", "Util", 0, armor=1)] * 2 +
-    [atk("Wind-Read", "Melee", 1)] * 2
+    [atk("Swallow-Cut", CardType.MELEE, 1)] * 2 +
+    [atk("Cross-River", CardType.MELEE, 2)] * 2 +
+    [atk("Heaven-Earth", CardType.MELEE, 2)] * 2 +
+    [atk("Water Parry", CardType.MELEE, 1, armor=1)] * 2 +
+    [atk("Dual-Moon Guard", CardType.UTIL, 0, armor=1)] * 2 +
+    [atk("Wind-Read", CardType.MELEE, 1)] * 2
 )
 
 # 10× common, 10× uncommon, 8× rare (weights 3-2-1 as in earlier draft)
@@ -169,9 +175,9 @@ rare    =[("Final-Dragon",2,0),("Five-Ring",2,0),("Flash 2 Moons",5,0),
           ("Two-as-One",4,0),("Perfection",0,4)]
 
 MUS_UPG=[]
-for n,d,a in common:    MUS_UPG += [atk(n,"Melee",d,a)]*3
-for n,d,a in uncommon:  MUS_UPG += [atk(n,"Melee",d,a)]*2
-for n,d,a in rare:      MUS_UPG.append(atk(n,"Melee",d,a))
+for n,d,a in common:    MUS_UPG += [atk(n,CardType.MELEE,d,a)]*3
+for n,d,a in uncommon:  MUS_UPG += [atk(n,CardType.MELEE,d,a)]*2
+for n,d,a in rare:      MUS_UPG.append(atk(n,CardType.MELEE,d,a))
 
 musashi = Hero("Musashi", 20, 1.0, MUS_COMMON, MUS_UPG)
 
@@ -196,7 +202,7 @@ def fight_one(proto: Hero, record=False):
 
             # UTIL
             while True:
-                c = h.deck.pop_first('Util')
+                c = h.deck.pop_first(CardType.UTIL)
                 if not c: break
                 h.armor_pool += c.armor
                 if c.fx: c.fx(h, ctx)
@@ -204,7 +210,7 @@ def fight_one(proto: Hero, record=False):
 
             # RANGED
             while True:
-                c = h.deck.pop_first('Ranged')
+                c = h.deck.pop_first(CardType.RANGED)
                 if not c or not ctx['enemy_hp']: break
                 rer = ctx['efx'].pop('reroll', 0)
                 if ctx['cfx'].get('global_reroll'):
@@ -212,7 +218,7 @@ def fight_one(proto: Hero, record=False):
                 dmg = roll_hits(c.dice + ctx['sky'], DF, hero=h, rerolls=rer)
                 if c.fx:
                     c.fx(h, ctx)
-                ctx['enemy_hp'][0] -= dmg * (2 if VULN[w] == 'Ranged' else 1)
+                ctx['enemy_hp'][0] -= dmg * (2 if VULN[w] == CardType.RANGED else 1)
                 if ctx['enemy_hp'][0] <= 0:
                     ctx['enemy_hp'].pop(0)
                 h.deck.disc.append(c)
@@ -231,7 +237,7 @@ def fight_one(proto: Hero, record=False):
 
             # MELEE
             while True:
-                c = h.deck.pop_first('Melee')
+                c = h.deck.pop_first(CardType.MELEE)
                 if not c or not ctx['enemy_hp']: break
                 h.armor_pool += c.armor
                 rer = ctx['efx'].pop('reroll', 0)
@@ -240,7 +246,7 @@ def fight_one(proto: Hero, record=False):
                 dmg = roll_hits(c.dice + ctx['sky'], DF, hero=h, rerolls=rer)
                 if c.fx:
                     c.fx(h, ctx)
-                ctx['enemy_hp'][0] -= dmg * (2 if VULN[w] == 'Melee' else 1)
+                ctx['enemy_hp'][0] -= dmg * (2 if VULN[w] == CardType.MELEE else 1)
                 if ctx['enemy_hp'][0] <= 0:
                     ctx['enemy_hp'].pop(0)
                 h.deck.disc.append(c)

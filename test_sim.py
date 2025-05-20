@@ -94,5 +94,24 @@ class TestSoldierAbilities(unittest.TestCase):
         self.assertEqual(hero.hp, 9)
         self.assertEqual(enemy.hp, 0)
 
+class TestPriestAbilities(unittest.TestCase):
+    def test_power_of_death_bonus_damage(self):
+        hero = sim.Hero("Hero", 10, [])
+        enemy = sim.Enemy("Priest", 2, 3, sim.Element.ARCANE, [0, 0, 0, 0], sim.power_of_death)
+        ctx = {"enemies": [enemy], "dead_priests": 2}
+        enemy.ability(ctx)
+        sim.monster_attack([hero], ctx)
+        self.assertEqual(hero.hp, 8)
+
+    def test_silence_blocks_effects(self):
+        hero = sim.Hero("Hero", 10, [])
+        card = sim.atk("Bless", sim.CardType.UTIL, 0, effect=sim.gain_fate_fx(1), persistent="combat")
+        enemy = sim.Enemy("Elite Priest", 3, 4, sim.Element.ARCANE, [0, 0, 0, 0], sim.silence)
+        ctx = {"enemies": [enemy]}
+        enemy.ability(ctx)
+        sim.resolve_attack(hero, card, ctx)
+        self.assertEqual(hero.fate, 0)
+        self.assertFalse(hero.combat_effects)
+
 if __name__ == "__main__":
     unittest.main()

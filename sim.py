@@ -282,6 +282,15 @@ def void_barrier(enemy: Enemy, element: Element) -> None:
         enemy.barrier_elems.add(element)
         enemy.armor_pool += 1
 
+def power_of_death(ctx: Dict[str, object]) -> None:
+    """Set priest damage bonus based on fallen priests."""
+    ctx["priest_bonus"] = ctx.get("dead_priests", 0)
+
+
+def silence(ctx: Dict[str, object]) -> None:
+    """Prevent all card effects for the rest of combat."""
+    ctx["silenced"] = True
+
 # ---------------------------------------------------------------------------
 # Card helpers to create attack cards
 # ---------------------------------------------------------------------------
@@ -347,7 +356,7 @@ ENEMIES: Dict[str, Enemy] = {
     "Spinner": Enemy("Spinner", 1, 4, Element.SPIRITUAL, [1, 0, 1, 0], "web-slinger"),
     "Soldier": Enemy("Soldier", 2, 5, Element.PRECISE, [0, 0, 0, 2], "dark-phalanx"),
     "Banshee": Enemy("Banshee", 4, 5, Element.DIVINE, [0, 0, 1, 3], "banshee-wail"),
-    "Priest": Enemy("Priest", 2, 3, Element.ARCANE, [0, 0, 1, 1], "power-of-death"),
+    "Priest": Enemy("Priest", 2, 3, Element.ARCANE, [0, 0, 1, 1], power_of_death),
     "Dryad": Enemy("Dryad", 2, 4, Element.BRUTAL, [0, 0, 1, 1], "cursed-thorns"),
     "Minotaur": Enemy("Minotaur", 4, 3, Element.PRECISE, [0, 0, 1, 3], "cleaving"),
     "Wizard": Enemy("Wizard", 2, 3, Element.BRUTAL, [0, 1, 1, 3], "curse-of-torment"),
@@ -357,7 +366,7 @@ ENEMIES: Dict[str, Enemy] = {
     "Angel": Enemy("Angel", 5, 5, Element.ARCANE, [0, 1, 2, 5], "corrupted-destiny"),
     "Elite Spinner": Enemy("Elite Spinner", 2, 5, Element.SPIRITUAL, [0, 0, 1, 4], "sticky-web"),
     "Elite Soldier": Enemy("Elite Soldier", 3, 6, Element.PRECISE, [0, 0, 1, 3], "spiked-armor"),
-    "Elite Priest": Enemy("Elite Priest", 3, 4, Element.ARCANE, [0, 0, 1, 2], "silence"),
+    "Elite Priest": Enemy("Elite Priest", 3, 4, Element.ARCANE, [0, 0, 1, 2], silence),
     "Elite Dryad": Enemy("Elite Dryad", 2, 5, Element.BRUTAL, [0, 1, 1, 2], "disturbed-flow"),
     "Elite Minotaur": Enemy("Elite Minotaur", 5, 3, Element.PRECISE, [0, 0, 2, 4], "enrage"),
     "Elite Wizard": Enemy("Elite Wizard", 2, 4, Element.BRUTAL, [0, 2, 2, 3], "void-barrier"),
@@ -458,12 +467,12 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
 
         if e.hp <= 0:
             enemies.remove(e)
-            if e.ability == "power-of-death":
+            if e.ability == "power-of-death" or e.ability is power_of_death:
                 ctx["dead_priests"] = ctx.get("dead_priests", 0) + 1
-    if card.effect:
-        if not (ctx.get("silenced") and card.persistent):
-            card.effect(hero, ctx)
-        if card.persistent and not ctx.get("silenced"):
+                ctx["priest_bonus"] = ctx["dead_priests"]
+    if card.effect and not ctx.get("silenced"):
+        card.effect(hero, ctx)
+        if card.persistent:
             if card.persistent == "combat":
                 hero.combat_effects.append((card.effect, card))
             elif card.persistent == "exchange":
@@ -479,6 +488,7 @@ def monster_attack(heroes: List[Hero], ctx: Dict[str, object]) -> None:
     for e in ctx["enemies"]:
         band = e.damage_band
         dmg += band[(d8() - 1) // 2]
+    dmg += ctx.get("priest_bonus", 0)
     hero = heroes[0]
     soak = min(hero.armor_pool, dmg)
     hero.armor_pool -= soak
@@ -496,8 +506,8 @@ def fight_one(hero: Hero) -> bool:
         ctx = make_wave(name, count)
         for exch in range(3):
             ctx["exchange"] = exch
-            if any(e.ability == "silence" for e in ctx["enemies"]):
-                if not ctx["silenced"]:
+            if any((e.ability == "silence" or e.ability is silence) for e in ctx["enemies"]):
+                if not ctx.get("silenced"):
                     ctx["silenced"] = True
                     hero.combat_effects.clear()
                     hero.exchange_effects.clear()

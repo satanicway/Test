@@ -595,6 +595,13 @@ def fight_one(hero: Hero) -> bool:
         ctx["heroes"] = [hero]
         for exch in range(4):
             ctx["exchange"] = exch
+            # remove any lingering exchange effects and hymns from the previous
+            # round before applying persistent buffs
+            if hero.exchange_effects:
+                hero.exchange_effects.clear()
+            if hero.active_hymns:
+                hero.active_hymns = [h for h in hero.active_hymns
+                                     if h.persistent == "combat"]
             for e in ctx["enemies"]:
                 e.rolled_dice = 0
                 if e.ability == "corrupted-destiny":

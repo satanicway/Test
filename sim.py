@@ -46,7 +46,6 @@ class Card:
     hymn: bool = False
     multi: bool = False  # attack targets all enemies
 
-
 @dataclass
 class Deck:
     cards: List[Card]
@@ -177,7 +176,6 @@ def end_hymns_fx(hero: Hero, ctx: Dict) -> None:
     hero.exchange_effects = [ef for ef in hero.exchange_effects if not ef[1].hymn]
 
 # Card constructor
-
 def atk(
     name: str,
     ctype: CardType,
@@ -350,6 +348,44 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict) -> None:
     if ability == "roots-of-despair" and dmg == 0:
         hero.hp -= 1
     if card.effect and not (ability == "silence" and card.persistent):
+      
+    if card.multi:
+        # roll once and apply to all
+        dmg = roll_hits(
+            card.dice,
+            ctx["enemies"][0].defense,
+            hero=hero,
+            element=card.element,
+            vulnerability=ctx["enemies"][0].vulnerability,
+        ) + dmg_bonus
+        for e in ctx["enemies"][:]:
+            apply = dmg
+            if (
+                e.traits.get("ability") == "dark-phalanx"
+                and sum(1 for m in ctx["enemies"] if m.traits.get("ability") == "dark-phalanx") >= 2
+            ):
+                apply = max(1, apply - 1)
+            e.hp -= apply
+            if e.traits.get("ability") == "banshee-wail":
+                ctx["banshee_dice"] = ctx.get("banshee_dice", 0) + card.dice
+            if e.hp <= 0:
+                ctx["enemies"].remove(e)
+    else:
+        target = ctx["enemies"][0]
+        dmg = roll_hits(
+            card.dice,
+            target.defense,
+            hero=hero,
+            element=card.element,
+            vulnerability=target.vulnerability,
+        ) + dmg_bonus
+        if target.traits.get("ability") == "banshee-wail":
+            ctx["banshee_dice"] = ctx.get("banshee_dice", 0) + card.dice
+        target.hp -= dmg
+        if target.hp <= 0:
+            ctx["enemies"].pop(0)
+    if card.effect:
+ main
         ctx["current_target"] = ctx["enemies"][0] if ctx["enemies"] else None
         card.effect(hero, ctx)
         if card.persistent == "combat":
@@ -383,6 +419,7 @@ def fight_one(hero: Hero) -> bool:
         ctx['banshee_dice'] = 0
         ctx['vb_elements'] = set()
         ctx['void_armor'] = 0
+main
         for exch in range(3):
             hero.exchange_effects.clear()
             hero.armor_pool = 0
@@ -438,6 +475,9 @@ def fight_one(hero: Hero) -> bool:
                 if not ctx["enemies"]:
                     break
                 resolve_attack(hero, c, ctx)
+                if c.hymn:
+                    hero.active_hymns.append(c)
+main
                 hero.deck.disc.append(c)
             delayed_ranged.clear()
             while ctx["enemies"]:
@@ -457,6 +497,12 @@ def fight_one(hero: Hero) -> bool:
                 if ctx["enemies"]:
                     ctx["enemies"][0].hp += 1
             if ability == "banshee-wail" and ctx.get("banshee_dice", 0) >= 3:
+            # Banshee wail damage at end of exchange
+            if (
+                ctx["enemy_type"].ability == "banshee-wail"
+                and ctx.get("banshee_dice", 0) >= 3
+            ):
+ main
                 hero.hp -= ctx["banshee_dice"] // 3
                 ctx["banshee_dice"] = 0
                 if hero.hp <= 0:

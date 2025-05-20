@@ -76,6 +76,7 @@ class Deck:
             if c.ctype == ctype:
                 return self.hand.pop(i)
         return None
+
 FATE_MAX = 10
 
 def roll_hits(
@@ -854,3 +855,4 @@ if __name__ == "__main__":
     N = 20
     wins = sum(fight_one(random.choice(HEROES)) for _ in range(N))
     print("Win rate", wins/N)
+main

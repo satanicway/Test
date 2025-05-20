@@ -248,6 +248,17 @@ def area_damage(n: int) -> Callable[[Hero, Dict[str, object]], None]:
         ctx['area_damage'] = ctx.get('area_damage', 0) + n
     return _fx
 
+def cleave_all(hero_list: List[Hero], dmg: int) -> None:
+    """Apply ``dmg`` to every hero in ``hero_list`` ignoring order."""
+    for h in hero_list:
+        soak = min(h.armor_pool, dmg)
+        h.armor_pool -= soak
+        h.hp -= max(0, dmg - soak)
+
+def enrage(enemy: Enemy) -> bool:
+    """Return True if ``enemy`` is enraged and attacks twice."""
+    return enemy.hp <= 3
+
 def end_hymns_fx(hero: Hero, ctx: Dict[str, object]) -> None:
     hero.active_hymns.clear()
     hero.combat_effects = [p for p in hero.combat_effects if not p[1].hymn]
@@ -437,7 +448,7 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
     hero.deck.disc.append(card)
 
 
-def monster_attack(hero: Hero, ctx: Dict[str, object]) -> None:
+def monster_attack(heroes: List[Hero], ctx: Dict[str, object]) -> None:
     """Resolve monster attacks for the current wave."""
     dmg = 0
     for e in ctx["enemies"]:
@@ -493,7 +504,7 @@ def fight_one(hero: Hero) -> bool:
                     break
 
             if ctx["enemies"]:
-                monster_attack(hero, ctx)
+                monster_attack([hero], ctx)
                 if hero.hp <= 0:
                     return False
 

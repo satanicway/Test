@@ -344,5 +344,49 @@ class TestNewCardEffects(unittest.TestCase):
         self.assertEqual(len(hero.deck.disc), 2)
         self.assertEqual(hero.fate, 1)
 
+class TestHymnMechanics(unittest.TestCase):
+    def test_hymn_armor_scaling(self):
+        hero = sim.Hero("Hero", 10, [])
+        shield = sim.atk("Shields", sim.CardType.UTIL, 0, hymn=True,
+                          persistent="combat", effect=sim.hymn_armor(1))
+        prayer = sim.atk("Prayer", sim.CardType.UTIL, 0, hymn=True,
+                          persistent="combat", effect=sim.hymn_armor(1))
+        enemy = sim.Enemy("Dummy", 1, 5, sim.Element.NONE, [0, 0, 0, 0])
+        ctx = {"enemies": [enemy]}
+        sim.resolve_attack(hero, shield, ctx)
+        sim.apply_persistent(hero, ctx)
+        self.assertEqual(hero.armor_pool, 1)
+
+        sim.resolve_attack(hero, prayer, ctx)
+        hero.armor_pool = 0
+        hero.active_hymns = [h for h in hero.active_hymns if h.persistent == "combat"]
+        sim.apply_persistent(hero, ctx)
+        self.assertEqual(hero.armor_pool, 4)
+
+    def test_hymn_damage_scaling(self):
+        sim.RNG.seed(1)
+        hero = sim.Hero("Hero", 10, [])
+        aria = sim.atk("Aria", sim.CardType.UTIL, 0, hymn=True,
+                        persistent="combat", effect=sim.hymn_damage(1))
+        attack = sim.atk("Hit", sim.CardType.MELEE, 1)
+        enemy = sim.Enemy("Dummy", 3, 1, sim.Element.NONE, [0, 0, 0, 0])
+        ctx = {"enemies": [enemy]}
+        sim.resolve_attack(hero, aria, ctx)
+        sim.apply_persistent(hero, ctx)
+        sim.resolve_attack(hero, attack, ctx)
+        self.assertEqual(enemy.hp, 1)
+
+    def test_hymn_end_card(self):
+        hero = sim.Hero("Hero", 10, [])
+        shield = sim.atk("Shields", sim.CardType.UTIL, 0, hymn=True,
+                          persistent="combat", effect=sim.hymn_armor(1))
+        ender = sim.atk("Storms", sim.CardType.UTIL, 0, effect=sim.end_hymns_fx)
+        enemy = sim.Enemy("Dummy", 1, 5, sim.Element.NONE, [0, 0, 0, 0])
+        ctx = {"enemies": [enemy]}
+        sim.resolve_attack(hero, shield, ctx)
+        self.assertTrue(hero.active_hymns)
+        sim.resolve_attack(hero, ender, ctx)
+        self.assertFalse(hero.active_hymns)
+
 if __name__ == "__main__":
     unittest.main()

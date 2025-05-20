@@ -343,6 +343,40 @@ def multi_bonus(n: int) -> Callable[[Hero, Dict[str, object]], None]:
         ctx.setdefault('attack_hooks', []).append(hook)
     return _fx
 
+# additional helper effects used by Musashi ---------------------------------
+def combine_effects(*fxs: Callable[[Hero, Dict[str, object]], None]) -> Callable[[Hero, Dict[str, object]], None]:
+    """Combine multiple simple effects into one."""
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        for f in fxs:
+            f(h, ctx)
+    return _fx
+
+def bonus_if_vulnerable(elem: Element, bonus: int) -> Callable[[Hero, Dict[str, object]], None]:
+    """Deal extra damage when the target's vulnerability matches ``elem``."""
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        if ctx.get('enemies') and ctx['enemies'][0].vulnerability == elem:
+            enemy = ctx['enemies'][0]
+            enemy.hp -= bonus
+            if enemy.hp <= 0:
+                ctx['enemies'].pop(0)
+    return _fx
+
+def armor_damage_bonus(mult: int) -> Callable[[Hero, Dict[str, object]], None]:
+    """Add damage equal to ``hero.armor_pool`` times ``mult`` on future attacks."""
+    def hook(hero: Hero, card: Card, ctx2: Dict[str, object], dmg: int) -> int:
+        return dmg + mult * hero.armor_pool
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        ctx.setdefault('attack_hooks', []).append(hook)
+    return _fx
+
+def double_attack(card: Card) -> Callable[[Hero, Dict[str, object]], None]:
+    """Perform a second attack using ``card`` after it resolves."""
+    def _fx(hero: Hero, ctx: Dict[str, object]) -> None:
+        temp = Card(card.name, card.ctype, card.dice, card.element,
+                    card.armor)
+        resolve_attack(hero, temp, ctx)
+    return _fx
+
 # ---------------------------------------------------------------------------
 # Enemy ability helpers
 # ---------------------------------------------------------------------------
@@ -486,7 +520,78 @@ _b_r = [
 b_pool = weighted_pool(_b_c, _b_u, _b_r)
 brynhild = Hero("Brynhild", 18, bryn_base, b_pool)
 
-HEROES = [hercules, brynhild]
+# --- Musashi ---------------------------------------------------------------
+swallow_cut = atk("Swallow-Cut", CardType.MELEE, 1, Element.PRECISE)
+swallow_cut.effect = double_attack(swallow_cut)
+cross_river = atk("Cross-River", CardType.MELEE, 2, Element.PRECISE)
+heaven_earth = atk("Heaven-Earth", CardType.MELEE, 2, Element.PRECISE,
+                   effect=bonus_if_vulnerable(Element.PRECISE, 1))
+water_parry = atk("Water Parry", CardType.MELEE, 1, Element.PRECISE, armor=1,
+                   effect=combine_effects(gain_armor(1), armor_damage_bonus(1)))
+dual_moon_guard = atk("Dual-Moon Guard", CardType.UTIL, 0, armor=1,
+                      effect=combine_effects(gain_armor(1), armor_damage_bonus(1)))
+wind_read = atk("Wind-Read", CardType.MELEE, 1, Element.PRECISE,
+                effect=modify_enemy_defense(-1))
+
+musashi_base = [
+    swallow_cut, swallow_cut,
+    cross_river, cross_river,
+    heaven_earth, heaven_earth,
+    water_parry, water_parry,
+    dual_moon_guard, dual_moon_guard,
+    wind_read, wind_read,
+]
+
+_m_common = [
+    atk("Gate-Breaker", CardType.MELEE, 2, Element.PRECISE),
+    atk("Battojutsu", CardType.MELEE, 2, Element.PRECISE, armor=2,
+        effect=combine_effects(gain_armor(2), armor_damage_bonus(1))),
+    atk("Scroll-Cut", CardType.MELEE, 3, Element.PRECISE),
+    atk("Chance-Blade", CardType.MELEE, 0, Element.PRECISE,
+        effect=gain_fate_fx(1)),
+    atk("Susanoo", CardType.MELEE, 3, Element.PRECISE),
+    atk("Water-Mirror", CardType.UTIL, 0, effect=modify_enemy_defense(-1)),
+    atk("Spirit-Cleaver", CardType.MELEE, 2, Element.SPIRITUAL,
+        effect=bonus_if_vulnerable(Element.SPIRITUAL, 1)),
+    atk("Iron-Will", CardType.MELEE, 3, Element.PRECISE,
+        effect=gain_fate_fx(1)),
+    atk("Ghost-Step", CardType.MELEE, 3, Element.PRECISE, effect=double_attack(atk("Ghost-Step", CardType.MELEE, 3, Element.PRECISE))),
+    atk("Heaven-Dragon", CardType.MELEE, 2, Element.DIVINE),
+]
+_m_uncommon = [
+    atk("Dragon Slice", CardType.MELEE, 3, Element.PRECISE,
+        effect=double_attack(atk("Dragon Slice", CardType.MELEE, 3, Element.PRECISE))),
+    atk("River Reflex", CardType.UTIL, 0,
+        effect=combine_effects(gain_armor(1), armor_damage_bonus(1))),
+    atk("Two-Heaven", CardType.MELEE, 4, Element.PRECISE),
+    atk("Crescent Guard", CardType.UTIL, 0, effect=gain_armor(1)),
+    atk("Mountain Stance", CardType.UTIL, 0, effect=modify_enemy_defense(-1)),
+    atk("Mirror-Flow", CardType.UTIL, 0, effect=gain_fate_fx(1)),
+    atk("Heaven Blade", CardType.MELEE, 0, Element.DIVINE,
+        effect=temp_vuln(Element.DIVINE)),
+    atk("Ascending Venge", CardType.MELEE, 0, Element.PRECISE,
+        effect=armor_damage_bonus(1)),
+    atk("Menacing Step", CardType.UTIL, 0, effect=modify_enemy_defense(-1)),
+    atk("Iron-Shell", CardType.UTIL, 0, armor=1, effect=gain_armor(1)),
+]
+_m_rare = [
+    atk("Final-Dragon", CardType.MELEE, 2, Element.DIVINE, effect=double_attack(atk("Final-Dragon", CardType.MELEE, 2, Element.DIVINE))),
+    atk("Five-Ring", CardType.MELEE, 2, Element.PRECISE, effect=gain_fate_fx(2)),
+    atk("Flash 2 Moons", CardType.MELEE, 5, Element.PRECISE, effect=double_attack(atk("Flash 2 Moons", CardType.MELEE, 5, Element.PRECISE))),
+    atk("Wanderer", CardType.MELEE, 6, Element.PRECISE),
+    atk("Formless", CardType.UTIL, 0, effect=modify_enemy_defense(-2)),
+    atk("Stone Lotus", CardType.MELEE, 4, Element.PRECISE, armor=1,
+        effect=combine_effects(gain_armor(1), armor_damage_bonus(1))),
+    atk("Twin-Descent", CardType.MELEE, 0, multi=True, effect=multi_bonus(1)),
+    atk("Edge Harmony", CardType.MELEE, 4, Element.PRECISE),
+    atk("Two-as-One", CardType.MELEE, 4, Element.PRECISE,
+        effect=double_attack(atk("Two-as-One", CardType.MELEE, 4, Element.PRECISE))),
+    atk("Perfection", CardType.UTIL, 0, armor=4, effect=gain_armor(4)),
+]
+musashi_pool = weighted_pool(_m_common, _m_uncommon, _m_rare)
+musashi = Hero("Musashi", 20, musashi_base, musashi_pool)
+
+HEROES = [hercules, brynhild, musashi]
 
 # ---------------------------------------------------------------------------
 # Enemy abilities and catalog

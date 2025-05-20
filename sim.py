@@ -13,6 +13,18 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 RNG = random.Random()
 
+# Damage bands per wave for monster attacks
+BANDS = [
+    [1, 0, 1, 0],
+    [1, 1, 1, 2],
+    [0, 2, 0, 0],
+    [6, 1, 1, 1],
+    [1, 0, 6, 1],
+    [5, 0, 2, 3],
+    [3, 1, 2, 0],
+    [2, 0, 1, 0],
+]
+
 def d8() -> int:
     return RNG.randint(1, 8)
 
@@ -54,6 +66,10 @@ class Deck:
     disc: List[Card] = field(default_factory=list)
 
     MAX_HAND: int = 7
+
+    def start_combat(self) -> None:
+        """Initial draw at the start of combat (3 or 4 cards randomly)."""
+        self.draw(4 if RNG.random() < 0.5 else 3)
 
     def shuffle(self) -> None:
         RNG.shuffle(self.cards)
@@ -270,9 +286,10 @@ HEROES = [hercules, brynhild]
 # Enemy waves
 # ---------------------------------------------------------------------------
 
-def make_wave(et: EnemyType, count: int) -> Dict[str, object]:
+def make_wave(et: EnemyType, count: int, wave_idx: int) -> Dict[str, object]:
     return {
         "enemy_type": et,
+        "wave_idx": wave_idx,
         "enemies": [
             Enemy(et.hp, et.defense, et.vulnerability, et.ability) for _ in range(count)
         ],
@@ -343,7 +360,8 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
 
 def monster_attack(hero: Hero, ctx: Dict[str, object]) -> None:
     """Resolve monster attacks for the current wave."""
-    band = ctx["enemy_type"].bands
+    wave_idx = ctx.get("wave_idx", 0)
+    band = BANDS[wave_idx % len(BANDS)]
     dmg = band[(d8() - 1) // 2] * len(ctx["enemies"])
     soak = min(hero.armor_pool, dmg)
     hero.armor_pool -= soak
@@ -355,11 +373,10 @@ def fight_one(hero: Hero) -> bool:
     """Run one full gauntlet for ``hero``."""
 
     hero.reset()
-    hero.gain_upgrades(1)
-    hero.deck.draw(3)
+    hero.deck.start_combat()
 
-    for et, count in ENEMY_WAVES:
-        ctx = make_wave(et, count)
+    for wave_idx, (et, count) in enumerate(ENEMY_WAVES):
+        ctx = make_wave(et, count, wave_idx)
         for exch in range(3):
             ctx["exchange"] = exch
             apply_persistent(hero, ctx)
@@ -420,6 +437,7 @@ def fight_one(hero: Hero) -> bool:
         if ctx["enemies"] or hero.hp <= 0:
             return False
 
+        hero.gain_upgrades(1)
         hero.gain_fate(1)
         hero.deck.draw(2)
         hero.combat_effects.clear()

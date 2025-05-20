@@ -26,6 +26,19 @@ class TestMechanics(unittest.TestCase):
                              allow_reroll=False)
         self.assertEqual(dmg, 2)
 
+    def test_temp_vulnerability_effect(self):
+        """Cards can grant temporary vulnerability for the next attack."""
+        sim.RNG.seed(0)
+        hero = sim.Hero("Hero", 10, [])
+        buff = sim.atk("Buff", sim.CardType.UTIL, 0,
+                       effect=sim.temp_vuln(sim.Element.DIVINE))
+        attack = sim.atk("Smite", sim.CardType.MELEE, 1, sim.Element.DIVINE)
+        enemy = sim.Enemy("Dummy", 2, 5, sim.Element.PRECISE, [0, 0, 0, 0])
+        ctx = {"enemies": [enemy]}
+        sim.resolve_attack(hero, buff, ctx)
+        sim.resolve_attack(hero, attack, ctx)
+        self.assertEqual(enemy.hp, 0)
+
     def test_fight_one_runs(self):
         sim.RNG.seed(0)
         hero = sim.Hero("Hercules", 25, sim.herc_base, sim.herc_pool)

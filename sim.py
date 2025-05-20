@@ -233,6 +233,17 @@ def area_damage(n: int) -> Callable[[Hero, Dict[str, object]], None]:
         ctx['area_damage'] = ctx.get('area_damage', 0) + n
     return _fx
 
+def cleave_all(hero_list: List[Hero], dmg: int) -> None:
+    """Apply ``dmg`` to every hero in ``hero_list`` ignoring order."""
+    for h in hero_list:
+        soak = min(h.armor_pool, dmg)
+        h.armor_pool -= soak
+        h.hp -= max(0, dmg - soak)
+
+def enrage(enemy: Enemy) -> bool:
+    """Return True if ``enemy`` is enraged and attacks twice."""
+    return enemy.hp <= 3
+
 def end_hymns_fx(hero: Hero, ctx: Dict[str, object]) -> None:
     hero.active_hymns.clear()
     hero.combat_effects = [p for p in hero.combat_effects if not p[1].hymn]
@@ -302,7 +313,7 @@ ENEMY_WAVES = [
     (EnemyType("Banshee", 4, 5, [0, 0, 1, 3], Element.DIVINE, "banshee-wail"), 2),
     (EnemyType("Priest", 2, 3, [0, 0, 1, 1], Element.ARCANE, "power-of-death"), 3),
     (EnemyType("Dryad", 2, 4, [0, 0, 1, 1], Element.BRUTAL, "cursed-thorns"), 3),
-    (EnemyType("Minotaur", 4, 3, [0, 0, 1, 3], Element.PRECISE, "cleaving"), 2),
+    (EnemyType("Minotaur", 4, 3, [0, 0, 1, 3], Element.PRECISE, "cleave_all"), 2),
     (EnemyType("Wizard", 2, 3, [0, 1, 1, 3], Element.BRUTAL, "curse-of-torment"), 2),
     (EnemyType("Shadow Banshee", 3, 5, [0, 0, 1, 2], Element.DIVINE, "ghostly"), 2),
     (EnemyType("Gryphon", 4, 5, [0, 1, 3, 4], Element.SPIRITUAL, "aerial-combat"), 1),
@@ -358,14 +369,22 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
     hero.deck.disc.append(card)
 
 
-def monster_attack(hero: Hero, ctx: Dict[str, object]) -> None:
+def monster_attack(heroes: List[Hero], ctx: Dict[str, object]) -> None:
     """Resolve monster attacks for the current wave."""
     wave_idx = ctx.get("wave_idx", 0)
     band = BANDS[wave_idx % len(BANDS)]
-    dmg = band[(d8() - 1) // 2] * len(ctx["enemies"])
-    soak = min(hero.armor_pool, dmg)
-    hero.armor_pool -= soak
-    hero.hp -= max(0, dmg - soak)
+    base = band[(d8() - 1) // 2]
+    enemies = ctx["enemies"]
+    for m in enemies:
+        attacks = 2 if m.ability == "enrage" and enrage(m) else 1
+        for _ in range(attacks):
+            if m.ability == "cleave_all":
+                cleave_all(heroes, base)
+            else:
+                h = heroes[0]
+                soak = min(h.armor_pool, base)
+                h.armor_pool -= soak
+                h.hp -= max(0, base - soak)
 
 # very small fight simulation -------------------------------------------------
 
@@ -401,7 +420,7 @@ def fight_one(hero: Hero) -> bool:
                     break
 
             if ctx["enemies"]:
-                monster_attack(hero, ctx)
+                monster_attack([hero], ctx)
                 if hero.hp <= 0:
                     return False
 

@@ -198,6 +198,27 @@ def apply_persistent(hero: Hero, ctx: Dict[str, object]) -> None:
     for fx, _ in hero.exchange_effects:
         fx(hero, ctx)
 
+# ---------------------------------------------------------------------------
+# Enemy ability helpers
+# ---------------------------------------------------------------------------
+def dark_phalanx(enemies: List[Enemy], dmg: int, multi: bool) -> int:
+    """Reduce multi-target damage while multiple Soldiers are alive."""
+    if multi and sum(1 for e in enemies if e.ability == "dark-phalanx") >= 2:
+        return max(1, dmg - 1)
+    return dmg
+
+
+def spiked_armor(hero: Hero, dmg: int) -> None:
+    """Punish heavy hits against the soldier."""
+    if dmg >= 3:
+        hero.hp -= 1
+
+# map ability names to helper functions
+ABILITY_FUNCS = {
+    "dark-phalanx": dark_phalanx,
+    "spiked-armor": spiked_armor,
+}
+
 # simple card effects ---------------------------------------------------------
 
 def gain_armor(n: int) -> Callable[[Hero, Dict[str, object]], None]:
@@ -299,6 +320,7 @@ def make_wave(et: EnemyType, count: int, wave_idx: int) -> Dict[str, object]:
 ENEMY_WAVES = [
     (EnemyType("Spinner", 1, 4, [1, 0, 1, 0], Element.SPIRITUAL, "web-slinger"), 3),
     (EnemyType("Soldier", 2, 5, [1, 1, 1, 2], Element.PRECISE, "dark-phalanx"), 3),
+    (EnemyType("Void Soldier", 2, 5, [0, 0, 0, 2], Element.PRECISE, "dark-phalanx"), 3),
     (EnemyType("Banshee", 4, 5, [0, 0, 1, 3], Element.DIVINE, "banshee-wail"), 2),
     (EnemyType("Priest", 2, 3, [0, 0, 1, 1], Element.ARCANE, "power-of-death"), 3),
     (EnemyType("Dryad", 2, 4, [0, 0, 1, 1], Element.BRUTAL, "cursed-thorns"), 3),
@@ -310,6 +332,7 @@ ENEMY_WAVES = [
     (EnemyType("Angel", 5, 5, [0, 1, 2, 5], Element.ARCANE, "corrupted-destiny"), 1),
     (EnemyType("Elite Spinner", 2, 5, [0, 0, 1, 4], Element.SPIRITUAL, "sticky-web"), 3),
     (EnemyType("Elite Soldier", 3, 6, [0, 0, 1, 3], Element.PRECISE, "spiked-armor"), 3),
+    (EnemyType("Elite Void Soldier", 3, 6, [0, 0, 0, 2], Element.PRECISE, "spiked-armor"), 3),
     (EnemyType("Elite Priest", 3, 4, [0, 0, 1, 2], Element.ARCANE, "silence"), 3),
     (EnemyType("Elite Dryad", 2, 5, [0, 1, 1, 2], Element.BRUTAL, "disturbed-flow"), 3),
     (EnemyType("Elite Minotaur", 5, 3, [0, 0, 2, 4], Element.PRECISE, "enrage"), 2),
@@ -336,15 +359,13 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
         vuln = ctx.pop("temp_vuln", e.vulnerability)
         dmg = roll_hits(card.dice, e.defense, hero=hero, element=card.element,
                         vulnerability=vuln)
-        if (
-            card.multi
-            and e.ability == "dark-phalanx"
-            and sum(1 for m in enemies if m.ability == "dark-phalanx") >= 2
-        ):
-            dmg = max(1, dmg - 1)
+        if e.ability == "dark-phalanx":
+            dmg = dark_phalanx(enemies, dmg, card.multi)
         area = ctx.pop("area_damage", 0)
         dmg += area
         e.hp -= dmg
+        if e.ability == "spiked-armor":
+            spiked_armor(hero, dmg)
         if e.hp <= 0:
             enemies.remove(e)
     if card.effect:

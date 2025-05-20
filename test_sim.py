@@ -113,5 +113,26 @@ class TestPriestAbilities(unittest.TestCase):
         self.assertEqual(hero.fate, 0)
         self.assertFalse(hero.combat_effects)
 
+
+class TestMinotaurAbilities(unittest.TestCase):
+    def test_cleave_all_hits_every_hero(self):
+        sim.RNG.seed(0)
+        heroes = [sim.Hero("H1", 10, []), sim.Hero("H2", 10, [])]
+        enemy = sim.Enemy("Minotaur", 4, 3, sim.Element.PRECISE,
+                          [0, 0, 1, 3], "cleave_all")
+        ctx = {"enemies": [enemy]}
+        sim.monster_attack(heroes, ctx)
+        self.assertEqual(heroes[0].hp, 7)
+        self.assertEqual(heroes[1].hp, 7)
+
+    def test_enrage_double_attack(self):
+        sim.RNG.seed(0)
+        hero = sim.Hero("Hero", 10, [])
+        enemy = sim.Enemy("Elite Minotaur", 3, 3, sim.Element.PRECISE,
+                          [0, 0, 2, 4], "enrage")
+        ctx = {"enemies": [enemy]}
+        sim.monster_attack([hero], ctx)
+        self.assertEqual(hero.hp, 4)
+
 if __name__ == "__main__":
     unittest.main()

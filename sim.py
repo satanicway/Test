@@ -358,7 +358,7 @@ ENEMIES: Dict[str, Enemy] = {
     "Banshee": Enemy("Banshee", 4, 5, Element.DIVINE, [0, 0, 1, 3], "banshee-wail"),
     "Priest": Enemy("Priest", 2, 3, Element.ARCANE, [0, 0, 1, 1], power_of_death),
     "Dryad": Enemy("Dryad", 2, 4, Element.BRUTAL, [0, 0, 1, 1], "cursed-thorns"),
-    "Minotaur": Enemy("Minotaur", 4, 3, Element.PRECISE, [0, 0, 1, 3], "cleaving"),
+    "Minotaur": Enemy("Minotaur", 4, 3, Element.PRECISE, [0, 0, 1, 3], "cleave_all"),
     "Wizard": Enemy("Wizard", 2, 3, Element.BRUTAL, [0, 1, 1, 3], "curse-of-torment"),
     "Shadow Banshee": Enemy("Shadow Banshee", 3, 5, Element.DIVINE, [0, 0, 1, 2], "ghostly"),
     "Gryphon": Enemy("Gryphon", 4, 5, Element.SPIRITUAL, [0, 1, 3, 4], "aerial-combat"),
@@ -484,15 +484,25 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
 
 def monster_attack(heroes: List[Hero], ctx: Dict[str, object]) -> None:
     """Resolve monster attacks for the current wave."""
-    dmg = 0
+
+    def apply(hero: Hero, dmg: int) -> None:
+        soak = min(hero.armor_pool, dmg)
+        hero.armor_pool -= soak
+        hero.hp -= max(0, dmg - soak)
+
+    bonus = ctx.get("priest_bonus", 0)
     for e in ctx["enemies"]:
-        band = e.damage_band
-        dmg += band[(d8() - 1) // 2]
-    dmg += ctx.get("priest_bonus", 0)
-    hero = heroes[0]
-    soak = min(hero.armor_pool, dmg)
-    hero.armor_pool -= soak
-    hero.hp -= max(0, dmg - soak)
+        attacks = 2 if e.ability == "enrage" and enrage(e) else 1
+        for _ in range(attacks):
+            band = e.damage_band
+            dmg = band[(d8() - 1) // 2]
+            if e.ability == "cleave_all":
+                cleave_all(heroes, dmg)
+            else:
+                apply(heroes[0], dmg)
+
+    if bonus:
+        apply(heroes[0], bonus)
 
 # very small fight simulation -------------------------------------------------
 

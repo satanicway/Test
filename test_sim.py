@@ -34,5 +34,25 @@ class TestMechanics(unittest.TestCase):
         self.assertLessEqual(hero.hp, hero.max_hp)
         self.assertGreaterEqual(hero.hp, 0)
 
+    def test_aerial_combat_modifier(self):
+        sim.RNG.seed(5)
+        hero = sim.Hero("Hero", 10, [])
+        card = sim.atk("Strike", sim.CardType.MELEE, 1)
+        enemy = sim.Enemy(4, 5, sim.Element.SPIRITUAL, "aerial-combat")
+        ctx = {"enemies": [enemy]}
+        sim.resolve_attack(hero, card, ctx)
+        self.assertEqual(enemy.hp, 4)
+
+    def test_ephemeral_wings_block(self):
+        sim.RNG.seed(5)
+        hero = sim.Hero("Hero", 10, [])
+        card = sim.atk("Strike", sim.CardType.MELEE, 1)
+        enemy = sim.Enemy(5, 5, sim.Element.SPIRITUAL, "ephemeral-wings")
+        ctx = {"enemies": [enemy]}
+        sim.resolve_attack(hero, card, ctx)
+        self.assertEqual(enemy.hp, 4)
+        sim.resolve_attack(hero, card, ctx)
+        self.assertEqual(enemy.hp, 4)
+
 if __name__ == "__main__":
     unittest.main()

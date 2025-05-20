@@ -305,7 +305,7 @@ ENEMY_WAVES = [
     (EnemyType("Minotaur", 4, 3, [0, 0, 1, 3], Element.PRECISE, "cleaving"), 2),
     (EnemyType("Wizard", 2, 3, [0, 1, 1, 3], Element.BRUTAL, "curse-of-torment"), 2),
     (EnemyType("Shadow Banshee", 3, 5, [0, 0, 1, 2], Element.DIVINE, "ghostly"), 2),
-    (EnemyType("Gryphon", 4, 5, [0, 1, 3, 4], Element.SPIRITUAL, "aerial-combat"), 1),
+    (EnemyType("Void Gryphon", 4, 5, [0, 1, 3, 4], Element.SPIRITUAL, "aerial-combat"), 1),
     (EnemyType("Treant", 7, 6, [0, 1, 1, 4], Element.DIVINE, "power-sap"), 1),
     (EnemyType("Angel", 5, 5, [0, 1, 2, 5], Element.ARCANE, "corrupted-destiny"), 1),
     (EnemyType("Elite Spinner", 2, 5, [0, 0, 1, 4], Element.SPIRITUAL, "sticky-web"), 3),
@@ -315,7 +315,7 @@ ENEMY_WAVES = [
     (EnemyType("Elite Minotaur", 5, 3, [0, 0, 2, 4], Element.PRECISE, "enrage"), 2),
     (EnemyType("Elite Wizard", 2, 4, [0, 2, 2, 3], Element.BRUTAL, "void-barrier"), 2),
     (EnemyType("Elite Banshee", 4, 5, [0, 0, 1, 3], Element.DIVINE, "banshee-wail"), 2),
-    (EnemyType("Elite Gryphon", 5, 5, [0, 2, 4, 6], Element.SPIRITUAL, "ephemeral-wings"), 1),
+    (EnemyType("Elite Void Gryphon", 5, 5, [0, 2, 4, 6], Element.SPIRITUAL, "ephemeral-wings"), 1),
     (EnemyType("Elite Treant", 8, 7, [0, 1, 3, 5], Element.DIVINE, "roots-of-despair"), 1),
     (EnemyType("Elite Angel", 7, 6, [0, 3, 3, 6], Element.ARCANE, "denied-heaven"), 1),
 ]
@@ -331,11 +331,16 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
     if not enemies:
         return
 
+    block_void = ctx.pop("ephemeral_block", False)
     targets = enemies[:] if card.multi else [enemies[0]]
     for e in targets[:]:
+        mod = -1 if (card.ctype == CardType.MELEE and e.ability == "aerial-combat") else 0
         vuln = ctx.pop("temp_vuln", e.vulnerability)
-        dmg = roll_hits(card.dice, e.defense, hero=hero, element=card.element,
+        dmg = roll_hits(card.dice, e.defense, mod, hero=hero, element=card.element,
                         vulnerability=vuln)
+        if block_void and e.ability == "ephemeral-wings":
+            dmg = 0
+            block_void = False
         if (
             card.multi
             and e.ability == "dark-phalanx"
@@ -345,6 +350,8 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
         area = ctx.pop("area_damage", 0)
         dmg += area
         e.hp -= dmg
+        if e.ability == "ephemeral-wings" and dmg > 0 and e.hp > 0:
+            ctx["ephemeral_block"] = True
         if e.hp <= 0:
             enemies.remove(e)
     if card.effect:

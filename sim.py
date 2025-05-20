@@ -85,7 +85,7 @@ class Hero:
     name: str
     max_hp: int
     base_cards: List[Card]
-    upg_cards: List[Card] = field(default_factory=list)
+    upg_pool: List[Card] = field(default_factory=list)
 
     # dynamic state
     fate: int = 0
@@ -110,6 +110,12 @@ class Hero:
 
     def gain_fate(self, n: int = 1) -> None:
         self.fate = min(FATE_MAX, self.fate + n)
+
+    def gain_upgrades(self, n: int = 1) -> None:
+        if not self.upg_pool:
+            return
+        choices = RNG.sample(self.upg_pool, min(n, len(self.upg_pool)))
+        self.deck.cards.extend(choices)
 
     def spend_fate(self, n: int = 1) -> bool:
         if self.fate >= n:
@@ -169,6 +175,34 @@ def gain_armor(n: int) -> Callable[[Hero, Dict[str, object]], None]:
         h.armor_pool += n
     return _fx
 
+def draw_cards(n: int) -> Callable[[Hero, Dict[str, object]], None]:
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        h.deck.draw(n)
+    return _fx
+
+def discard_random(n: int) -> Callable[[Hero, Dict[str, object]], None]:
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        for _ in range(n):
+            if h.deck.hand:
+                i = RNG.randrange(len(h.deck.hand))
+                h.deck.disc.append(h.deck.hand.pop(i))
+    return _fx
+
+def gain_fate_fx(n: int) -> Callable[[Hero, Dict[str, object]], None]:
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        h.gain_fate(n)
+    return _fx
+
+def temp_vuln(elem: Element) -> Callable[[Hero, Dict[str, object]], None]:
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        ctx['temp_vuln'] = elem
+    return _fx
+
+def area_damage(n: int) -> Callable[[Hero, Dict[str, object]], None]:
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        ctx['area_damage'] = ctx.get('area_damage', 0) + n
+    return _fx
+
 def end_hymns_fx(hero: Hero, ctx: Dict[str, object]) -> None:
     hero.active_hymns.clear()
     hero.combat_effects = [p for p in hero.combat_effects if not p[1].hymn]
@@ -183,20 +217,38 @@ def atk(name: str, ctype: CardType, dice: int, element: Element = Element.NONE,
         multi: bool = False) -> Card:
     return Card(name, ctype, dice, element, armor, effect, persistent, hymn, multi)
 
+def weighted_pool(common: List[Card], uncommon: List[Card], rare: List[Card]) -> List[Card]:
+    pool: List[Card] = []
+    for c in common:
+        pool.extend([c] * 3)
+    for c in uncommon:
+        pool.extend([c] * 2)
+    pool.extend(rare)
+    return pool
+
 # sample hero decks -----------------------------------------------------------
 herc_base = [
     atk("Pillar", CardType.MELEE, 2, Element.BRUTAL),
     atk("Heroism", CardType.MELEE, 1, Element.DIVINE, armor=1, effect=gain_armor(1)),
     atk("Javelin", CardType.RANGED, 2, Element.DIVINE),
 ]
-hercules = Hero("Hercules", 25, herc_base)
+# placeholder upgrade cards
+herc_common_upg = [atk("Slam", CardType.MELEE, 2)]
+herc_uncommon_upg = [atk("Dragon Spear", CardType.MELEE, 3, Element.DIVINE)]
+herc_rare_upg = [atk("Labour", CardType.MELEE, 4, Element.BRUTAL, effect=gain_fate_fx(1))]
+herc_pool = weighted_pool(herc_common_upg, herc_uncommon_upg, herc_rare_upg)
+hercules = Hero("Hercules", 25, herc_base, herc_pool)
 
 bryn_base = [
     atk("Descent", CardType.MELEE, 1, Element.SPIRITUAL),
     atk("Shields", CardType.UTIL, 0, hymn=True, persistent="combat"),
     atk("Storms", CardType.UTIL, 0, effect=end_hymns_fx),
 ]
-brynhild = Hero("Brynhild", 18, bryn_base)
+_b_c = [atk("Song", CardType.MELEE, 1, Element.SPIRITUAL, effect=gain_fate_fx(1))]
+_b_u = [atk("Choir", CardType.UTIL, 0, hymn=True, persistent="exchange", effect=draw_cards(1))]
+_b_r = [atk("Valhalla", CardType.MELEE, 3, Element.DIVINE, effect=temp_vuln(Element.DIVINE))]
+b_pool = weighted_pool(_b_c, _b_u, _b_r)
+brynhild = Hero("Brynhild", 18, bryn_base, b_pool)
 
 HEROES = [hercules, brynhild]
 
@@ -207,9 +259,13 @@ BASIC_ENEMY = Enemy(hp=4, defense=5, vulnerability=Element.DIVINE)
 # Combat helpers
 # ---------------------------------------------------------------------------
 def resolve_attack(hero: Hero, card: Card, enemy: Enemy, ctx: Dict[str, object]) -> None:
+    vuln = ctx.pop('temp_vuln', enemy.vulnerability)
     dmg = roll_hits(card.dice, enemy.defense, hero=hero, element=card.element,
-                    vulnerability=enemy.vulnerability)
+                    vulnerability=vuln)
     enemy.hp -= dmg
+    area = ctx.pop('area_damage', 0)
+    if area:
+        enemy.hp -= area
     if card.effect:
         card.effect(hero, ctx)
         if card.persistent == "combat":
@@ -226,6 +282,7 @@ def fight_one(hero: Hero) -> bool:
     enemy = Enemy(BASIC_ENEMY.hp, BASIC_ENEMY.defense, BASIC_ENEMY.vulnerability,
                   BASIC_ENEMY.ability)
     hero.reset()
+    hero.gain_upgrades(1)
     hero.deck.draw(3)
     ctx: Dict[str, object] = {}
 

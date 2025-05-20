@@ -34,5 +34,17 @@ class TestMechanics(unittest.TestCase):
         self.assertLessEqual(hero.hp, hero.max_hp)
         self.assertGreaterEqual(hero.hp, 0)
 
+
+class TestBansheeAbilities(unittest.TestCase):
+    def test_ghostly_removes_wave(self):
+        ctx = {"exchange": 3, "enemies": [sim.Enemy(3, 5, sim.Element.DIVINE, "ghostly")]}
+        sim.ghostly(ctx)
+        self.assertEqual(len(ctx["enemies"]), 0)
+
+    def test_banshee_wail_damage(self):
+        hero = sim.Hero("Hero", 10, [])
+        sim.banshee_wail([hero], 6)
+        self.assertEqual(hero.hp, 8)
+
 if __name__ == "__main__":
     unittest.main()

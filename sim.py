@@ -239,6 +239,25 @@ def end_hymns_fx(hero: Hero, ctx: Dict[str, object]) -> None:
     hero.exchange_effects = [p for p in hero.exchange_effects if not p[1].hymn]
 
 # ---------------------------------------------------------------------------
+# Enemy ability helpers
+# ---------------------------------------------------------------------------
+def ghostly(ctx: Dict[str, object]) -> None:
+    """Remove the wave at the start of the 4th exchange."""
+    if ctx.get("exchange", 0) >= 3:
+        ctx["enemies"].clear()
+
+
+def banshee_wail(hero_list: List[Hero], dice_count: int) -> None:
+    """Deal 1 damage to all heroes for every 3 dice rolled against a banshee."""
+    dmg = dice_count // 3
+    if dmg <= 0:
+        return
+    for h in hero_list:
+        soak = min(h.armor_pool, dmg)
+        h.armor_pool -= soak
+        h.hp -= max(0, dmg - soak)
+
+# ---------------------------------------------------------------------------
 # Card helpers to create attack cards
 # ---------------------------------------------------------------------------
 def atk(name: str, ctype: CardType, dice: int, element: Element = Element.NONE,
@@ -336,6 +355,8 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
         vuln = ctx.pop("temp_vuln", e.vulnerability)
         dmg = roll_hits(card.dice, e.defense, hero=hero, element=card.element,
                         vulnerability=vuln)
+        if e.ability == "banshee-wail":
+            ctx["dice_vs_banshee"] = ctx.get("dice_vs_banshee", 0) + card.dice
         if (
             card.multi
             and e.ability == "dark-phalanx"
@@ -377,8 +398,13 @@ def fight_one(hero: Hero) -> bool:
 
     for wave_idx, (et, count) in enumerate(ENEMY_WAVES):
         ctx = make_wave(et, count, wave_idx)
-        for exch in range(3):
+        for exch in range(4):
             ctx["exchange"] = exch
+            ctx["dice_vs_banshee"] = 0
+            if any(e.ability == "ghostly" for e in ctx["enemies"]):
+                ghostly(ctx)
+                if not ctx["enemies"]:
+                    break
             apply_persistent(hero, ctx)
 
             # utilities first
@@ -419,8 +445,11 @@ def fight_one(hero: Hero) -> bool:
                     break
 
             # end-of-exchange abilities
-            if any(e.ability == "ghostly" for e in ctx["enemies"]) and exch >= 2:
-                ctx["enemies"].clear()
+            if any(e.ability == "banshee-wail" for e in ctx["enemies"]):
+                banshee_wail([hero], ctx.get("dice_vs_banshee", 0))
+                ctx["dice_vs_banshee"] = 0
+                if hero.hp <= 0:
+                    return False
 
             if any(e.ability == "power-sap" for e in ctx["enemies"]) and hero.combat_effects:
                 hero.combat_effects.pop(RNG.randrange(len(hero.combat_effects)))

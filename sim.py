@@ -300,11 +300,14 @@ def armor_allies(n: int) -> Callable[[Hero, Dict[str, object]], None]:
             hero.armor_pool += n
     return _fx
 
-def heal_fx(n: int) -> Callable[[Hero, Dict[str, object]], None]:
-    """Heal ``n`` HP up to ``max_hp``."""
+def heal(amount: int) -> Callable[[Hero, Dict[str, object]], None]:
+    """Heal ``amount`` HP up to ``hero.max_hp``."""
     def _fx(h: Hero, ctx: Dict[str, object]) -> None:
-        h.hp = min(h.max_hp, h.hp + n)
+        h.hp = min(h.max_hp, h.hp + amount)
     return _fx
+
+# backward compatible alias
+heal_fx = heal
 
 def discard_for_fate(discard_n: int, gain: int) -> Callable[[Hero, Dict[str, object]], None]:
     """Discard ``discard_n`` random cards then gain ``gain`` Fate."""
@@ -368,6 +371,17 @@ def hp_for_damage(cost: int, bonus: int) -> Callable[[Hero, Dict[str, object]], 
         if h.hp > cost:
             h.hp -= cost
             ctx["bonus_damage"] = ctx.get("bonus_damage", 0) + bonus
+    return _fx
+
+def fate_for_bonus(cost: int, *, damage: int = 0, armor: int = 0) -> Callable[[Hero, Dict[str, object]], None]:
+    """Spend ``cost`` Fate to gain damage or armor bonuses."""
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        if h.fate >= cost:
+            h.fate -= cost
+            if damage:
+                ctx["bonus_damage"] = ctx.get("bonus_damage", 0) + damage
+            if armor:
+                h.armor_pool += armor
     return _fx
 
 def defense_down(n: int) -> Callable[[Hero, Dict[str, object]], None]:
@@ -485,9 +499,10 @@ def denied_heaven(roll: int, mod: int = 0) -> int:
 def atk(name: str, ctype: CardType, dice: int, element: Element = Element.NONE,
         armor: int = 0, effect: Optional[Callable[[Hero, Dict], None]] = None,
         persistent: Optional[str] = None, hymn: bool = False,
-        multi: bool = False, max_targets: Optional[int] = None) -> Card:
+        multi: bool = False, max_targets: Optional[int] = None,
+        dmg_per_hymn: int = 0) -> Card:
     return Card(name, ctype, dice, element, armor, effect,
-                persistent, hymn, multi, max_targets)
+                persistent, hymn, multi, max_targets, dmg_per_hymn)
 
 def weighted_pool(common: List[Card], uncommon: List[Card], rare: List[Card]) -> List[Card]:
     pool: List[Card] = []
@@ -583,14 +598,14 @@ _mer_common = [
     atk("Magic Bolt", CardType.RANGED, 2, Element.ARCANE),
     atk("Minor Ward", CardType.UTIL, 0, armor=1, effect=armor_allies(1)),
     atk("Focus", CardType.UTIL, 0, effect=add_rerolls(1)),
-    atk("Minor Heal", CardType.UTIL, 0, effect=heal_fx(1)),
+    atk("Minor Heal", CardType.UTIL, 0, effect=heal(1)),
     atk("Arcane Burst", CardType.RANGED, 1, Element.ARCANE, multi=True),
     atk("Meditate", CardType.UTIL, 0, effect=gain_fate_fx(1)),
 ]
 
 _mer_uncommon = [
     atk("Arcane Lance", CardType.RANGED, 3, Element.ARCANE),
-    atk("Greater Heal", CardType.UTIL, 0, effect=heal_fx(2)),
+    atk("Greater Heal", CardType.UTIL, 0, effect=heal(2)),
 ]
 
 _mer_rare = [
@@ -636,7 +651,7 @@ _m_common = [
     atk("Spirit-Cleaver", CardType.MELEE, 2, Element.SPIRITUAL,
         effect=bonus_if_vulnerable(Element.SPIRITUAL, 1)),
     atk("Iron-Will", CardType.MELEE, 3, Element.PRECISE,
-        effect=gain_fate_fx(1)),
+        effect=fate_for_bonus(1, armor=1)),
     atk("Ghost-Step", CardType.MELEE, 3, Element.PRECISE, effect=double_attack(atk("Ghost-Step", CardType.MELEE, 3, Element.PRECISE))),
     atk("Heaven-Dragon", CardType.MELEE, 2, Element.DIVINE),
 ]

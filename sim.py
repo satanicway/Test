@@ -343,24 +343,16 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict) -> None:
     if not ctx["enemies"]:
         return
     if card.multi:
-        # apply the attack separately to each enemy
+        # roll once and apply to all
+        dmg = roll_hits(
+            card.dice,
+            ctx["enemies"][0].defense,
+            hero=hero,
+            element=card.element,
+            vulnerability=ctx["enemies"][0].vulnerability,
+        ) + dmg_bonus
         for e in ctx["enemies"][:]:
-            mod = 0
-            if e.traits.get("ability") == "aerial-combat" and card.ctype == CardType.MELEE:
-                mod -= 1
-            ignore = ctx.get("nullify_next", False) and e.traits.get("ability") == "ephemeral-wings"
-            dmg = 0 if ignore else roll_hits(
-                card.dice,
-                e.defense,
-                mod=mod,
-                hero=hero,
-                element=card.element,
-                vulnerability=e.vulnerability,
-                target=e,
-                ctx=ctx,
-            ) + dmg_bonus
-            if ignore:
-                ctx["nullify_next"] = False
+main
             apply = dmg
             if (
                 e.traits.get("ability") == "dark-phalanx"
@@ -408,7 +400,6 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict) -> None:
         if ctx["enemy_type"].ability != "silence":
             card.effect(hero, ctx)
 
-
 def monster_attack(hero: Hero, ctx: Dict) -> None:
     band = ctx["enemy_type"].bands
     raw = band[(d8()-1)//2] * len(ctx["enemies"])
@@ -426,6 +417,7 @@ def fight_one(hero: Hero) -> bool:
     for enemy, count in BASIC_WAVES:
         ctx = make_wave(enemy, count)
         ctx['banshee_dice'] = 0
+ aot36s-codex/implement-game-logic-for-hero-cards-and-monsters
         for exch in range(4):
             ctx['hero_dead'] = False
             hero.exchange_effects.clear()
@@ -511,6 +503,7 @@ def fight_one(hero: Hero) -> bool:
                 ctx["banshee_dice"] = 0
                 if hero.hp <= 0:
                     return False
+ aot36s-codex/implement-game-logic-for-hero-cards-and-monsters
             if ctx.get("hero_dead"):
                 return False
             if ctx["enemy_type"].ability == "cursed-thorns" and hero.armor_pool:

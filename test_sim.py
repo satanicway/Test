@@ -344,6 +344,28 @@ class TestNewCardEffects(unittest.TestCase):
         self.assertEqual(len(hero.deck.disc), 2)
         self.assertEqual(hero.fate, 1)
 
+    def test_rage_hp_for_damage(self):
+        hero = sim.Hero("Hero", 10, [])
+        rage = sim.atk("Rage", sim.CardType.UTIL, 0, effect=sim.hp_for_damage(2, 2))
+        attack = sim.atk("Hit", sim.CardType.MELEE, 0)
+        enemy = sim.Enemy("Dummy", 3, 1, sim.Element.NONE, [0, 0, 0, 0])
+        ctx = {"enemies": [enemy]}
+        sim.resolve_attack(hero, rage, ctx)
+        self.assertEqual(hero.hp, 8)
+        sim.resolve_attack(hero, attack, ctx)
+        self.assertEqual(enemy.hp, 1)
+
+    def test_crushing_impact_multi_bonus(self):
+        hero = sim.Hero("Hero", 10, [])
+        buff = sim.atk("Crushing Impact", sim.CardType.UTIL, 0,
+                       effect=sim.multi_bonus(2), persistent="exchange")
+        attack = sim.atk("Sweep", sim.CardType.MELEE, 0, multi=True)
+        enemies = [sim.Enemy("E", 2, 1, sim.Element.NONE, [0, 0, 0, 0]) for _ in range(2)]
+        ctx = {"enemies": enemies}
+        sim.resolve_attack(hero, buff, ctx)
+        sim.resolve_attack(hero, attack, ctx)
+        self.assertTrue(all(e.hp == 0 for e in enemies))
+
 class TestHymnMechanics(unittest.TestCase):
     def test_hymn_armor_scaling(self):
         hero = sim.Hero("Hero", 10, [])

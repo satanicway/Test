@@ -291,5 +291,26 @@ class TestPersistentEffects(unittest.TestCase):
         self.assertEqual(hero.fate, 2)
 
 
+class TestNewCardEffects(unittest.TestCase):
+    def test_modify_enemy_defense_effect(self):
+        sim.RNG.seed(5)
+        hero = sim.Hero("Hero", 10, [])
+        debuff = sim.atk("Expose", sim.CardType.UTIL, 0,
+                         effect=sim.modify_enemy_defense(-1), persistent="exchange")
+        attack = sim.atk("Strike", sim.CardType.MELEE, 1)
+        enemy = sim.Enemy("Dummy", 1, 6, sim.Element.NONE, [0, 0, 0, 0])
+        ctx = {"enemies": [enemy]}
+        sim.resolve_attack(hero, debuff, ctx)
+        sim.resolve_attack(hero, attack, ctx)
+        self.assertEqual(enemy.hp, 0)
+
+    def test_discard_for_fate(self):
+        hero = sim.Hero("Hero", 10, [])
+        hero.deck.hand = [sim.atk("A", sim.CardType.MELEE, 1) for _ in range(3)]
+        fx = sim.discard_for_fate(2, 1)
+        fx(hero, {})
+        self.assertEqual(len(hero.deck.disc), 2)
+        self.assertEqual(hero.fate, 1)
+
 if __name__ == "__main__":
     unittest.main()

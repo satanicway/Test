@@ -307,6 +307,18 @@ def end_hymns_fx(hero: Hero, ctx: Dict[str, object]) -> None:
     hero.combat_effects = [p for p in hero.combat_effects if not p[1].hymn]
     hero.exchange_effects = [p for p in hero.exchange_effects if not p[1].hymn]
 
+def hymn_armor(n: int) -> Callable[[Hero, Dict[str, object]], None]:
+    """Gain ``n`` armor per active Hymn."""
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        h.armor_pool += n * len(h.active_hymns)
+    return _fx
+
+def hymn_damage(n: int) -> Callable[[Hero, Dict[str, object]], None]:
+    """Deal ``n`` extra damage per active Hymn for the exchange."""
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        ctx["hymn_damage"] = ctx.get("hymn_damage", 0) + n * len(h.active_hymns)
+    return _fx
+
 # ---------------------------------------------------------------------------
 # Enemy ability helpers
 # ---------------------------------------------------------------------------
@@ -413,23 +425,27 @@ hercules = Hero("Hercules", 25, herc_base, herc_pool)
 
 bryn_base = [
     atk("Descent", CardType.MELEE, 1, Element.SPIRITUAL),
-    atk("Shields", CardType.UTIL, 0, hymn=True, persistent="combat", effect=gain_armor(1)),
+    atk("Shields", CardType.UTIL, 0, hymn=True, persistent="combat", effect=hymn_armor(1)),
     atk("Storms", CardType.UTIL, 0, effect=end_hymns_fx),
     atk("Gleaming Spear", CardType.RANGED, 2, Element.DIVINE),
     atk("Rally", CardType.UTIL, 0, effect=draw_cards(1)),
+    atk("Aria", CardType.UTIL, 0, hymn=True, persistent="combat", effect=hymn_damage(1)),
 ]
 _b_c = [
     atk("Song", CardType.MELEE, 1, Element.SPIRITUAL, effect=gain_fate_fx(1)),
     atk("Guard", CardType.UTIL, 0, armor=1, persistent="exchange"),
     atk("Strike", CardType.MELEE, 2),
+    atk("Prayer", CardType.UTIL, 0, hymn=True, persistent="combat", effect=hymn_armor(1)),
 ]
 _b_u = [
     atk("Choir", CardType.UTIL, 0, hymn=True, persistent="exchange", effect=draw_cards(1)),
     atk("Valkyrie Lance", CardType.RANGED, 3, Element.DIVINE),
+    atk("Ballad", CardType.UTIL, 0, hymn=True, persistent="exchange", effect=hymn_damage(1)),
 ]
 _b_r = [
     atk("Valhalla", CardType.MELEE, 3, Element.DIVINE, effect=temp_vuln(Element.DIVINE)),
     atk("Heaven's Blessing", CardType.UTIL, 0, effect=gain_fate_fx(2), persistent="combat"),
+    atk("Requiem", CardType.UTIL, 0, hymn=True, persistent="combat", effect=hymn_damage(2)),
 ]
 b_pool = weighted_pool(_b_c, _b_u, _b_r)
 brynhild = Hero("Brynhild", 18, bryn_base, b_pool)
@@ -588,6 +604,7 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
             dmg = dark_phalanx(enemies, dmg)
         area = ctx.pop("area_damage", 0)
         dmg += area
+        dmg += ctx.get("hymn_damage", 0)
         soak = min(e.armor_pool, dmg)
         e.armor_pool -= soak
         dmg -= soak
@@ -668,10 +685,11 @@ def fight_one(hero: Hero) -> bool:
                     hero.combat_effects.clear()
                     hero.exchange_effects.clear()
                     hero.active_hymns.clear()
-            apply_persistent(hero, ctx)
             ctx["ranged_to_melee"] = False
             ctx["draw_penalty"] = 0
             ctx["enemy_defense_mod"] = 0
+            ctx["hymn_damage"] = 0
+            apply_persistent(hero, ctx)
             ctx["attack_hooks"] = []
             ctx["start_hooks"] = []
             ctx["end_hooks"] = []

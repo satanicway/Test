@@ -359,6 +359,18 @@ def make_wave(name: str, count: int) -> Dict[str, object]:
         ],
     }
 
+
+def cursed_thorns(hero: Hero) -> None:
+    """Convert remaining armor into HP loss."""
+    if hero.armor_pool > 0:
+        hero.hp -= hero.armor_pool
+        hero.armor_pool = 0
+
+
+def disturbed_flow(ctx: Dict[str, object]) -> None:
+    """Disable fate-based rerolls for the current combat."""
+    ctx["no_reroll"] = True
+
 # basic and elite monster roster
 ENEMY_WAVES = [
     ("Spinner", 3),
@@ -396,6 +408,7 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
         return
 
     targets = enemies[:] if card.multi else [enemies[0]]
+    allow_reroll = not ctx.get("no_reroll", False)
     for e in targets[:]:
         vuln = ctx.pop("temp_vuln", e.vuln)
         dmg = roll_hits(card.dice, e.defense, hero=hero, element=card.element,
@@ -498,6 +511,8 @@ def fight_one(hero: Hero) -> bool:
                     break
 
             # end-of-exchange abilities
+            if any(e.ability == "cursed-thorns" for e in ctx["enemies"]):
+                cursed_thorns(hero)
             if any(e.ability == "ghostly" for e in ctx["enemies"]) and exch >= 2:
                 ctx["enemies"].clear()
 

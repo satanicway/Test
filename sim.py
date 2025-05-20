@@ -9,7 +9,7 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple, Set
 
 RNG = random.Random()
 
@@ -171,10 +171,13 @@ def roll_hits(num_dice: int, defense: int, mod: int = 0, *,
               hero: Optional[Hero] = None,
               element: Element = Element.NONE,
               vulnerability: Element = Element.NONE,
-              allow_reroll: bool = True) -> int:
+              allow_reroll: bool = True,
+              enemy: Optional[Enemy] = None) -> int:
     dmg = 0
     for _ in range(num_dice):
         r = roll_die(defense, mod, hero=hero, allow_reroll=allow_reroll)
+        if enemy and enemy.ability == "curse_of_torment" and hero:
+            curse_of_torment(hero, r)
         if r >= defense:
             hit = 2 if r == 8 else 1
             if element != Element.NONE and element == vulnerability:
@@ -263,6 +266,21 @@ def end_hymns_fx(hero: Hero, ctx: Dict[str, object]) -> None:
     hero.active_hymns.clear()
     hero.combat_effects = [p for p in hero.combat_effects if not p[1].hymn]
     hero.exchange_effects = [p for p in hero.exchange_effects if not p[1].hymn]
+
+# ---------------------------------------------------------------------------
+# Enemy ability helpers
+# ---------------------------------------------------------------------------
+def curse_of_torment(hero: Hero, roll: int) -> None:
+    """Inflict 1 damage when ``roll`` is 1 or 2."""
+    if roll in (1, 2):
+        hero.hp -= 1
+
+
+def void_barrier(enemy: Enemy, element: Element) -> None:
+    """Grant armor when hit by a new damage element."""
+    if element != Element.NONE and element not in enemy.barrier_elems:
+        enemy.barrier_elems.add(element)
+        enemy.armor_pool += 1
 
 # ---------------------------------------------------------------------------
 # Card helpers to create attack cards
@@ -428,6 +446,9 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
             dmg = dark_phalanx(enemies, dmg, card.multi)
         area = ctx.pop("area_damage", 0)
         dmg += area
+        soak = min(e.armor_pool, dmg)
+        e.armor_pool -= soak
+        dmg -= soak
         e.hp -= dmg
         if e.ability == "spiked-armor":
             spiked_armor(hero, dmg)

@@ -72,6 +72,22 @@ class TestCorruptedDryadAbilities(unittest.TestCase):
         sim.resolve_attack(hero, card, ctx)
         self.assertEqual(enemy.hp, 4)
 
+class TestSpinnerAbilities(unittest.TestCase):
+    def test_web_slinger_converts_ranged(self):
+        sim.RNG.seed(5)
+        hero = sim.Hero("Hero", 10, [])
+        card = sim.atk("Shot", sim.CardType.RANGED, 1)
+        enemy = sim.Enemy("Gryphon", 4, 5, sim.Element.SPIRITUAL, [0, 0, 0, 0], "aerial-combat")
+        ctx = {"enemies": [enemy]}
+        sim.resolve_attack(hero, card, ctx)
+        self.assertEqual(enemy.hp, 3)
+
+        sim.RNG.seed(5)
+        enemy2 = sim.Enemy("Gryphon", 4, 5, sim.Element.SPIRITUAL, [0, 0, 0, 0], "aerial-combat")
+        ctx = {"enemies": [enemy2], "ranged_to_melee": True}
+        sim.resolve_attack(hero, card, ctx)
+        self.assertEqual(enemy2.hp, 4)
+
 class TestSoldierAbilities(unittest.TestCase):
     def test_dark_phalanx_multi_reduction(self):
         sim.RNG.seed(1)
@@ -92,6 +108,15 @@ class TestSoldierAbilities(unittest.TestCase):
         ctx = {"enemies": [enemy]}
         sim.resolve_attack(hero, card, ctx)
         self.assertEqual(hero.hp, 9)
+        self.assertEqual(enemy.hp, 0)
+
+    def test_void_soldier_multi_penalty(self):
+        sim.RNG.seed(0)
+        hero = sim.Hero("Hero", 10, [])
+        card = sim.atk("Split", sim.CardType.MELEE, 4, multi=True)
+        enemy = sim.Enemy("Void Soldier", 2, 5, sim.Element.PRECISE, [0, 0, 0, 2], "void-soldier", attack_mod=sim.void_soldier_mod)
+        ctx = {"enemies": [enemy], "attack_hooks": [enemy.attack_mod]}
+        sim.resolve_attack(hero, card, ctx)
         self.assertEqual(enemy.hp, 0)
 
 

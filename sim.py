@@ -33,10 +33,12 @@ class Element(Enum):
 
 # Data structures
 
+main
 
 @dataclass
 class Card:
     name: str
+
     ctype: CardType
     dice: int = 0
     element: Element = Element.NONE
@@ -66,6 +68,7 @@ class Deck:
             if not self.cards:
                 RNG.shuffle(self.disc)
                 self.cards, self.disc = self.disc, []
+ main
                 if not self.cards:
                     break
             self.hand.append(self.cards.pop())
@@ -170,6 +173,7 @@ main
         if enemy and enemy.traits.get("ability") == "roots-of-despair" and dmg == 0:
             ctx["roots"] = ctx.get("roots", 0) + 1
     return dmg
+main
 
 @dataclass
 class Hero:

@@ -9,7 +9,7 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import List, Callable, Optional, Dict, Any
+from typing import List, Callable, Optional, Dict, Any, Tuple
 
 RNG = random.Random()
 
@@ -43,6 +43,7 @@ class Card:
     armor: int = 0
     effect: Optional[Callable[["Hero", Dict], None]] = None
     persistent: Optional[str] = None  # "combat" or "exchange"
+    hymn: bool = False
 
 
 @dataclass
@@ -116,8 +117,9 @@ class Hero:
         self.fate = 0
         self.deck = Deck(self.base_cards[:])
         self.deck.shuffle()
-        self.combat_effects: List[Callable[["Hero", Dict], None]] = []
-        self.exchange_effects: List[Callable[["Hero", Dict], None]] = []
+        self.combat_effects: List[Tuple[Callable[["Hero", Dict], None], Card]] = []
+        self.exchange_effects: List[Tuple[Callable[["Hero", Dict], None], Card]] = []
+        self.active_hymns: List[Card] = []
         self.armor_pool = 0
 
     def gain_fate(self, n: int = 1) -> None:
@@ -139,26 +141,35 @@ def gain_armor(amount: int) -> Callable[[Hero, Dict], None]:
 # [Combat] enemy loses 1 HP per attack you resolve
 
 def lion_strangler_fx(hero: Hero, ctx: Dict) -> None:
-    def tick(h: Hero, cx: Dict) -> None:
-        if cx.get("current_target") is not None and cx["enemies"]:
-            cx["enemies"][0].hp -= 1
-            if cx["enemies"][0].hp <= 0:
-                cx["enemies"].pop(0)
-    hero.combat_effects.append(tick)
+    if ctx.get("current_target") is not None and ctx["enemies"]:
+        ctx["enemies"][0].hp -= 1
+        if ctx["enemies"][0].hp <= 0:
+            ctx["enemies"].pop(0)
 
 # [Exchange] +1 damage to other attacks
 
 def sky_javelin_fx(hero: Hero, ctx: Dict) -> None:
-    def buff(h: Hero, cx: Dict) -> None:
-        cx["dmg_bonus"] = cx.get("dmg_bonus", 0) + 1
-    hero.exchange_effects.append(buff)
+    ctx["dmg_bonus"] = ctx.get("dmg_bonus", 0) + 1
+
+# Remove all active Hymn effects
+def end_hymns_fx(hero: Hero, ctx: Dict) -> None:
+    hero.active_hymns.clear()
+    hero.combat_effects = [ef for ef in hero.combat_effects if not ef[1].hymn]
+    hero.exchange_effects = [ef for ef in hero.exchange_effects if not ef[1].hymn]
 
 # Card constructor
 
-def atk(name: str, ctype: CardType, dice: int, element: Element = Element.NONE,
-        armor: int = 0, effect: Optional[Callable[[Hero, Dict], None]] = None,
-        persistent: Optional[str] = None) -> Card:
-    return Card(name, ctype, dice, element, armor, effect, persistent)
+def atk(
+    name: str,
+    ctype: CardType,
+    dice: int,
+    element: Element = Element.NONE,
+    armor: int = 0,
+    effect: Optional[Callable[[Hero, Dict], None]] = None,
+    persistent: Optional[str] = None,
+    hymn: bool = False,
+) -> Card:
+    return Card(name, ctype, dice, element, armor, effect, persistent, hymn)
 
 # Hero decks (incomplete)
 herc_base = [
@@ -209,9 +220,9 @@ bryn_base = [
     atk("Descent", CardType.MELEE, 1, Element.SPIRITUAL),
     atk("Descent", CardType.MELEE, 1, Element.SPIRITUAL),
     atk("Piercer", CardType.RANGED, 1, Element.SPIRITUAL),
-    atk("Shields", CardType.UTIL, 0),
-    atk("Shields", CardType.UTIL, 0),
-    atk("Storms", CardType.UTIL, 0),
+    atk("Shields", CardType.UTIL, 0, hymn=True, persistent="combat"),
+    atk("Shields", CardType.UTIL, 0, hymn=True, persistent="combat"),
+    atk("Storms", CardType.UTIL, 0, effect=end_hymns_fx),
     atk("Thrust", CardType.MELEE, 1, Element.PRECISE),
     atk("Thrust", CardType.MELEE, 1, Element.PRECISE),
     atk("Spear", CardType.MELEE, 1, Element.BRUTAL),
@@ -257,9 +268,9 @@ BASIC_WAVES = [
 ]
 
 def apply_persistent(hero: Hero, ctx: Dict) -> None:
-    for fx in hero.combat_effects:
+    for fx, _ in hero.combat_effects:
         fx(hero, ctx)
-    for fx in hero.exchange_effects:
+    for fx, _ in hero.exchange_effects:
         fx(hero, ctx)
 
 def resolve_attack(hero: Hero, card: Card, ctx: Dict) -> None:
@@ -298,6 +309,7 @@ def fight_one(hero: Hero) -> bool:
             hero.armor_pool = 0
             if exch:
                 hero.deck.draw(1)
+            ctx.pop("dmg_bonus", None)
             apply_persistent(hero, ctx)
             while True:
                 c = hero.deck.pop_first(CardType.UTIL)
@@ -306,12 +318,24 @@ def fight_one(hero: Hero) -> bool:
                 hero.armor_pool += c.armor
                 if c.effect:
                     c.effect(hero, ctx)
+                if c.persistent == "combat" and c.effect:
+                    hero.combat_effects.append((c.effect, c))
+                elif c.persistent == "exchange" and c.effect:
+                    hero.exchange_effects.append((c.effect, c))
+                if c.hymn:
+                    hero.active_hymns.append(c)
                 hero.deck.disc.append(c)
             while ctx["enemies"]:
                 c = hero.deck.pop_first(CardType.RANGED)
                 if not c:
                     break
                 resolve_attack(hero, c, ctx)
+                if c.persistent == "combat" and c.effect:
+                    hero.combat_effects.append((c.effect, c))
+                elif c.persistent == "exchange" and c.effect:
+                    hero.exchange_effects.append((c.effect, c))
+                if c.hymn:
+                    hero.active_hymns.append(c)
                 hero.deck.disc.append(c)
             if not ctx["enemies"]:
                 break
@@ -323,6 +347,12 @@ def fight_one(hero: Hero) -> bool:
                 if not c:
                     break
                 resolve_attack(hero, c, ctx)
+                if c.persistent == "combat" and c.effect:
+                    hero.combat_effects.append((c.effect, c))
+                elif c.persistent == "exchange" and c.effect:
+                    hero.exchange_effects.append((c.effect, c))
+                if c.hymn:
+                    hero.active_hymns.append(c)
                 hero.deck.disc.append(c)
             if not ctx["enemies"]:
                 break
@@ -330,6 +360,9 @@ def fight_one(hero: Hero) -> bool:
             return False
         hero.gain_fate(1)
         # gain upgrades placeholder
+        hero.combat_effects.clear()
+        hero.exchange_effects.clear()
+        hero.active_hymns.clear()
     return True
 
 if __name__ == "__main__":

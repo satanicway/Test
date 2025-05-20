@@ -119,10 +119,13 @@ class Hero:
         self.fate = min(FATE_MAX, self.fate + n)
 
     def gain_upgrades(self, n: int = 1) -> None:
-        if not self.upg_pool:
-            return
-        choices = RNG.sample(self.upg_pool, min(n, len(self.upg_pool)))
-        self.deck.cards.extend(choices)
+        """Draw ``n`` upgrades from the weighted pool into the deck."""
+        for _ in range(n):
+            if not self.upg_pool:
+                break
+            card = RNG.choice(self.upg_pool)
+            self.upg_pool.remove(card)
+            self.deck.cards.append(card)
 
     def spend_fate(self, n: int = 1) -> bool:
         """Spend ``n`` fate if above the hero specific threshold."""

@@ -33,7 +33,6 @@ class TestMechanics(unittest.TestCase):
         self.assertIn(result, [True, False])
         self.assertLessEqual(hero.hp, hero.max_hp)
         self.assertGreaterEqual(hero.hp, 0)
-
 class TestCorruptedDryadAbilities(unittest.TestCase):
     def test_cursed_thorns(self):
         hero = sim.Hero("Hero", 10, [])

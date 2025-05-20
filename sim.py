@@ -547,7 +547,6 @@ def fight_one(hero: Hero) -> bool:
                 cursed_thorns(hero)
             if any(e.ability == "ghostly" for e in ctx["enemies"]) and exch >= 2:
                 ctx["enemies"].clear()
-
             if any(e.ability == "power-sap" for e in ctx["enemies"]) and hero.combat_effects:
                 hero.combat_effects.pop(RNG.randrange(len(hero.combat_effects)))
                 for e in ctx["enemies"]:

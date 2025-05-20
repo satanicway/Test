@@ -124,7 +124,21 @@ class Hero:
         return False
 
 @dataclass
+class EnemyType:
+    """Template describing an enemy type."""
+
+    name: str
+    hp: int
+    defense: int
+    bands: List[int]
+    vulnerability: Element
+    ability: Optional[str] = None
+
+
+@dataclass
 class Enemy:
+    """Instance of a monster encountered in combat."""
+
     hp: int
     defense: int
     vulnerability: Element = Element.NONE
@@ -252,20 +266,70 @@ brynhild = Hero("Brynhild", 18, bryn_base, b_pool)
 
 HEROES = [hercules, brynhild]
 
-# sample enemy
-BASIC_ENEMY = Enemy(hp=4, defense=5, vulnerability=Element.DIVINE)
+# ---------------------------------------------------------------------------
+# Enemy waves
+# ---------------------------------------------------------------------------
+
+def make_wave(et: EnemyType, count: int) -> Dict[str, object]:
+    return {
+        "enemy_type": et,
+        "enemies": [
+            Enemy(et.hp, et.defense, et.vulnerability, et.ability) for _ in range(count)
+        ],
+    }
+
+# basic and elite monster roster
+ENEMY_WAVES = [
+    (EnemyType("Spinner", 1, 4, [1, 0, 1, 0], Element.SPIRITUAL, "web-slinger"), 3),
+    (EnemyType("Soldier", 2, 5, [1, 1, 1, 2], Element.PRECISE, "dark-phalanx"), 3),
+    (EnemyType("Banshee", 4, 5, [0, 0, 1, 3], Element.DIVINE, "banshee-wail"), 2),
+    (EnemyType("Priest", 2, 3, [0, 0, 1, 1], Element.ARCANE, "power-of-death"), 3),
+    (EnemyType("Dryad", 2, 4, [0, 0, 1, 1], Element.BRUTAL, "cursed-thorns"), 3),
+    (EnemyType("Minotaur", 4, 3, [0, 0, 1, 3], Element.PRECISE, "cleaving"), 2),
+    (EnemyType("Wizard", 2, 3, [0, 1, 1, 3], Element.BRUTAL, "curse-of-torment"), 2),
+    (EnemyType("Shadow Banshee", 3, 5, [0, 0, 1, 2], Element.DIVINE, "ghostly"), 2),
+    (EnemyType("Gryphon", 4, 5, [0, 1, 3, 4], Element.SPIRITUAL, "aerial-combat"), 1),
+    (EnemyType("Treant", 7, 6, [0, 1, 1, 4], Element.DIVINE, "power-sap"), 1),
+    (EnemyType("Angel", 5, 5, [0, 1, 2, 5], Element.ARCANE, "corrupted-destiny"), 1),
+    (EnemyType("Elite Spinner", 2, 5, [0, 0, 1, 4], Element.SPIRITUAL, "sticky-web"), 3),
+    (EnemyType("Elite Soldier", 3, 6, [0, 0, 1, 3], Element.PRECISE, "spiked-armor"), 3),
+    (EnemyType("Elite Priest", 3, 4, [0, 0, 1, 2], Element.ARCANE, "silence"), 3),
+    (EnemyType("Elite Dryad", 2, 5, [0, 1, 1, 2], Element.BRUTAL, "disturbed-flow"), 3),
+    (EnemyType("Elite Minotaur", 5, 3, [0, 0, 2, 4], Element.PRECISE, "enrage"), 2),
+    (EnemyType("Elite Wizard", 2, 4, [0, 2, 2, 3], Element.BRUTAL, "void-barrier"), 2),
+    (EnemyType("Elite Banshee", 4, 5, [0, 0, 1, 3], Element.DIVINE, "banshee-wail"), 2),
+    (EnemyType("Elite Gryphon", 5, 5, [0, 2, 4, 6], Element.SPIRITUAL, "ephemeral-wings"), 1),
+    (EnemyType("Elite Treant", 8, 7, [0, 1, 3, 5], Element.DIVINE, "roots-of-despair"), 1),
+    (EnemyType("Elite Angel", 7, 6, [0, 3, 3, 6], Element.ARCANE, "denied-heaven"), 1),
+]
+
 
 # ---------------------------------------------------------------------------
 # Combat helpers
 # ---------------------------------------------------------------------------
-def resolve_attack(hero: Hero, card: Card, enemy: Enemy, ctx: Dict[str, object]) -> None:
-    vuln = ctx.pop('temp_vuln', enemy.vulnerability)
-    dmg = roll_hits(card.dice, enemy.defense, hero=hero, element=card.element,
-                    vulnerability=vuln)
-    enemy.hp -= dmg
-    area = ctx.pop('area_damage', 0)
-    if area:
-        enemy.hp -= area
+def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
+    """Resolve ``card`` against current enemies in ``ctx``."""
+
+    enemies: List[Enemy] = ctx["enemies"]
+    if not enemies:
+        return
+
+    targets = enemies[:] if card.multi else [enemies[0]]
+    for e in targets[:]:
+        vuln = ctx.pop("temp_vuln", e.vulnerability)
+        dmg = roll_hits(card.dice, e.defense, hero=hero, element=card.element,
+                        vulnerability=vuln)
+        if (
+            card.multi
+            and e.ability == "dark-phalanx"
+            and sum(1 for m in enemies if m.ability == "dark-phalanx") >= 2
+        ):
+            dmg = max(1, dmg - 1)
+        area = ctx.pop("area_damage", 0)
+        dmg += area
+        e.hp -= dmg
+        if e.hp <= 0:
+            enemies.remove(e)
     if card.effect:
         card.effect(hero, ctx)
         if card.persistent == "combat":
@@ -276,37 +340,93 @@ def resolve_attack(hero: Hero, card: Card, enemy: Enemy, ctx: Dict[str, object])
         hero.active_hymns.append(card)
     hero.deck.disc.append(card)
 
+
+def monster_attack(hero: Hero, ctx: Dict[str, object]) -> None:
+    """Resolve monster attacks for the current wave."""
+    band = ctx["enemy_type"].bands
+    dmg = band[(d8() - 1) // 2] * len(ctx["enemies"])
+    soak = min(hero.armor_pool, dmg)
+    hero.armor_pool -= soak
+    hero.hp -= max(0, dmg - soak)
+
 # very small fight simulation -------------------------------------------------
 
 def fight_one(hero: Hero) -> bool:
-    enemy = Enemy(BASIC_ENEMY.hp, BASIC_ENEMY.defense, BASIC_ENEMY.vulnerability,
-                  BASIC_ENEMY.ability)
+    """Run one full gauntlet for ``hero``."""
+
     hero.reset()
     hero.gain_upgrades(1)
     hero.deck.draw(3)
-    ctx: Dict[str, object] = {}
 
-    for _ in range(3):  # three exchanges
-        apply_persistent(hero, ctx)
-        # use first util if any
-        c = hero.deck.pop_first(CardType.UTIL)
-        if c:
-            resolve_attack(hero, c, enemy, ctx)
-        if enemy.hp <= 0:
-            break
+    for et, count in ENEMY_WAVES:
+        ctx = make_wave(et, count)
+        for exch in range(3):
+            ctx["exchange"] = exch
+            apply_persistent(hero, ctx)
 
-        c = hero.deck.pop_first(CardType.RANGED) or hero.deck.pop_first(CardType.MELEE)
-        if c:
-            resolve_attack(hero, c, enemy, ctx)
-        if enemy.hp <= 0:
-            break
+            # utilities first
+            c = hero.deck.pop_first(CardType.UTIL)
+            if c:
+                resolve_attack(hero, c, ctx)
+                if hero.hp <= 0 or not ctx["enemies"]:
+                    break
 
-        hero.deck.draw(1)
+            delayed: List[Card] = []
+            while ctx["enemies"]:
+                c = hero.deck.pop_first(CardType.RANGED)
+                if not c:
+                    break
+                if any(e.ability == "web-slinger" for e in ctx["enemies"]):
+                    delayed.append(c)
+                    continue
+                resolve_attack(hero, c, ctx)
+                if hero.hp <= 0 or not ctx["enemies"]:
+                    break
 
-    hero.combat_effects.clear()
-    hero.exchange_effects.clear()
-    hero.active_hymns.clear()
-    return enemy.hp <= 0
+            if ctx["enemies"]:
+                monster_attack(hero, ctx)
+                if hero.hp <= 0:
+                    return False
+
+            for card in delayed:
+                if not ctx["enemies"]:
+                    break
+                resolve_attack(hero, card, ctx)
+
+            while ctx["enemies"]:
+                c = hero.deck.pop_first(CardType.MELEE)
+                if not c:
+                    break
+                resolve_attack(hero, c, ctx)
+                if hero.hp <= 0 or not ctx["enemies"]:
+                    break
+
+            # end-of-exchange abilities
+            if any(e.ability == "ghostly" for e in ctx["enemies"]) and exch >= 2:
+                ctx["enemies"].clear()
+
+            if any(e.ability == "power-sap" for e in ctx["enemies"]) and hero.combat_effects:
+                hero.combat_effects.pop(RNG.randrange(len(hero.combat_effects)))
+                for e in ctx["enemies"]:
+                    if e.ability == "power-sap":
+                        e.hp += 1
+                        break
+
+            if not ctx["enemies"]:
+                break
+
+            hero.deck.draw(1)
+
+        if ctx["enemies"] or hero.hp <= 0:
+            return False
+
+        hero.gain_fate(1)
+        hero.deck.draw(2)
+        hero.combat_effects.clear()
+        hero.exchange_effects.clear()
+        hero.active_hymns.clear()
+
+    return hero.hp > 0
 
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":

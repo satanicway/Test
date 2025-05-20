@@ -72,14 +72,19 @@ class Deck:
 FATE_MAX = 10
 
 def roll_hits(
-    num_dice: int, defense: int, mod: int = 0,
-    *, hero: Optional["Hero"] = None
+    num_dice: int,
+    defense: int,
+    mod: int = 0,
+    *,
+    hero: Optional["Hero"] = None,
+    element: "Element" = None,
+    vulnerability: "Element" = None,
 ) -> int:
-    """Roll `num_dice` d8 and count hits against `defense`.
+    """Roll ``num_dice`` d8 and count hits against ``defense``.
 
-    If ``hero`` is supplied, allow rerolls by spending Fate when below the
-    defense threshold. Heroes only spend Fate while above 3 points (or 5 for
-    Brynhild).
+    Dice that match ``vulnerability`` deal double damage. If ``hero`` is
+    supplied, allow rerolls by spending Fate when below the defense threshold.
+    Heroes only spend Fate while above 3 points (or 5 for Brynhild).
     """
     dmg = 0
     for _ in range(num_dice):
@@ -92,7 +97,10 @@ def roll_hits(
         ):
             r = max(1, min(8, d8() + mod))
         if r >= defense:
-            dmg += 2 if r == 8 else 1
+            hit = 2 if r == 8 else 1
+            if element is not None and element == vulnerability:
+                hit *= 2
+            dmg += hit
     return dmg
 
 @dataclass
@@ -132,8 +140,10 @@ def gain_armor(amount: int) -> Callable[[Hero, Dict], None]:
 
 def lion_strangler_fx(hero: Hero, ctx: Dict) -> None:
     def tick(h: Hero, cx: Dict) -> None:
-        if cx.get("current_target") is not None and cx["enemy_hp"]:
-            cx["enemy_hp"][0] -= 1
+        if cx.get("current_target") is not None and cx["enemies"]:
+            cx["enemies"][0].hp -= 1
+            if cx["enemies"][0].hp <= 0:
+                cx["enemies"].pop(0)
     hero.combat_effects.append(tick)
 
 # [Exchange] +1 damage to other attacks
@@ -219,8 +229,27 @@ class EnemyType:
     bands: List[int]
     vulnerability: Element
 
+
+@dataclass
+class Enemy:
+    """Instance of a monster encountered in combat."""
+
+    hp: int
+    defense: int
+    vulnerability: Element
+    traits: Dict[str, Any] = field(default_factory=dict)
+
 def make_wave(enemy: EnemyType, count: int) -> Dict:
-    return {"enemy_hp": [enemy.hp for _ in range(count)], "enemy_type": enemy}
+    monsters = [
+        Enemy(
+            hp=enemy.hp,
+            defense=enemy.defense,
+            vulnerability=enemy.vulnerability,
+            traits={"name": enemy.name},
+        )
+        for _ in range(count)
+    ]
+    return {"enemies": monsters, "enemy_type": enemy}
 
 BASIC_WAVES = [
     (EnemyType("Spinner", 1, 4, [1,0,1,0], Element.SPIRITUAL), 3),
@@ -235,21 +264,26 @@ def apply_persistent(hero: Hero, ctx: Dict) -> None:
 
 def resolve_attack(hero: Hero, card: Card, ctx: Dict) -> None:
     dmg_bonus = ctx.get("dmg_bonus", 0)
-    defense = ctx["enemy_type"].defense
-    dmg = roll_hits(card.dice, defense, hero=hero) + dmg_bonus
-    if ctx["enemy_type"].vulnerability == card.element:
-        dmg *= 2
-    if ctx["enemy_hp"]:
-        ctx["enemy_hp"][0] -= dmg
-        if ctx["enemy_hp"][0] <= 0:
-            ctx["enemy_hp"].pop(0)
+    if not ctx["enemies"]:
+        return
+    target = ctx["enemies"][0]
+    dmg = roll_hits(
+        card.dice,
+        target.defense,
+        hero=hero,
+        element=card.element,
+        vulnerability=target.vulnerability,
+    ) + dmg_bonus
+    target.hp -= dmg
+    if target.hp <= 0:
+        ctx["enemies"].pop(0)
     if card.effect:
         card.effect(hero, ctx)
 
 
 def monster_attack(hero: Hero, ctx: Dict) -> None:
     band = ctx["enemy_type"].bands
-    raw = band[(d8()-1)//2] * len(ctx["enemy_hp"])
+    raw = band[(d8()-1)//2] * len(ctx["enemies"])
     soak = min(hero.armor_pool, raw)
     hero.armor_pool -= soak
     hero.hp -= max(0, raw - soak)
@@ -273,26 +307,26 @@ def fight_one(hero: Hero) -> bool:
                 if c.effect:
                     c.effect(hero, ctx)
                 hero.deck.disc.append(c)
-            while ctx["enemy_hp"]:
+            while ctx["enemies"]:
                 c = hero.deck.pop_first(CardType.RANGED)
                 if not c:
                     break
                 resolve_attack(hero, c, ctx)
                 hero.deck.disc.append(c)
-            if not ctx["enemy_hp"]:
+            if not ctx["enemies"]:
                 break
             monster_attack(hero, ctx)
             if hero.hp <= 0:
                 return False
-            while ctx["enemy_hp"]:
+            while ctx["enemies"]:
                 c = hero.deck.pop_first(CardType.MELEE)
                 if not c:
                     break
                 resolve_attack(hero, c, ctx)
                 hero.deck.disc.append(c)
-            if not ctx["enemy_hp"]:
+            if not ctx["enemies"]:
                 break
-        if ctx["enemy_hp"] or hero.hp <= 0:
+        if ctx["enemies"] or hero.hp <= 0:
             return False
         hero.gain_fate(1)
         # gain upgrades placeholder

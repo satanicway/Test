@@ -1,20 +1,11 @@
 #!/usr/bin/env python3
-"""Simplified board game simulator with partial card logic.
-This version introduces enumerations, Fate tracking, vulnerability,
-and placeholder hooks for [Combat]/[Exchange] effects.
-The rule set is condensed but demonstrates key mechanics.
-"""
-
-import random
-from dataclasses import dataclass, field
-from enum import Enum, auto
-from typing import Callable, List, Optional, Dict
-
 RNG = random.Random()
 
 def d8() -> int:
     return RNG.randint(1, 8)
 
+# Enumerations
+ main
 class CardType(Enum):
     MELEE = auto()
     RANGED = auto()
@@ -22,252 +13,254 @@ class CardType(Enum):
 
 class Element(Enum):
     BRUTAL = "B"
-    DIVINE = "D"
     PRECISE = "P"
+    DIVINE = "D"
     ARCANE = "A"
     SPIRITUAL = "S"
+    NONE = "-"
 
+# Data structures
+main
 @dataclass
 class Card:
     name: str
     ctype: CardType
-    element: Optional[Element] = None
     dice: int = 0
+    element: Element = Element.NONE
     armor: int = 0
     effect: Optional[Callable[["Hero", Dict], None]] = None
+    persistent: Optional[str] = None  # "combat" or "exchange"
 
 @dataclass
 class Deck:
-    draw_pile: List[Card]
+    cards: List[Card]
     hand: List[Card] = field(default_factory=list)
-    discard: List[Card] = field(default_factory=list)
-    HAND_MAX: int = 7
+    disc: List[Card] = field(default_factory=list)
 
     def shuffle(self) -> None:
-        RNG.shuffle(self.draw_pile)
+        RNG.shuffle(self.cards)
 
     def draw(self, n: int) -> None:
         for _ in range(n):
-            if len(self.hand) >= self.HAND_MAX:
-                break
-            if not self.draw_pile:
-                RNG.shuffle(self.discard)
-                self.draw_pile, self.discard = self.discard, []
-                if not self.draw_pile:
+            if not self.cards:
+                RNG.shuffle(self.disc)
+                self.cards, self.disc = self.disc, []
+                if not self.cards:
                     break
-            self.hand.append(self.draw_pile.pop())
+            self.hand.append(self.cards.pop())
+main
 
     def pop_first(self, ctype: CardType) -> Optional[Card]:
         for i, c in enumerate(self.hand):
             if c.ctype == ctype:
                 return self.hand.pop(i)
         return None
+def roll_hits(num_dice: int, defense: int, mod: int = 0) -> int:
+    """Roll `num_dice` d8 and count hits against `defense`."""
+    dmg = 0
+    for _ in range(num_dice):
+        r = max(1, min(8, d8() + mod))
+        if r >= defense:
+            dmg += 2 if r == 8 else 1
+    return dmg
 
+main
 @dataclass
 class Hero:
     name: str
     max_hp: int
-    base_deck: List[Card]
-    upgrade_pool: List[Card] = field(default_factory=list)
-    plate: float = 1.0
+    base_cards: List[Card]
+    upg_cards: List[Card]
 
     def reset(self) -> None:
-        self.cur_hp = self.max_hp
+        self.hp = self.max_hp
         self.fate = 0
-        self.armor_pool = 0
-        self.combat_effects: Dict[str, int] = {}
-        self.exchange_effects: Dict[str, int] = {}
-        self.hymns = 0
-        self.deck = Deck(self.base_deck[:])
+        self.deck = Deck(self.base_cards[:])
         self.deck.shuffle()
+        self.combat_effects: List[Callable[["Hero", Dict], None]] = []
+        self.exchange_effects: List[Callable[["Hero", Dict], None]] = []
+        self.armor_pool = 0
 
-    def can_reroll(self) -> bool:
-        limit = 5 if self.name == "Brynhild" else 3
-        return self.fate > limit
+# Utility
 
-    def spend_fate(self, n: int = 1) -> None:
-        self.fate = max(0, self.fate - n)
+def gain_armor(amount: int) -> Callable[[Hero, Dict], None]:
+    return lambda hero, ctx: setattr(hero, "armor_pool", hero.armor_pool + amount)
+
+# [Combat] enemy loses 1 HP per attack you resolve
+
+def lion_strangler_fx(hero: Hero, ctx: Dict) -> None:
+    def tick(h: Hero, cx: Dict) -> None:
+        if cx.get("current_target") is not None and cx["enemy_hp"]:
+            cx["enemy_hp"][0] -= 1
+    hero.combat_effects.append(tick)
+
+# [Exchange] +1 damage to other attacks
+
+def sky_javelin_fx(hero: Hero, ctx: Dict) -> None:
+    def buff(h: Hero, cx: Dict) -> None:
+        cx["dmg_bonus"] = cx.get("dmg_bonus", 0) + 1
+    hero.exchange_effects.append(buff)
+
+# Card constructor
+
+def atk(name: str, ctype: CardType, dice: int, element: Element = Element.NONE,
+        armor: int = 0, effect: Optional[Callable[[Hero, Dict], None]] = None,
+        persistent: Optional[str] = None) -> Card:
+    return Card(name, ctype, dice, element, armor, effect, persistent)
+
+# Hero decks (incomplete)
+herc_base = [
+    atk("Pillar", CardType.MELEE, 2, Element.BRUTAL),
+    atk("Pillar", CardType.MELEE, 2, Element.BRUTAL),
+    atk("Strangler", CardType.MELEE, 1, Element.BRUTAL, effect=lion_strangler_fx,
+        persistent="combat"),
+    atk("Heroism", CardType.MELEE, 1, Element.DIVINE, armor=1, effect=gain_armor(1)),
+    atk("Heroism", CardType.MELEE, 1, Element.DIVINE, armor=1, effect=gain_armor(1)),
+    atk("Javelin", CardType.RANGED, 2, Element.DIVINE, effect=sky_javelin_fx,
+        persistent="exchange"),
+    atk("Spin", CardType.MELEE, 1, Element.PRECISE),
+    atk("Spin", CardType.MELEE, 1, Element.PRECISE),
+    atk("Atlas", CardType.UTIL, 0, armor=3, effect=gain_armor(3)),
+    atk("Atlas", CardType.UTIL, 0, armor=3, effect=gain_armor(3)),
+]
+hercules = Hero("Hercules", 25, herc_base, [])
+
+mer_base = [
+    atk("Volley", CardType.RANGED, 1, Element.ARCANE),
+    atk("Volley", CardType.RANGED, 1, Element.ARCANE),
+    atk("Warden", CardType.MELEE, 1, Element.ARCANE, armor=2, effect=gain_armor(2)),
+    atk("Warden", CardType.MELEE, 1, Element.ARCANE, armor=2, effect=gain_armor(2)),
+    atk("Weaver", CardType.RANGED, 1, Element.DIVINE),
+    atk("Weaver", CardType.RANGED, 1, Element.DIVINE),
+    atk("Staff", CardType.MELEE, 1, Element.PRECISE),
+    atk("Mists", CardType.RANGED, 1, Element.SPIRITUAL),
+    atk("Mists", CardType.RANGED, 1, Element.SPIRITUAL),
+    atk("Circle", CardType.RANGED, 1, Element.SPIRITUAL),
+]
+merlin = Hero("Merlin", 15, mer_base, [])
+
+mus_base = [
+    atk("Swallow", CardType.MELEE, 1, Element.PRECISE),
+    atk("Swallow", CardType.MELEE, 1, Element.PRECISE),
+    atk("Cross", CardType.MELEE, 2, Element.PRECISE),
+    atk("Cross", CardType.MELEE, 2, Element.PRECISE),
+    atk("Heaven", CardType.MELEE, 2, Element.BRUTAL),
+    atk("Heaven", CardType.MELEE, 2, Element.BRUTAL),
+    atk("Parry", CardType.MELEE, 1, Element.SPIRITUAL, armor=1, effect=gain_armor(1)),
+    atk("Parry", CardType.MELEE, 1, Element.SPIRITUAL, armor=1, effect=gain_armor(1)),
+    atk("Guard", CardType.UTIL, 0),
+    atk("Focus", CardType.MELEE, 1, Element.ARCANE),
+]
+musashi = Hero("Musashi", 20, mus_base, [])
+
+bryn_base = [
+    atk("Descent", CardType.MELEE, 1, Element.SPIRITUAL),
+    atk("Descent", CardType.MELEE, 1, Element.SPIRITUAL),
+    atk("Piercer", CardType.RANGED, 1, Element.SPIRITUAL),
+    atk("Shields", CardType.UTIL, 0),
+    atk("Shields", CardType.UTIL, 0),
+    atk("Storms", CardType.UTIL, 0),
+    atk("Thrust", CardType.MELEE, 1, Element.PRECISE),
+    atk("Thrust", CardType.MELEE, 1, Element.PRECISE),
+    atk("Spear", CardType.MELEE, 1, Element.BRUTAL),
+    atk("Spear", CardType.MELEE, 1, Element.BRUTAL),
+]
+brynhild = Hero("Brynhild", 18, bryn_base, [])
+
+HEROES = [hercules, merlin, musashi, brynhild]
 
 @dataclass
-class Enemy:
+class EnemyType:
+    name: str
     hp: int
     defense: int
+    bands: List[int]
     vulnerability: Element
 
-# effect helpers
+def make_wave(enemy: EnemyType, count: int) -> Dict:
+    return {"enemy_hp": [enemy.hp for _ in range(count)], "enemy_type": enemy}
 
-def gain_armor(x: int) -> Callable[[Hero, Dict], None]:
-    def fx(hero: Hero, ctx: Dict) -> None:
-        hero.armor_pool += x
-    return fx
-
-def gain_fate(x: int) -> Callable[[Hero, Dict], None]:
-    def fx(hero: Hero, ctx: Dict) -> None:
-        hero.fate = min(10, hero.fate + x)
-    return fx
-
-def dmg_all(x: int) -> Callable[[Hero, Dict], None]:
-    def fx(hero: Hero, ctx: Dict) -> None:
-        for e in ctx["enemies"]:
-            e.hp -= x
-    return fx
-
-def atk(name: str, ctype: CardType, element: Element, dice: int = 0,
-        armor: int = 0, effect: Optional[Callable[[Hero, Dict], None]] = None) -> Card:
-    return Card(name, ctype, element, dice, armor, effect)
-
-# -- heroes --
-hercules_base = [
-    atk("Pillar-Breaker Blow", CardType.MELEE, Element.BRUTAL, 2),
-    atk("Pillar-Breaker Blow", CardType.MELEE, Element.BRUTAL, 2),
-    atk("Lion Strangler", CardType.MELEE, Element.BRUTAL, 1),
-    atk("Demigodly Heroism", CardType.MELEE, Element.DIVINE, 1, armor=1, effect=gain_armor(1)),
-    atk("Demigodly Heroism", CardType.MELEE, Element.DIVINE, 1, armor=1, effect=gain_armor(1)),
-    atk("Sky Javelin", CardType.RANGED, Element.DIVINE, 2),
-    atk("Club Spin", CardType.MELEE, Element.PRECISE, 1),
-    atk("Club Spin", CardType.MELEE, Element.PRECISE, 1),
-    atk("Atlas Guard", CardType.UTIL, Element.SPIRITUAL, armor=3, effect=gain_armor(3)),
-    atk("Atlas Guard", CardType.UTIL, Element.SPIRITUAL, armor=3, effect=gain_armor(3)),
+BASIC_WAVES = [
+    (EnemyType("Spinner", 1, 4, [1,0,1,0], Element.SPIRITUAL), 3),
+    (EnemyType("Soldier", 2, 5, [1,1,1,2], Element.PRECISE), 3),
 ]
 
-merlin_base = [
-    atk("Arcane Volley", CardType.RANGED, Element.ARCANE, 1, effect=dmg_all(1)),
-    atk("Arcane Volley", CardType.RANGED, Element.ARCANE, 1, effect=dmg_all(1)),
-    atk("Lady's Warden", CardType.MELEE, Element.ARCANE, 1, armor=2, effect=gain_armor(2)),
-    atk("Lady's Warden", CardType.MELEE, Element.ARCANE, 1, armor=2, effect=gain_armor(2)),
-    atk("Weaver of Fate", CardType.RANGED, Element.DIVINE, 1),
-    atk("Weaver of Fate", CardType.RANGED, Element.DIVINE, 1),
-    atk("Crystal Cave's Staff", CardType.MELEE, Element.PRECISE, 1),
-    atk("Mists of Time", CardType.RANGED, Element.SPIRITUAL, 1),
-    atk("Mists of Time", CardType.RANGED, Element.SPIRITUAL, 1),
-    atk("Circle of Avalon", CardType.RANGED, Element.SPIRITUAL, 1),
-]
+def apply_persistent(hero: Hero, ctx: Dict) -> None:
+    for fx in hero.combat_effects:
+        fx(hero, ctx)
+    for fx in hero.exchange_effects:
+        fx(hero, ctx)
 
-musashi_base = [
-    atk("Swallow-Cut", CardType.MELEE, Element.PRECISE, 1),
-    atk("Swallow-Cut", CardType.MELEE, Element.PRECISE, 1),
-    atk("Cross-River Strike", CardType.MELEE, Element.PRECISE, 2),
-    atk("Cross-River Strike", CardType.MELEE, Element.PRECISE, 2),
-    atk("Heaven-and-Earth Slash", CardType.MELEE, Element.BRUTAL, 2),
-    atk("Heaven-and-Earth Slash", CardType.MELEE, Element.BRUTAL, 2),
-    atk("Flowing Water Parry", CardType.MELEE, Element.SPIRITUAL, 1, armor=1, effect=gain_armor(1)),
-    atk("Flowing Water Parry", CardType.MELEE, Element.SPIRITUAL, 1, armor=1, effect=gain_armor(1)),
-    atk("Dual-Moon Guard", CardType.UTIL, Element.DIVINE, armor=1, effect=gain_armor(1)),
-    atk("Wind-Reading Focus", CardType.MELEE, Element.ARCANE, 1),
-]
-
-brynhild_base = [
-    atk("Valkyrie's Descent", CardType.MELEE, Element.SPIRITUAL, 1),
-    atk("Valkyrie's Descent", CardType.MELEE, Element.SPIRITUAL, 1),
-    atk("Sky-Piercer", CardType.RANGED, Element.SPIRITUAL, 1, effect=gain_fate(1)),
-    atk("Hymn of Shields", CardType.UTIL, Element.DIVINE),
-    atk("Hymn of Shields", CardType.UTIL, Element.DIVINE),
-    atk("Hymn of Storms", CardType.UTIL, Element.DIVINE),
-    atk("Thrust of Destiny", CardType.MELEE, Element.PRECISE, 1),
-    atk("Thrust of Destiny", CardType.MELEE, Element.PRECISE, 1),
-    atk("Spear of the Aesir", CardType.MELEE, Element.BRUTAL, 1),
-    atk("Spear of the Aesir", CardType.MELEE, Element.BRUTAL, 1),
-]
-
-HEROES = [
-    Hero("Hercules", 25, hercules_base),
-    Hero("Merlin", 15, merlin_base),
-    Hero("Musashi", 20, musashi_base),
-    Hero("Brynhild", 18, brynhild_base),
-]
-
-# simplified enemy waves
-GROUP = [1,1]
-HP0 = [3,3]
-DEF0 = [4,5]
-VULN = [Element.BRUTAL, Element.SPIRITUAL]
-BANDS = [[2,2,2,2],[2,2,2,2]]
-
-
-def roll_attack(hero: Hero, card: Card, enemy: Enemy) -> int:
-    hits = 0
-    for _ in range(card.dice):
-        face = d8()
-        val = max(1, min(8, face))
-        if val >= enemy.defense:
-            hits += 2 if val == 8 else 1
-        else:
-            if hero.can_reroll() and enemy.hp - hits <= 2:
-                hero.spend_fate(1)
-                face = d8()
-                val = max(1, min(8, face))
-                if val >= enemy.defense:
-                    hits += 2 if val == 8 else 1
-    dmg = hits
-    if card.element == enemy.vulnerability:
+def resolve_attack(hero: Hero, card: Card, ctx: Dict) -> None:
+    dmg_bonus = ctx.get("dmg_bonus", 0)
+    defense = ctx["enemy_type"].defense
+    dmg = roll_hits(card.dice, defense) + dmg_bonus
+    if ctx["enemy_type"].vulnerability == card.element:
         dmg *= 2
-    return dmg
+    if ctx["enemy_hp"]:
+        ctx["enemy_hp"][0] -= dmg
+        if ctx["enemy_hp"][0] <= 0:
+            ctx["enemy_hp"].pop(0)
+    if card.effect:
+        card.effect(hero, ctx)
+
+
+def monster_attack(hero: Hero, ctx: Dict) -> None:
+    band = ctx["enemy_type"].bands
+    raw = band[(d8()-1)//2] * len(ctx["enemy_hp"])
+    soak = min(hero.armor_pool, raw)
+    hero.armor_pool -= soak
+    hero.hp -= max(0, raw - soak)
+ main
 
 
 def fight_one(hero: Hero) -> bool:
     hero.reset()
     hero.deck.draw(4)
-    for g,hp,df,band,vuln in zip(GROUP,HP0,DEF0,BANDS,VULN):
-        enemies = [Enemy(hp, df, vuln) for _ in range(g)]
-        hero.combat_effects.clear()
+    for enemy, count in BASIC_WAVES:
+        ctx = make_wave(enemy, count)
+ main
         for exch in range(3):
             hero.exchange_effects.clear()
             hero.armor_pool = 0
             if exch:
-                hero.deck.draw(2)
+                hero.deck.draw(1)
+            apply_persistent(hero, ctx)
+ main
             while True:
                 c = hero.deck.pop_first(CardType.UTIL)
                 if not c:
                     break
                 hero.armor_pool += c.armor
                 if c.effect:
-                    c.effect(hero, {"enemies": enemies})
-                hero.deck.discard.append(c)
-            while enemies:
+                    c.effect(hero, ctx)
+                hero.deck.disc.append(c)
+            while ctx["enemy_hp"]:
                 c = hero.deck.pop_first(CardType.RANGED)
                 if not c:
                     break
-                dmg = roll_attack(hero, c, enemies[0])
-                if c.effect:
-                    c.effect(hero, {"enemies": enemies})
-                enemies[0].hp -= dmg
-                if enemies[0].hp <= 0:
-                    enemies.pop(0)
-                hero.deck.discard.append(c)
-            if not enemies:
+                resolve_attack(hero, c, ctx)
+                hero.deck.disc.append(c)
+            if not ctx["enemy_hp"]:
                 break
-            raw = band[(d8()-1)//2] * len(enemies)
-            raw = max(0, raw - hero.plate)
-            soak = min(raw, hero.armor_pool)
-            hero.armor_pool -= soak
-            hero.cur_hp -= max(0, raw - soak)
-            if hero.cur_hp <= 0:
+            monster_attack(hero, ctx)
+            if hero.hp <= 0:
                 return False
-            while enemies:
+            while ctx["enemy_hp"]:
                 c = hero.deck.pop_first(CardType.MELEE)
                 if not c:
                     break
-                hero.armor_pool += c.armor
-                dmg = roll_attack(hero, c, enemies[0])
-                if c.effect:
-                    c.effect(hero, {"enemies": enemies})
-                enemies[0].hp -= dmg
-                if enemies[0].hp <= 0:
-                    enemies.pop(0)
-                hero.deck.discard.append(c)
-            if not enemies:
+                resolve_attack(hero, c, ctx)
+                hero.deck.disc.append(c)
+            if not ctx["enemy_hp"]:
                 break
-        if enemies:
+        if ctx["enemy_hp"] or hero.hp <= 0:
             return False
-        if hero.upgrade_pool:
-            hero.deck.draw_pile.extend(RNG.sample(hero.upgrade_pool,1))
-        hero.fate = min(10, hero.fate + 1)
+        # gain upgrades placeholder
     return True
 
 if __name__ == "__main__":
-    wins = 0
-    N = 100
-    for _ in range(N):
-        if fight_one(random.choice(HEROES)):
-            wins += 1
-    print("Win rate:", wins / N)
+    N = 20
+    wins = sum(fight_one(random.choice(HEROES)) for _ in range(N))
+    print("Win rate", wins/N)
+ main

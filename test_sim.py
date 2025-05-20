@@ -56,7 +56,7 @@ class TestCorruptedDryadAbilities(unittest.TestCase):
         sim.RNG.seed(5)
         hero = sim.Hero("Hero", 10, [])
         card = sim.atk("Strike", sim.CardType.MELEE, 1)
-        enemy = sim.Enemy(4, 5, sim.Element.SPIRITUAL, "aerial-combat")
+        enemy = sim.Enemy("Gryphon", 4, 5, sim.Element.SPIRITUAL, [0, 0, 0, 0], "aerial-combat")
         ctx = {"enemies": [enemy]}
         sim.resolve_attack(hero, card, ctx)
         self.assertEqual(enemy.hp, 4)
@@ -65,7 +65,7 @@ class TestCorruptedDryadAbilities(unittest.TestCase):
         sim.RNG.seed(5)
         hero = sim.Hero("Hero", 10, [])
         card = sim.atk("Strike", sim.CardType.MELEE, 1)
-        enemy = sim.Enemy(5, 5, sim.Element.SPIRITUAL, "ephemeral-wings")
+        enemy = sim.Enemy("Elite Gryphon", 5, 5, sim.Element.SPIRITUAL, [0, 0, 0, 0], "ephemeral-wings")
         ctx = {"enemies": [enemy]}
         sim.resolve_attack(hero, card, ctx)
         self.assertEqual(enemy.hp, 4)

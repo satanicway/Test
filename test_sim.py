@@ -410,6 +410,43 @@ class TestHymnMechanics(unittest.TestCase):
         sim.resolve_attack(hero, ender, ctx)
         self.assertFalse(hero.active_hymns)
 
+    def test_damage_scales_with_hymns(self):
+        hero = sim.Hero("Hero", 10, [])
+        hymn1 = sim.atk("Choir", sim.CardType.UTIL, 0, hymn=True,
+                        persistent="combat")
+        hymn2 = sim.atk("Ballad", sim.CardType.UTIL, 0, hymn=True,
+                        persistent="combat")
+        attack = sim.atk("Strike", sim.CardType.MELEE, 0, dmg_per_hymn=1)
+        enemy = sim.Enemy("Dummy", 2, 1, sim.Element.NONE, [0, 0, 0, 0])
+        ctx = {"enemies": [enemy]}
+        sim.resolve_attack(hero, hymn1, ctx)
+        sim.resolve_attack(hero, hymn2, ctx)
+        sim.resolve_attack(hero, attack, ctx)
+        self.assertEqual(enemy.hp, 0)
+
+    def test_exchange_hymn_expires(self):
+        hero = sim.Hero("Hero", 10, [])
+        exhymn = sim.atk("Song", sim.CardType.UTIL, 0, hymn=True,
+                         persistent="exchange")
+        combathymn = sim.atk("Prayer", sim.CardType.UTIL, 0, hymn=True,
+                             persistent="combat")
+        attack = sim.atk("Smite", sim.CardType.MELEE, 0, dmg_per_hymn=1)
+        enemy = sim.Enemy("Dummy", 3, 1, sim.Element.NONE, [0, 0, 0, 0])
+        ctx = {"enemies": [enemy]}
+        sim.resolve_attack(hero, exhymn, ctx)
+        sim.resolve_attack(hero, combathymn, ctx)
+        sim.resolve_attack(hero, attack, ctx)
+        self.assertEqual(enemy.hp, 1)  # two hymns => dmg 2
+        # start next exchange
+        hero.exchange_effects.clear()
+        hero.active_hymns = [h for h in hero.active_hymns if h.persistent == "combat"]
+        ctx["hymn_damage"] = 0
+        sim.apply_persistent(hero, ctx)
+        enemy2 = sim.Enemy("Dummy", 3, 1, sim.Element.NONE, [0, 0, 0, 0])
+        ctx["enemies"] = [enemy2]
+        sim.resolve_attack(hero, attack, ctx)
+        self.assertEqual(enemy2.hp, 2)  # only combat hymn remains
+
 
 class TestMusashiCards(unittest.TestCase):
     def test_vulnerability_bonus(self):

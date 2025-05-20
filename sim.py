@@ -319,6 +319,30 @@ def hymn_damage(n: int) -> Callable[[Hero, Dict[str, object]], None]:
         ctx["hymn_damage"] = ctx.get("hymn_damage", 0) + n * len(h.active_hymns)
     return _fx
 
+def hp_for_damage(cost: int, bonus: int) -> Callable[[Hero, Dict[str, object]], None]:
+    """Spend ``cost`` HP to gain ``bonus`` damage on the next attack."""
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        if h.hp > cost:
+            h.hp -= cost
+            ctx["bonus_damage"] = ctx.get("bonus_damage", 0) + bonus
+    return _fx
+
+def defense_down(n: int) -> Callable[[Hero, Dict[str, object]], None]:
+    """Reduce enemy defense for the rest of the exchange."""
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        ctx['enemy_defense_mod'] = ctx.get('enemy_defense_mod', 0) - n
+    return _fx
+
+def multi_bonus(n: int) -> Callable[[Hero, Dict[str, object]], None]:
+    """Grant ``n`` bonus damage when attacking multiple targets."""
+    def hook(hero: Hero, card: Card, ctx2: Dict[str, object], dmg: int) -> int:
+        if card.multi:
+            return dmg + n
+        return dmg
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        ctx.setdefault('attack_hooks', []).append(hook)
+    return _fx
+
 # ---------------------------------------------------------------------------
 # Enemy ability helpers
 # ---------------------------------------------------------------------------
@@ -400,25 +424,37 @@ def weighted_pool(common: List[Card], uncommon: List[Card], rare: List[Card]) ->
 # sample hero decks -----------------------------------------------------------
 herc_base = [
     atk("Pillar", CardType.MELEE, 2, Element.BRUTAL),
+    atk("Pillar", CardType.MELEE, 2, Element.BRUTAL),
+    atk("Heroism", CardType.MELEE, 1, Element.DIVINE, armor=1, effect=gain_armor(1)),
     atk("Heroism", CardType.MELEE, 1, Element.DIVINE, armor=1, effect=gain_armor(1)),
     atk("Javelin", CardType.RANGED, 2, Element.DIVINE),
+    atk("Javelin", CardType.RANGED, 2, Element.DIVINE),
+    atk("Strangle", CardType.MELEE, 1, Element.BRUTAL, effect=discard_random(1)),
     atk("Strangle", CardType.MELEE, 1, Element.BRUTAL, effect=discard_random(1)),
     atk("Spin", CardType.MELEE, 1, multi=True),
+    atk("Spin", CardType.MELEE, 1, multi=True),
+    atk("Atlas", CardType.UTIL, 0, armor=2, effect=gain_armor(2)),
     atk("Atlas", CardType.UTIL, 0, armor=2, effect=gain_armor(2)),
 ]
 herc_common_upg = [
     atk("Slam", CardType.MELEE, 2),
     atk("Training", CardType.UTIL, 0, effect=draw_cards(1)),
     atk("Shout", CardType.UTIL, 0, effect=area_damage(1)),
+    atk("Brace", CardType.UTIL, 0, armor=2),
+    atk("Throw", CardType.RANGED, 2, multi=True),
+    atk("Grapple", CardType.MELEE, 1, effect=hp_for_damage(1, 1)),
 ]
 herc_uncommon_upg = [
-    atk("Dragon Spear", CardType.MELEE, 3, Element.DIVINE, effect=modify_enemy_defense(-1)),
+    atk("Dragon Spear", CardType.MELEE, 3, Element.DIVINE, effect=defense_down(1)),
     atk("Bone Whirl", CardType.MELEE, 2, multi=True, effect=area_damage(1)),
+    atk("Rage", CardType.UTIL, 0, effect=hp_for_damage(2, 2)),
+    atk("Mighty Cleave", CardType.MELEE, 2, multi=True, effect=multi_bonus(1)),
 ]
 herc_rare_upg = [
-    atk("Labour", CardType.MELEE, 4, Element.BRUTAL, effect=gain_fate_fx(1)),
+    atk("Labour", CardType.MELEE, 4, Element.BRUTAL, effect=hp_for_damage(2, 2)),
     atk("Enduring Wave", CardType.UTIL, 0, armor=3, effect=gain_armor(3), persistent="combat"),
     atk("War Cry", CardType.UTIL, 0, effect=discard_for_fate(1, 1)),
+    atk("Crushing Impact", CardType.UTIL, 0, effect=multi_bonus(2), persistent="exchange"),
 ]
 herc_pool = weighted_pool(herc_common_upg, herc_uncommon_upg, herc_rare_upg)
 hercules = Hero("Hercules", 25, herc_base, herc_pool)
@@ -604,6 +640,7 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
             dmg = dark_phalanx(enemies, dmg)
         area = ctx.pop("area_damage", 0)
         dmg += area
+        dmg += ctx.pop("bonus_damage", 0)
         dmg += ctx.get("hymn_damage", 0)
         soak = min(e.armor_pool, dmg)
         e.armor_pool -= soak

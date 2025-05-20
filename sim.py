@@ -94,6 +94,7 @@ class Hero:
     max_hp: int
     base_cards: List[Card]
     upg_pool: List[Card] = field(default_factory=list)
+    _orig_pool: List[Card] = field(init=False, repr=False)
 
     # dynamic state
     fate: int = 0
@@ -104,9 +105,14 @@ class Hero:
     active_hymns: List[Card] = field(default_factory=list)
 
     def __post_init__(self) -> None:
+        # store a copy of the original upgrade pool so ``reset`` can
+        # restore it for subsequent runs
+        self._orig_pool = self.upg_pool[:]
         self.reset()
 
     def reset(self) -> None:
+        # restore upgrade pool to the original state
+        self.upg_pool = self._orig_pool[:]
         self.hp = self.max_hp
         self.fate = 0
         self.armor_pool = 0

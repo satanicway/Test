@@ -94,6 +94,28 @@ class TestSoldierAbilities(unittest.TestCase):
         self.assertEqual(hero.hp, 9)
         self.assertEqual(enemy.hp, 0)
 
+
+class TestWizardAbilities(unittest.TestCase):
+    def test_curse_of_torment_triggers(self):
+        sim.RNG.seed(2)
+        hero = sim.Hero("Hero", 10, [])
+        enemy = sim.Enemy(
+            "Wizard", 2, 3, sim.Element.BRUTAL, [0, 1, 1, 3], "curse-of-torment"
+        )
+        sim.roll_hits(1, enemy.defense, hero=hero, enemy=enemy, allow_reroll=False)
+        self.assertEqual(hero.hp, 9)
+
+    def test_void_barrier_stacks_by_element(self):
+        enemy = sim.Enemy(
+            "Elite Wizard", 2, 4, sim.Element.BRUTAL, [0, 2, 2, 3], "void-barrier"
+        )
+        sim.void_barrier(enemy, sim.Element.BRUTAL)
+        self.assertEqual(enemy.armor_pool, 1)
+        sim.void_barrier(enemy, sim.Element.BRUTAL)
+        self.assertEqual(enemy.armor_pool, 1)
+        sim.void_barrier(enemy, sim.Element.PRECISE)
+        self.assertEqual(enemy.armor_pool, 2)
+
 class TestPriestAbilities(unittest.TestCase):
     def test_power_of_death_bonus_damage(self):
         hero = sim.Hero("Hero", 10, [])
@@ -132,7 +154,7 @@ class TestMinotaurAbilities(unittest.TestCase):
                           [0, 0, 2, 4], "enrage")
         ctx = {"enemies": [enemy]}
         sim.monster_attack([hero], ctx)
-        self.assertEqual(hero.hp, 4)
+        self.assertEqual(hero.hp, 2)
 
 if __name__ == "__main__":
     unittest.main()

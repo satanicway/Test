@@ -295,13 +295,25 @@ def make_wave(et: EnemyType, count: int, wave_idx: int) -> Dict[str, object]:
         ],
     }
 
+
+def cursed_thorns(hero: Hero) -> None:
+    """Convert remaining armor into HP loss."""
+    if hero.armor_pool > 0:
+        hero.hp -= hero.armor_pool
+        hero.armor_pool = 0
+
+
+def disturbed_flow(ctx: Dict[str, object]) -> None:
+    """Disable fate-based rerolls for the current combat."""
+    ctx["no_reroll"] = True
+
 # basic and elite monster roster
 ENEMY_WAVES = [
     (EnemyType("Spinner", 1, 4, [1, 0, 1, 0], Element.SPIRITUAL, "web-slinger"), 3),
     (EnemyType("Soldier", 2, 5, [1, 1, 1, 2], Element.PRECISE, "dark-phalanx"), 3),
     (EnemyType("Banshee", 4, 5, [0, 0, 1, 3], Element.DIVINE, "banshee-wail"), 2),
     (EnemyType("Priest", 2, 3, [0, 0, 1, 1], Element.ARCANE, "power-of-death"), 3),
-    (EnemyType("Dryad", 2, 4, [0, 0, 1, 1], Element.BRUTAL, "cursed-thorns"), 3),
+    (EnemyType("Corrupted Dryad", 2, 4, [0, 0, 1, 1], Element.BRUTAL, "cursed-thorns"), 3),
     (EnemyType("Minotaur", 4, 3, [0, 0, 1, 3], Element.PRECISE, "cleaving"), 2),
     (EnemyType("Wizard", 2, 3, [0, 1, 1, 3], Element.BRUTAL, "curse-of-torment"), 2),
     (EnemyType("Shadow Banshee", 3, 5, [0, 0, 1, 2], Element.DIVINE, "ghostly"), 2),
@@ -311,7 +323,7 @@ ENEMY_WAVES = [
     (EnemyType("Elite Spinner", 2, 5, [0, 0, 1, 4], Element.SPIRITUAL, "sticky-web"), 3),
     (EnemyType("Elite Soldier", 3, 6, [0, 0, 1, 3], Element.PRECISE, "spiked-armor"), 3),
     (EnemyType("Elite Priest", 3, 4, [0, 0, 1, 2], Element.ARCANE, "silence"), 3),
-    (EnemyType("Elite Dryad", 2, 5, [0, 1, 1, 2], Element.BRUTAL, "disturbed-flow"), 3),
+    (EnemyType("Elite Corrupted Dryad", 2, 5, [0, 1, 1, 2], Element.BRUTAL, "disturbed-flow"), 3),
     (EnemyType("Elite Minotaur", 5, 3, [0, 0, 2, 4], Element.PRECISE, "enrage"), 2),
     (EnemyType("Elite Wizard", 2, 4, [0, 2, 2, 3], Element.BRUTAL, "void-barrier"), 2),
     (EnemyType("Elite Banshee", 4, 5, [0, 0, 1, 3], Element.DIVINE, "banshee-wail"), 2),
@@ -332,10 +344,17 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
         return
 
     targets = enemies[:] if card.multi else [enemies[0]]
+    allow_reroll = not ctx.get("no_reroll", False)
     for e in targets[:]:
         vuln = ctx.pop("temp_vuln", e.vulnerability)
-        dmg = roll_hits(card.dice, e.defense, hero=hero, element=card.element,
-                        vulnerability=vuln)
+        dmg = roll_hits(
+            card.dice,
+            e.defense,
+            hero=hero,
+            element=card.element,
+            vulnerability=vuln,
+            allow_reroll=allow_reroll,
+        )
         if (
             card.multi
             and e.ability == "dark-phalanx"
@@ -377,6 +396,8 @@ def fight_one(hero: Hero) -> bool:
 
     for wave_idx, (et, count) in enumerate(ENEMY_WAVES):
         ctx = make_wave(et, count, wave_idx)
+        if et.ability == "disturbed-flow":
+            disturbed_flow(ctx)
         for exch in range(3):
             ctx["exchange"] = exch
             apply_persistent(hero, ctx)
@@ -419,6 +440,8 @@ def fight_one(hero: Hero) -> bool:
                     break
 
             # end-of-exchange abilities
+            if any(e.ability == "cursed-thorns" for e in ctx["enemies"]):
+                cursed_thorns(hero)
             if any(e.ability == "ghostly" for e in ctx["enemies"]) and exch >= 2:
                 ctx["enemies"].clear()
 

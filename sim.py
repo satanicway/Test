@@ -51,12 +51,15 @@ class Deck:
     cards: List[Card]
     hand: List[Card] = field(default_factory=list)
     disc: List[Card] = field(default_factory=list)
+    MAX_HAND: int = 7
 
     def shuffle(self) -> None:
         RNG.shuffle(self.cards)
 
     def draw(self, n: int) -> None:
         for _ in range(n):
+            if len(self.hand) >= self.MAX_HAND:
+                break
             if not self.cards:
                 RNG.shuffle(self.disc)
                 self.cards, self.disc = self.disc, []
@@ -301,7 +304,7 @@ def monster_attack(hero: Hero, ctx: Dict) -> None:
 
 def fight_one(hero: Hero) -> bool:
     hero.reset()
-    hero.deck.draw(4)
+    hero.deck.draw(RNG.choice([3, 4]))
     for enemy, count in BASIC_WAVES:
         ctx = make_wave(enemy, count)
         for exch in range(3):

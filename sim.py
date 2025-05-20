@@ -402,27 +402,27 @@ def disturbed_flow(ctx: Dict[str, object]) -> None:
 
 # basic and elite monster roster
 ENEMY_WAVES = [
-    ("Spinner", 3),
-    ("Soldier", 3),
-    ("Banshee", 2),
-    ("Priest", 3),
-    ("Dryad", 3),
-    ("Minotaur", 2),
-    ("Wizard", 2),
-    ("Shadow Banshee", 2),
-    ("Gryphon", 1),
-    ("Treant", 1),
-    ("Angel", 1),
-    ("Elite Spinner", 3),
-    ("Elite Soldier", 3),
-    ("Elite Priest", 3),
-    ("Elite Dryad", 3),
-    ("Elite Minotaur", 2),
-    ("Elite Wizard", 2),
-    ("Elite Banshee", 2),
-    ("Elite Gryphon", 1),
-    ("Elite Treant", 1),
-    ("Elite Angel", 1),
+    (EnemyType("Spinner", 1, 4, [1, 0, 1, 0], Element.SPIRITUAL, "web-slinger"), 3),
+    (EnemyType("Soldier", 2, 5, [1, 1, 1, 2], Element.PRECISE, "dark-phalanx"), 3),
+    (EnemyType("Banshee", 4, 5, [0, 0, 1, 3], Element.DIVINE, "banshee-wail"), 2),
+    (EnemyType("Priest", 2, 3, [0, 0, 1, 1], Element.ARCANE, "power-of-death"), 3),
+    (EnemyType("Dryad", 2, 4, [0, 0, 1, 1], Element.BRUTAL, "cursed-thorns"), 3),
+    (EnemyType("Minotaur", 4, 3, [0, 0, 1, 3], Element.PRECISE, "cleaving"), 2),
+    (EnemyType("Wizard", 2, 3, [0, 1, 1, 3], Element.BRUTAL, "curse-of-torment"), 2),
+    (EnemyType("Shadow Banshee", 3, 5, [0, 0, 1, 2], Element.DIVINE, "ghostly"), 2),
+    (EnemyType("Void Gryphon", 4, 5, [0, 1, 3, 4], Element.SPIRITUAL, "aerial-combat"), 1),
+    (EnemyType("Treant", 7, 6, [0, 1, 1, 4], Element.DIVINE, "power-sap"), 1),
+    (EnemyType("Angel", 5, 5, [0, 1, 2, 5], Element.ARCANE, "corrupted-destiny"), 1),
+    (EnemyType("Elite Spinner", 2, 5, [0, 0, 1, 4], Element.SPIRITUAL, "sticky-web"), 3),
+    (EnemyType("Elite Soldier", 3, 6, [0, 0, 1, 3], Element.PRECISE, "spiked-armor"), 3),
+    (EnemyType("Elite Priest", 3, 4, [0, 0, 1, 2], Element.ARCANE, "silence"), 3),
+    (EnemyType("Elite Dryad", 2, 5, [0, 1, 1, 2], Element.BRUTAL, "disturbed-flow"), 3),
+    (EnemyType("Elite Minotaur", 5, 3, [0, 0, 2, 4], Element.PRECISE, "enrage"), 2),
+    (EnemyType("Elite Wizard", 2, 4, [0, 2, 2, 3], Element.BRUTAL, "void-barrier"), 2),
+    (EnemyType("Elite Banshee", 4, 5, [0, 0, 1, 3], Element.DIVINE, "banshee-wail"), 2),
+    (EnemyType("Elite Void Gryphon", 5, 5, [0, 2, 4, 6], Element.SPIRITUAL, "ephemeral-wings"), 1),
+    (EnemyType("Elite Treant", 8, 7, [0, 1, 3, 5], Element.DIVINE, "roots-of-despair"), 1),
+    (EnemyType("Elite Angel", 7, 6, [0, 3, 3, 6], Element.ARCANE, "denied-heaven"), 1),
 ]
 
 
@@ -436,14 +436,23 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
     if not enemies:
         return
 
+    block_void = ctx.pop("ephemeral_block", False)
     targets = enemies[:] if card.multi else [enemies[0]]
     allow_reroll = not ctx.get("no_reroll", False)
     for e in targets[:]:
-        vuln = ctx.pop("temp_vuln", e.vuln)
-        dmg = roll_hits(card.dice, e.defense, hero=hero, element=card.element,
+        mod = -1 if (card.ctype == CardType.MELEE and e.ability == "aerial-combat") else 0
+        vuln = ctx.pop("temp_vuln", e.vulnerability)
+        dmg = roll_hits(card.dice, e.defense, mod, hero=hero, element=card.element,
                         vulnerability=vuln)
-        if e.ability == "dark-phalanx":
-            dmg = dark_phalanx(enemies, dmg, card.multi)
+        if block_void and e.ability == "ephemeral-wings":
+            dmg = 0
+            block_void = False
+        if (
+            card.multi
+            and e.ability == "dark-phalanx"
+            and sum(1 for m in enemies if m.ability == "dark-phalanx") >= 2
+        ):
+            dmg = max(1, dmg - 1)
         area = ctx.pop("area_damage", 0)
         dmg += area
         soak = min(e.armor_pool, dmg)
@@ -452,6 +461,7 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
         e.hp -= dmg
         if e.ability == "spiked-armor":
             spiked_armor(hero, dmg)
+
         if e.hp <= 0:
             enemies.remove(e)
             if e.ability == "power-of-death":

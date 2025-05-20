@@ -305,6 +305,18 @@ def banshee_wail(heroes: List[Hero], dice_count: int) -> None:
     if dmg:
         cleave_all(heroes, dmg)
 
+def power_sap(ctx: Dict[str, object], treant: Enemy) -> None:
+    """Remove one combat effect and heal the treant if successful."""
+    hero = ctx["heroes"][0]
+    if hero.combat_effects:
+        hero.combat_effects.pop(RNG.randrange(len(hero.combat_effects)))
+        treant.hp += 1
+
+def roots_of_despair(hero: Hero, miss: bool) -> None:
+    """Punish complete attack misses."""
+    if miss:
+        hero.hp -= 1
+
 # ---------------------------------------------------------------------------
 # Card helpers to create attack cards
 # ---------------------------------------------------------------------------
@@ -463,7 +475,7 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
         if e.ability == "banshee-wail":
             e.rolled_dice += card.dice
         vuln = ctx.pop("temp_vuln", e.vulnerability)
-        dmg = roll_hits(
+        hits = roll_hits(
             card.dice,
             e.defense,
             mod,
@@ -472,6 +484,9 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
             vulnerability=vuln,
             enemy=e,
         )
+        if e.ability == "roots-of-despair":
+            roots_of_despair(hero, card.dice > 0 and hits == 0)
+        dmg = hits
         if block_void and e.ability == "ephemeral-wings":
             dmg = 0
             block_void = False
@@ -601,12 +616,9 @@ def fight_one(hero: Hero) -> bool:
             for e in ctx["enemies"][:]:
                 if e.ability == "banshee-wail":
                     banshee_wail(ctx["heroes"], e.rolled_dice)
-            if any(e.ability == "power-sap" for e in ctx["enemies"]) and hero.combat_effects:
-                hero.combat_effects.pop(RNG.randrange(len(hero.combat_effects)))
-                for e in ctx["enemies"]:
-                    if e.ability == "power-sap":
-                        e.hp += 1
-                        break
+            for e in ctx["enemies"]:
+                if e.ability == "power-sap":
+                    power_sap(ctx, e)
 
             if not ctx["enemies"]:
                 break

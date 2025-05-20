@@ -169,5 +169,29 @@ class TestBansheeAbilities(unittest.TestCase):
         sim.banshee_wail([hero], 7)
         self.assertEqual(hero.hp, 8)
 
+
+class TestTreantAbilities(unittest.TestCase):
+    def test_power_sap_removes_effect(self):
+        hero = sim.Hero("Hero", 10, [])
+        card = sim.atk("Song", sim.CardType.UTIL, 0, effect=sim.gain_fate_fx(1),
+                       persistent="combat")
+        hero.combat_effects.append((card.effect, card))
+        treant = sim.Enemy("Treant", 7, 6, sim.Element.DIVINE, [0, 1, 1, 4],
+                           "power-sap")
+        ctx = {"heroes": [hero], "enemies": [treant]}
+        sim.power_sap(ctx, treant)
+        self.assertFalse(hero.combat_effects)
+        self.assertEqual(treant.hp, 8)
+
+    def test_roots_of_despair_triggers_on_miss(self):
+        sim.RNG.seed(1)
+        hero = sim.Hero("Hero", 10, [])
+        card = sim.atk("Strike", sim.CardType.MELEE, 1)
+        treant = sim.Enemy("Elite Treant", 8, 7, sim.Element.DIVINE,
+                           [0, 1, 3, 5], "roots-of-despair")
+        ctx = {"enemies": [treant]}
+        sim.resolve_attack(hero, card, ctx)
+        self.assertEqual(hero.hp, 9)
+
 if __name__ == "__main__":
     unittest.main()

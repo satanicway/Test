@@ -34,5 +34,25 @@ class TestMechanics(unittest.TestCase):
         self.assertLessEqual(hero.hp, hero.max_hp)
         self.assertGreaterEqual(hero.hp, 0)
 
+    def test_roots_of_despair_triggers(self):
+        sim.RNG.seed(1)
+        hero = sim.Hero("Hero", 10, [])
+        card = sim.atk("Weak", sim.CardType.MELEE, 1)
+        hero.deck = sim.Deck([card])
+        ctx = {"enemies": [sim.Enemy(8, 7, sim.Element.DIVINE, "roots_of_despair")]} 
+        sim.resolve_attack(hero, card, ctx)
+        self.assertEqual(hero.hp, 9)
+
+    def test_power_sap_removes_effect(self):
+        sim.RNG.seed(2)
+        hero = sim.Hero("Hero", 10, [])
+        dummy_card = sim.atk("X", sim.CardType.UTIL, 0)
+        hero.combat_effects.append((lambda h, c: None, dummy_card))
+        enemy = sim.Enemy(7, 6, sim.Element.DIVINE, "power_sap")
+        ctx = {"hero": hero, "enemies": [enemy]}
+        sim.power_sap(ctx)
+        self.assertEqual(len(hero.combat_effects), 0)
+        self.assertEqual(enemy.hp, 8)
+
 if __name__ == "__main__":
     unittest.main()

@@ -239,6 +239,27 @@ def end_hymns_fx(hero: Hero, ctx: Dict[str, object]) -> None:
     hero.exchange_effects = [p for p in hero.exchange_effects if not p[1].hymn]
 
 # ---------------------------------------------------------------------------
+# Enemy ability helpers
+# ---------------------------------------------------------------------------
+
+def power_sap(ctx: Dict[str, object]) -> None:
+    """Remove one active combat effect and heal the caster if any were removed."""
+    hero: Hero = ctx["hero"]
+    enemies: List[Enemy] = ctx["enemies"]
+    if hero.combat_effects:
+        hero.combat_effects.pop(RNG.randrange(len(hero.combat_effects)))
+        for e in enemies:
+            if e.ability in ("power-sap", "power_sap"):
+                e.hp += 1
+                break
+
+
+def roots_of_despair(hero: Hero, miss: bool) -> None:
+    """Punish a fully missed attack with direct damage."""
+    if miss:
+        hero.hp -= 1
+
+# ---------------------------------------------------------------------------
 # Card helpers to create attack cards
 # ---------------------------------------------------------------------------
 def atk(name: str, ctype: CardType, dice: int, element: Element = Element.NONE,
@@ -307,6 +328,7 @@ ENEMY_WAVES = [
     (EnemyType("Shadow Banshee", 3, 5, [0, 0, 1, 2], Element.DIVINE, "ghostly"), 2),
     (EnemyType("Gryphon", 4, 5, [0, 1, 3, 4], Element.SPIRITUAL, "aerial-combat"), 1),
     (EnemyType("Treant", 7, 6, [0, 1, 1, 4], Element.DIVINE, "power-sap"), 1),
+    (EnemyType("Void Treant", 7, 6, [0, 1, 1, 4], Element.DIVINE, "power_sap"), 1),
     (EnemyType("Angel", 5, 5, [0, 1, 2, 5], Element.ARCANE, "corrupted-destiny"), 1),
     (EnemyType("Elite Spinner", 2, 5, [0, 0, 1, 4], Element.SPIRITUAL, "sticky-web"), 3),
     (EnemyType("Elite Soldier", 3, 6, [0, 0, 1, 3], Element.PRECISE, "spiked-armor"), 3),
@@ -317,6 +339,7 @@ ENEMY_WAVES = [
     (EnemyType("Elite Banshee", 4, 5, [0, 0, 1, 3], Element.DIVINE, "banshee-wail"), 2),
     (EnemyType("Elite Gryphon", 5, 5, [0, 2, 4, 6], Element.SPIRITUAL, "ephemeral-wings"), 1),
     (EnemyType("Elite Treant", 8, 7, [0, 1, 3, 5], Element.DIVINE, "roots-of-despair"), 1),
+    (EnemyType("Elite Void Treant", 8, 7, [0, 1, 3, 5], Element.DIVINE, "roots_of_despair"), 1),
     (EnemyType("Elite Angel", 7, 6, [0, 3, 3, 6], Element.ARCANE, "denied-heaven"), 1),
 ]
 
@@ -334,8 +357,12 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
     targets = enemies[:] if card.multi else [enemies[0]]
     for e in targets[:]:
         vuln = ctx.pop("temp_vuln", e.vulnerability)
-        dmg = roll_hits(card.dice, e.defense, hero=hero, element=card.element,
-                        vulnerability=vuln)
+        hits = roll_hits(card.dice, e.defense, hero=hero, element=card.element,
+                         vulnerability=vuln)
+        if hits == 0 and any(m.ability in ("roots-of-despair", "roots_of_despair")
+                            for m in enemies):
+            roots_of_despair(hero, True)
+        dmg = hits
         if (
             card.multi
             and e.ability == "dark-phalanx"
@@ -422,12 +449,8 @@ def fight_one(hero: Hero) -> bool:
             if any(e.ability == "ghostly" for e in ctx["enemies"]) and exch >= 2:
                 ctx["enemies"].clear()
 
-            if any(e.ability == "power-sap" for e in ctx["enemies"]) and hero.combat_effects:
-                hero.combat_effects.pop(RNG.randrange(len(hero.combat_effects)))
-                for e in ctx["enemies"]:
-                    if e.ability == "power-sap":
-                        e.hp += 1
-                        break
+            if any(e.ability in ("power-sap", "power_sap") for e in ctx["enemies"]):
+                power_sap({"hero": hero, "enemies": ctx["enemies"]})
 
             if not ctx["enemies"]:
                 break

@@ -83,10 +83,14 @@ def roll_hits(
     hero: Optional["Hero"] = None,
     element: "Element" = None,
     vulnerability: "Element" = None,
+    enemy: Optional["Enemy"] = None,
+    card: Optional[Card] = None,
+    ctx: Optional[Dict] = None,
     enemy_ability: Optional[str] = None,
     melee: bool = False,
     allow_reroll: bool = True,
 main
+
 ) -> int:
     """Roll ``num_dice`` d8 and count hits against ``defense``.
 
@@ -95,6 +99,23 @@ main
     Heroes only spend Fate while above 3 points (or 5 for Brynhild).
     """
     dmg = 0
+    low = False
+    for _ in range(num_dice):
+        r = d8()
+        # Denied Heaven forces rerolling 8s
+        if enemy and enemy.traits.get("ability") == "denied-heaven":
+            while r == 8:
+                r = d8()
+        r = max(1, min(8, r + mod))
+        # Aerial Combat penalises melee hits
+        if (
+            enemy
+            and enemy.traits.get("ability") == "aerial-combat"
+            and card is not None
+            and card.ctype == CardType.MELEE
+        ):
+            r = max(1, r - 1)
+        # hero fate rerolls unless forbidden
     penalty = -1 if melee and enemy_ability == "aerial-combat" else 0
     for _ in range(num_dice):
         r = d8()
@@ -107,11 +128,26 @@ main
             allow_reroll
             and hero is not None
             and r < defense
+            and not (ctx and ctx.get("no_reroll"))
             and can_reroll
+main
             and hero.fate > (5 if hero.name == "Brynhild" else 3)
             and hero.spend_fate(1)
         ):
             r = d8()
+            if enemy and enemy.traits.get("ability") == "denied-heaven":
+                while r == 8:
+                    r = d8()
+            r = max(1, min(8, r + mod))
+            if (
+                enemy
+                and enemy.traits.get("ability") == "aerial-combat"
+                and card is not None
+                and card.ctype == CardType.MELEE
+            ):
+                r = max(1, r - 1)
+        if r <= 2:
+            low = True
             if enemy_ability == "denied-heaven":
                 while r == 8:
                     r = d8()
@@ -124,6 +160,11 @@ main
             if element is not None and element == vulnerability:
                 hit *= 2
             dmg += hit
+    if ctx is not None:
+        if enemy and enemy.traits.get("ability") == "curse-of-torment" and low:
+            ctx["torment"] = ctx.get("torment", 0) + 1
+        if enemy and enemy.traits.get("ability") == "roots-of-despair" and dmg == 0:
+            ctx["roots"] = ctx.get("roots", 0) + 1
     return dmg
 
 @dataclass
@@ -297,6 +338,79 @@ BASIC_WAVES = [
         EnemyType("Banshee", 4, 5, [0,0,1,3], Element.DIVINE, ability="banshee-wail"),
         2,
     ),
+    (
+        EnemyType("Priest", 2, 3, [0,0,1,1], Element.ARCANE, ability="power-of-death"),
+        3,
+    ),
+    (
+        EnemyType("Dryad", 2, 4, [0,0,1,1], Element.BRUTAL, ability="cursed-thorns"),
+        3,
+    ),
+    (
+        EnemyType("Minotaur", 4, 3, [0,0,1,3], Element.PRECISE, ability="cleaving"),
+        2,
+    ),
+    (
+        EnemyType("Wizard", 2, 3, [0,1,1,3], Element.BRUTAL, ability="curse-of-torment"),
+        2,
+    ),
+    (
+        EnemyType("Shadow Banshee", 3, 5, [0,0,1,2], Element.DIVINE, ability="ghostly"),
+        2,
+    ),
+    (
+        EnemyType("Gryphon", 4, 5, [0,1,3,4], Element.SPIRITUAL, ability="aerial-combat"),
+        1,
+    ),
+    (
+        EnemyType("Treant", 7, 6, [0,1,1,4], Element.DIVINE, ability="power-sap"),
+        1,
+    ),
+    (
+        EnemyType("Angel", 5, 5, [0,1,2,5], Element.ARCANE, ability="corrupted-destiny"),
+        1,
+    ),
+    (
+        EnemyType("Elite Spinner", 2, 5, [0,0,1,4], Element.SPIRITUAL, ability="sticky-web"),
+        3,
+    ),
+    (
+        EnemyType("Elite Soldier", 3, 6, [0,0,1,3], Element.PRECISE, ability="spiked-armor"),
+        3,
+    ),
+    (
+        EnemyType("Elite Priest", 3, 4, [0,0,1,2], Element.ARCANE, ability="silence"),
+        3,
+    ),
+    (
+        EnemyType("Elite Dryad", 2, 5, [0,1,1,2], Element.BRUTAL, ability="disturbed-flow"),
+        3,
+    ),
+    (
+        EnemyType("Elite Minotaur", 5, 3, [0,0,2,4], Element.PRECISE, ability="enrage"),
+        2,
+    ),
+    (
+        EnemyType("Elite Wizard", 2, 4, [0,2,2,3], Element.BRUTAL, ability="void-barrier"),
+        2,
+    ),
+    (
+        EnemyType("Elite Banshee", 4, 5, [0,0,1,3], Element.DIVINE, ability="banshee-wail"),
+        2,
+    ),
+    (
+        EnemyType("Elite Gryphon", 5, 5, [0,2,4,6], Element.SPIRITUAL, ability="ephemeral-wings"),
+        1,
+    ),
+    (
+        EnemyType("Elite Treant", 8, 7, [0,1,3,5], Element.DIVINE, ability="roots-of-despair"),
+        1,
+    ),
+    (
+        EnemyType("Elite Angel", 7, 6, [0,3,3,6], Element.ARCANE, ability="denied-heaven"),
+        1,
+    ),
+  main
 ]
 
 def apply_persistent(hero: Hero, ctx: Dict) -> None:
@@ -311,6 +425,46 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict) -> None:
     dmg_bonus = ctx.get("dmg_bonus", 0)
     if not ctx["enemies"]:
         return
+
+    targets = ctx["enemies"][:] if card.multi else [ctx["enemies"][0]]
+    for e in targets[:]:
+        dmg = roll_hits(
+            card.dice,
+            e.defense,
+            hero=hero,
+            element=card.element,
+            vulnerability=e.vulnerability,
+            enemy=e,
+            card=card,
+            ctx=ctx,
+        ) + dmg_bonus
+        if card.multi and e.traits.get("ability") == "dark-phalanx" and sum(1 for m in ctx["enemies"] if m.traits.get("ability") == "dark-phalanx") >= 2:
+            dmg = max(1, dmg - 1)
+        # apply void barrier armor
+        if e.traits.get("ability") == "void-barrier":
+            elems = e.traits.setdefault("vb_elems", set())
+            if card.element != Element.NONE and card.element not in elems:
+                elems.add(card.element)
+                e.traits["vb_armor"] = e.traits.get("vb_armor", 0) + 1
+            soak = min(e.traits.get("vb_armor", 0), dmg)
+            e.traits["vb_armor"] = e.traits.get("vb_armor", 0) - soak
+            dmg -= soak
+        if ctx.get("gryphon_nullify") and e.traits.get("ability") == "ephemeral-wings":
+            ctx["gryphon_nullify"] = False
+            dmg = 0
+        if dmg > 0 and e.traits.get("ability") == "ephemeral-wings":
+            ctx["gryphon_nullify"] = True
+        if e.traits.get("ability") == "banshee-wail":
+            ctx["banshee_dice"] = ctx.get("banshee_dice", 0) + card.dice
+        e.hp -= dmg
+        if dmg >= 3 and e.traits.get("ability") == "spiked-armor":
+            hero.hp -= 1
+        if e.hp <= 0:
+            if e.traits.get("ability") == "power-of-death":
+                ctx["priests_dead"] = ctx.get("priests_dead", 0) + 1
+            ctx["enemies"].remove(e)
+    if card.effect:
+
     targets = ctx["enemies"] if card.multi else ctx["enemies"][:1]
     if not targets:
         return
@@ -459,6 +613,20 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict) -> None:
 
 def monster_attack(hero: Hero, ctx: Dict) -> None:
     band = ctx["enemy_type"].bands
+
+    total = 0
+    for e in ctx["enemies"]:
+        dmg = band[(d8()-1)//2]
+        if e.traits.get("ability") == "power-of-death":
+            dmg += ctx.get("priests_dead", 0)
+        total += dmg
+    mult = 2 if any(e.traits.get("ability") == "enrage" and e.traits.get("enraged") for e in ctx["enemies"]) else 1
+    for _ in range(mult):
+        raw = total
+        soak = min(hero.armor_pool, raw)
+        hero.armor_pool -= soak
+        hero.hp -= max(0, raw - soak)
+
     count = len(ctx["enemies"])
     extra = 0
     if ctx["enemy_type"].ability == "enrage":
@@ -479,6 +647,7 @@ def monster_attack(hero: Hero, ctx: Dict) -> None:
     if ability == "enrage" and ctx.get("extra_attack"):
         ctx["extra_attack"] = False
         monster_attack(hero, ctx)
+ main
 
 def fight_one(hero: Hero) -> bool:
     hero.reset()
@@ -486,11 +655,12 @@ def fight_one(hero: Hero) -> bool:
     for enemy, count in BASIC_WAVES:
         ctx = make_wave(enemy, count)
         ctx['banshee_dice'] = 0
-aciabh-codex/implement-game-logic-for-hero-cards-and-monsters
+        ctx['priests_dead'] = 0
         if enemy.ability == "disturbed-flow":
             ctx['no_reroll'] = True
         if enemy.ability == "denied-heaven":
             ctx['denied_heaven'] = True
+ main
         for exch in range(3):
             hero.exchange_effects.clear()
             hero.armor_pool = 0
@@ -498,6 +668,22 @@ aciabh-codex/implement-game-logic-for-hero-cards-and-monsters
             if ctx["enemy_type"].ability == "corrupted-destiny" and ctx["enemies"]:
                 hero.fate = max(0, hero.fate - 2)
             if exch:
+                draw = 1
+                if ctx['enemy_type'].ability == 'sticky-web':
+                    draw = max(0, draw - 1)
+                hero.deck.draw(draw)
+            if any(e.traits.get('ability') == 'corrupted-destiny' for e in ctx['enemies']):
+                hero.fate = max(0, hero.fate - 2)
+            if exch == 3 and any(e.traits.get('ability') == 'ghostly' for e in ctx['enemies']):
+                ctx['enemies'].clear()
+                break
+            for e in ctx['enemies']:
+                if e.traits.get('ability') == 'void-barrier':
+                    e.traits['vb_armor'] = 0
+                    e.traits['vb_elems'] = set()
+                if e.traits.get('ability') == 'enrage' and e.hp <= 3:
+                    e.traits['enraged'] = True
+            ctx['no_reroll'] = any(e.traits.get('ability') == 'disturbed-flow' for e in ctx['enemies'])
                 draw_amt = 1
                 if ctx["enemy_type"].ability == "sticky-web":
 
@@ -521,6 +707,7 @@ main
  main
                     draw_amt = max(0, draw_amt - 1)
                 hero.deck.draw(draw_amt)
+ main
             ctx.pop("dmg_bonus", None)
             if ctx["enemy_type"].ability == "void-barrier":
                 for e in ctx["enemies"]:
@@ -536,13 +723,13 @@ main
                     ctx["enemy_type"].ability == "silence" and c.persistent
                 ):
                     c.effect(hero, ctx)
- aciabh-codex/implement-game-logic-for-hero-cards-and-monsters
                 if c.persistent == "combat" and c.effect and ctx["enemy_type"].ability != "silence":
                     hero.combat_effects.append((c.effect, c))
                 elif c.persistent == "exchange" and c.effect and ctx["enemy_type"].ability != "silence":
                     hero.exchange_effects.append((c.effect, c))
 
                 if c.persistent and ctx["enemy_type"].ability != "silence" and c.effect:
+ main
                     if c.persistent == "combat":
                         hero.combat_effects.append((c.effect, c))
                     elif c.persistent == "exchange":
@@ -560,11 +747,11 @@ main
                     delayed_ranged.append(c)
                     continue
                 resolve_attack(hero, c, ctx)
- aciabh-codex/implement-game-logic-for-hero-cards-and-monsters
                 if c.persistent == "combat" and c.effect and ctx["enemy_type"].ability != "silence":
                     hero.combat_effects.append((c.effect, c))
                 elif c.persistent == "exchange" and c.effect and ctx["enemy_type"].ability != "silence":
                     hero.exchange_effects.append((c.effect, c))
+ main
                 if c.hymn:
                     hero.active_hymns.append(c)
 
@@ -582,10 +769,8 @@ main
                 resolve_attack(hero, c, ctx)
                 if c.hymn:
                     hero.active_hymns.append(c)
- aciabh-codex/implement-game-logic-for-hero-cards-and-monsters
 
 main
- main
                 hero.deck.disc.append(c)
             delayed_ranged.clear()
             while ctx["enemies"]:
@@ -593,17 +778,16 @@ main
                 if not c:
                     break
                 resolve_attack(hero, c, ctx)
- aciabh-codex/implement-game-logic-for-hero-cards-and-monsters
                 if c.persistent == "combat" and c.effect and ctx["enemy_type"].ability != "silence":
                     hero.combat_effects.append((c.effect, c))
                 elif c.persistent == "exchange" and c.effect and ctx["enemy_type"].ability != "silence":
                     hero.exchange_effects.append((c.effect, c))
+main
                 if c.hymn:
                     hero.active_hymns.append(c)
                 hero.deck.disc.append(c)
             if not ctx["enemies"]:
                 break
-
                 hero.deck.disc.append(c)
             if not ctx["enemies"]:
                 break
@@ -627,7 +811,21 @@ main
                 ctx["banshee_dice"] = 0
                 if hero.hp <= 0:
                     return False
-aciabh-codex/implement-game-logic-for-hero-cards-and-monsters
+            if ctx["enemy_type"].ability == "cursed-thorns" and hero.armor_pool > 0:
+                hero.hp -= hero.armor_pool
+                hero.armor_pool = 0
+                if hero.hp <= 0:
+                    return False
+            if ctx["enemy_type"].ability == "power-sap" and hero.combat_effects:
+                hero.combat_effects.pop(RNG.randrange(len(hero.combat_effects)))
+                for e in ctx["enemies"]:
+                    if e.traits.get("ability") == "power-sap":
+                        e.hp += 1
+                        break
+            for e in ctx["enemies"]:
+                if e.traits.get("ability") == "void-barrier":
+                    e.traits["vb_armor"] = 0
+                    e.traits["vb_elems"] = set()
             if ctx["enemy_type"].ability == "power-sap" and hero.combat_effects:
                 hero.combat_effects.pop(RNG.randrange(len(hero.combat_effects)))
                 if ctx["enemies"]:

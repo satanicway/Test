@@ -177,6 +177,8 @@ def roll_hits(num_dice: int, defense: int, mod: int = 0, *,
     dmg = 0
     for _ in range(num_dice):
         r = roll_die(defense, mod, hero=hero, allow_reroll=allow_reroll)
+        if enemy and enemy.ability == "denied-heaven":
+            r = denied_heaven(r, mod)
         if enemy and enemy.ability == "curse-of-torment" and hero:
             curse_of_torment(hero, r)
         if r >= defense:
@@ -316,6 +318,16 @@ def roots_of_despair(hero: Hero, miss: bool) -> None:
     """Punish complete attack misses."""
     if miss:
         hero.hp -= 1
+
+def corrupted_destiny(hero: Hero) -> None:
+    """Remove two fate from ``hero``."""
+    hero.fate = max(0, hero.fate - 2)
+
+def denied_heaven(roll: int, mod: int = 0) -> int:
+    """Force rerolls of 8 until another value appears."""
+    while roll == 8:
+        roll = max(1, min(8, d8() + mod))
+    return roll
 
 # ---------------------------------------------------------------------------
 # Card helpers to create attack cards
@@ -559,6 +571,8 @@ def fight_one(hero: Hero) -> bool:
             ctx["exchange"] = exch
             for e in ctx["enemies"]:
                 e.rolled_dice = 0
+                if e.ability == "corrupted-destiny":
+                    corrupted_destiny(hero)
             if any((e.ability == "silence" or e.ability is silence) for e in ctx["enemies"]):
                 if not ctx.get("silenced"):
                     ctx["silenced"] = True

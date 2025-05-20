@@ -193,5 +193,21 @@ class TestTreantAbilities(unittest.TestCase):
         sim.resolve_attack(hero, card, ctx)
         self.assertEqual(hero.hp, 9)
 
+
+class TestAngelAbilities(unittest.TestCase):
+    def test_corrupted_destiny(self):
+        hero = sim.Hero("Hero", 10, [])
+        hero.fate = 5
+        sim.corrupted_destiny(hero)
+        self.assertEqual(hero.fate, 3)
+
+    def test_denied_heaven_rerolls_eight(self):
+        sim.RNG.seed(9)
+        hero = sim.Hero("Hero", 10, [])
+        enemy = sim.Enemy("Elite Angel", 7, 6, sim.Element.ARCANE,
+                          [0, 0, 0, 0], "denied-heaven")
+        dmg = sim.roll_hits(1, 1, hero=hero, enemy=enemy, allow_reroll=False)
+        self.assertEqual(dmg, 1)
+
 if __name__ == "__main__":
     unittest.main()

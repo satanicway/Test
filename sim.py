@@ -5,7 +5,6 @@ This version rewrites the broken previous script with a compact
 implementation that still demonstrates the same mechanics."""
 
 from __future__ import annotations
-
 import random
 from dataclasses import dataclass, field
 from enum import Enum, auto
@@ -22,7 +21,7 @@ def d8() -> int:
 
 # ---------------------------------------------------------------------------
 # Enumerations
-# ---------------------------------------------------------------------------
+
 class CardType(Enum):
     MELEE = auto()
     RANGED = auto()
@@ -56,7 +55,7 @@ class Deck:
     cards: List[Card]
     hand: List[Card] = field(default_factory=list)
     disc: List[Card] = field(default_factory=list)
-
+main
     MAX_HAND: int = 7
 
     def start_combat(self) -> None:
@@ -572,7 +571,6 @@ def fight_one(hero: Hero) -> bool:
                     hero.exchange_effects.clear()
                     hero.active_hymns.clear()
             apply_persistent(hero, ctx)
-
             ctx["ranged_to_melee"] = False
             ctx["draw_penalty"] = 0
             for e in ctx["enemies"]:

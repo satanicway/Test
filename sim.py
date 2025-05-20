@@ -50,6 +50,7 @@ class Card:
     hymn: bool = False
     multi: bool = False
     max_targets: Optional[int] = None
+    dmg_per_hymn: int = 0
 
 @dataclass
 class Deck:
@@ -336,16 +337,29 @@ def end_hymns_fx(hero: Hero, ctx: Dict[str, object]) -> None:
     hero.combat_effects = [p for p in hero.combat_effects if not p[1].hymn]
     hero.exchange_effects = [p for p in hero.exchange_effects if not p[1].hymn]
 
+def hymn_count(hero: Hero) -> int:
+    """Return the number of active hymns on ``hero``."""
+    return len(hero.active_hymns)
+
+def armor_from_hymns(hero: Hero, n: int) -> int:
+    """Armor bonus equal to ``n`` times active hymns."""
+    return n * hymn_count(hero)
+
+def damage_from_hymns(hero: Hero, n: int) -> int:
+    """Damage bonus equal to ``n`` times active hymns."""
+    return n * hymn_count(hero)
+
 def hymn_armor(n: int) -> Callable[[Hero, Dict[str, object]], None]:
     """Gain ``n`` armor per active Hymn."""
     def _fx(h: Hero, ctx: Dict[str, object]) -> None:
-        h.armor_pool += n * len(h.active_hymns)
+        h.armor_pool += armor_from_hymns(h, n)
     return _fx
 
 def hymn_damage(n: int) -> Callable[[Hero, Dict[str, object]], None]:
     """Deal ``n`` extra damage per active Hymn for the exchange."""
     def _fx(h: Hero, ctx: Dict[str, object]) -> None:
-        ctx["hymn_damage"] = ctx.get("hymn_damage", 0) + n * len(h.active_hymns)
+        bonus = damage_from_hymns(h, n)
+        ctx["hymn_damage"] = ctx.get("hymn_damage", 0) + bonus
     return _fx
 
 def hp_for_damage(cost: int, bonus: int) -> Callable[[Hero, Dict[str, object]], None]:
@@ -818,6 +832,8 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
         area = ctx.pop("area_damage", 0)
         dmg += area
         dmg += ctx.pop("bonus_damage", 0)
+        if card.dmg_per_hymn:
+            dmg += damage_from_hymns(hero, card.dmg_per_hymn)
         dmg += ctx.get("hymn_damage", 0)
         soak = min(e.armor_pool, dmg)
         e.armor_pool -= soak

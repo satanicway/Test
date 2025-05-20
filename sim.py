@@ -198,9 +198,9 @@ def apply_persistent(hero: Hero, ctx: Dict[str, object]) -> None:
 # ---------------------------------------------------------------------------
 # Enemy ability helpers
 # ---------------------------------------------------------------------------
-def dark_phalanx(enemies: List[Enemy], dmg: int, multi: bool) -> int:
-    """Reduce multi-target damage while multiple Soldiers are alive."""
-    if multi and sum(1 for e in enemies if e.ability == "dark-phalanx") >= 2:
+def dark_phalanx(enemies: List[Enemy], dmg: int) -> int:
+    """Reduce damage from multi-target attacks while multiple Soldiers live."""
+    if sum(1 for e in enemies if e.ability == "dark-phalanx") >= 2:
         return max(1, dmg - 1)
     return dmg
 
@@ -345,7 +345,7 @@ ENEMIES: Dict[str, Enemy] = {
     "Shadow Spinner (elite)": Enemy("Shadow Spinner (elite)", 2, 5, Element.SPIRITUAL, [0, 0, 1, 3], sticky_web),
     # legacy entries used by the existing waves
     "Spinner": Enemy("Spinner", 1, 4, Element.SPIRITUAL, [1, 0, 1, 0], "web-slinger"),
-    "Soldier": Enemy("Soldier", 2, 5, Element.PRECISE, [1, 1, 1, 2], "dark-phalanx"),
+    "Soldier": Enemy("Soldier", 2, 5, Element.PRECISE, [0, 0, 0, 2], "dark-phalanx"),
     "Banshee": Enemy("Banshee", 4, 5, Element.DIVINE, [0, 0, 1, 3], "banshee-wail"),
     "Priest": Enemy("Priest", 2, 3, Element.ARCANE, [0, 0, 1, 1], "power-of-death"),
     "Dryad": Enemy("Dryad", 2, 4, Element.BRUTAL, [0, 0, 1, 1], "cursed-thorns"),
@@ -443,12 +443,8 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
         if block_void and e.ability == "ephemeral-wings":
             dmg = 0
             block_void = False
-        if (
-            card.multi
-            and e.ability == "dark-phalanx"
-            and sum(1 for m in enemies if m.ability == "dark-phalanx") >= 2
-        ):
-            dmg = max(1, dmg - 1)
+        if card.multi and e.ability == "dark-phalanx":
+            dmg = dark_phalanx(enemies, dmg)
         area = ctx.pop("area_damage", 0)
         dmg += area
         soak = min(e.armor_pool, dmg)
@@ -457,6 +453,8 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
         e.hp -= dmg
         if e.ability == "spiked-armor":
             spiked_armor(hero, dmg)
+        if e.ability == "ephemeral-wings" and not block_void:
+            ctx["ephemeral_block"] = True
 
         if e.hp <= 0:
             enemies.remove(e)

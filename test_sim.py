@@ -72,5 +72,27 @@ class TestCorruptedDryadAbilities(unittest.TestCase):
         sim.resolve_attack(hero, card, ctx)
         self.assertEqual(enemy.hp, 4)
 
+class TestSoldierAbilities(unittest.TestCase):
+    def test_dark_phalanx_multi_reduction(self):
+        sim.RNG.seed(1)
+        hero = sim.Hero("Hero", 10, [])
+        card = sim.atk("Cleave", sim.CardType.MELEE, 2, multi=True)
+        ctx = {"enemies": [
+            sim.Enemy("Soldier", 2, 5, sim.Element.PRECISE, [0, 0, 0, 2], "dark-phalanx") for _ in range(2)
+        ]}
+        sim.resolve_attack(hero, card, ctx)
+        self.assertEqual(len(ctx["enemies"]), 2)
+        self.assertTrue(all(e.hp == 1 for e in ctx["enemies"]))
+
+    def test_spiked_armor_triggers(self):
+        sim.RNG.seed(9)
+        hero = sim.Hero("Hero", 10, [])
+        card = sim.atk("Smash", sim.CardType.MELEE, 3)
+        enemy = sim.Enemy("Elite Soldier", 3, 6, sim.Element.PRECISE, [0, 0, 1, 3], "spiked-armor")
+        ctx = {"enemies": [enemy]}
+        sim.resolve_attack(hero, card, ctx)
+        self.assertEqual(hero.hp, 9)
+        self.assertEqual(enemy.hp, 0)
+
 if __name__ == "__main__":
     unittest.main()

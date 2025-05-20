@@ -50,6 +50,20 @@ class TestMechanics(unittest.TestCase):
         sim.resolve_attack(hero, attack, ctx)
         self.assertEqual(enemy.hp, 0)
 
+    def test_multi_target_limit(self):
+        """Cards may hit only a subset of enemies."""
+        sim.RNG.seed(0)
+        hero = sim.Hero("Hero", 10, [])
+        card = sim.atk("Sweep", sim.CardType.MELEE, 2, multi=True, max_targets=2)
+        enemies = [
+            sim.Enemy("Dummy", 1, 5, sim.Element.NONE, [0, 0, 0, 0])
+            for _ in range(3)
+        ]
+        ctx = {"enemies": enemies}
+        sim.resolve_attack(hero, card, ctx)
+        self.assertEqual(len(ctx["enemies"]), 1)
+        self.assertEqual(ctx["enemies"][0].hp, 1)
+
     def test_fight_one_runs(self):
         sim.RNG.seed(0)
         hero = sim.Hero("Hercules", 25, sim.herc_base, sim.herc_pool)
@@ -141,7 +155,22 @@ class TestSoldierAbilities(unittest.TestCase):
         enemy = sim.Enemy("Void Soldier", 2, 5, sim.Element.PRECISE, [0, 0, 0, 2], "void-soldier", attack_mod=sim.void_soldier_mod)
         ctx = {"enemies": [enemy], "attack_hooks": [enemy.attack_mod]}
         sim.resolve_attack(hero, card, ctx)
-        self.assertEqual(enemy.hp, 0)
+        self.assertEqual(enemy.hp, -1)
+
+    def test_void_soldier_dark_phalanx_two(self):
+        """Damage is reduced when two Void Soldiers remain."""
+        sim.RNG.seed(5)
+        hero = sim.Hero("Hero", 10, [])
+        card = sim.atk("Test", sim.CardType.MELEE, 2, multi=True)
+        enemies = [
+            sim.Enemy("Void Soldier", 2, 5, sim.Element.PRECISE,
+                      [0, 0, 0, 2], "void-soldier", attack_mod=sim.void_soldier_mod)
+            for _ in range(2)
+        ]
+        ctx = {"enemies": enemies, "attack_hooks": [enemies[0].attack_mod]}
+        sim.resolve_attack(hero, card, ctx)
+        self.assertEqual(len(ctx["enemies"]), 2)
+        self.assertTrue(all(e.hp == 1 for e in ctx["enemies"]))
 
 
 class TestWizardAbilities(unittest.TestCase):

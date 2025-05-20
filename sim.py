@@ -429,7 +429,7 @@ ENEMY_WAVES = [
     ("Minotaur", 2),
     ("Wizard", 2),
     ("Shadow Banshee", 2),
-    ("Void Gryphon", 1),
+    ("Gryphon", 1),
     ("Treant", 1),
     ("Angel", 1),
     ("Elite Spinner", 3),
@@ -439,7 +439,7 @@ ENEMY_WAVES = [
     ("Elite Minotaur", 2),
     ("Elite Wizard", 2),
     ("Elite Banshee", 2),
-    ("Elite Void Gryphon", 1),
+    ("Elite Gryphon", 1),
     ("Elite Treant", 1),
     ("Elite Angel", 1),
 ]

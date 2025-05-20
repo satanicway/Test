@@ -237,9 +237,12 @@ class TestMinotaurAbilities(unittest.TestCase):
 
 class TestBansheeAbilities(unittest.TestCase):
     def test_ghostly_clears_on_fourth_exchange(self):
-        enemy = sim.Enemy("Shadow Banshee", 3, 5, sim.Element.DIVINE, [0, 0, 0, 0], sim.ghostly)
+        enemy = sim.Enemy(
+            "Shadow Banshee", 3, 5, sim.Element.DIVINE, [0, 0, 0, 0],
+            ability=None, start_fx=sim.ghostly
+        )
         ctx = {"enemies": [enemy], "exchange": 3}
-        sim.ghostly(ctx)
+        enemy.start_fx(ctx)
         self.assertFalse(ctx["enemies"])
 
     def test_banshee_wail_damage(self):

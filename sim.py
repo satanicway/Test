@@ -45,12 +45,14 @@ class Card:
     persistent: Optional[str] = None  # "combat" or "exchange"
     hymn: bool = False
     multi: bool = False  # attack targets all enemies
+ main
 
 @dataclass
 class Deck:
     cards: List[Card]
     hand: List[Card] = field(default_factory=list)
     disc: List[Card] = field(default_factory=list)
+
     MAX_HAND: int = 7
 
     def shuffle(self) -> None:
@@ -60,6 +62,7 @@ class Deck:
         for _ in range(n):
             if len(self.hand) >= self.MAX_HAND:
                 break
+ main
             if not self.cards:
                 RNG.shuffle(self.disc)
                 self.cards, self.disc = self.disc, []
@@ -68,11 +71,11 @@ class Deck:
             self.hand.append(self.cards.pop())
 
     def pop_first(self, ctype: CardType) -> Optional[Card]:
+ main
         for i, c in enumerate(self.hand):
             if c.ctype == ctype:
                 return self.hand.pop(i)
         return None
-
 FATE_MAX = 10
 
 def roll_hits(

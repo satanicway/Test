@@ -1,4 +1,17 @@
 #!/usr/bin/env python3
+"""Simplified board game simulator demonstrating card effects and monster
+abilities. Not a full implementation of the board game rules but shows how
+heroes, fate, vulnerability, and a few special effects interact.
+"""
+
+from __future__ import annotations
+
+import random
+from dataclasses import dataclass, field
+from enum import Enum, auto
+from typing import List, Callable, Optional, Dict, Any
+
+ main
 RNG = random.Random()
 
 def d8() -> int:
@@ -6,6 +19,7 @@ def d8() -> int:
 
 # Enumerations
  main
+  
 class CardType(Enum):
     MELEE = auto()
     RANGED = auto()
@@ -21,6 +35,7 @@ class Element(Enum):
 
 # Data structures
 main
+
 @dataclass
 class Card:
     name: str
@@ -30,6 +45,7 @@ class Card:
     armor: int = 0
     effect: Optional[Callable[["Hero", Dict], None]] = None
     persistent: Optional[str] = None  # "combat" or "exchange"
+ main
 
 @dataclass
 class Deck:
@@ -55,6 +71,7 @@ main
             if c.ctype == ctype:
                 return self.hand.pop(i)
         return None
+
 def roll_hits(num_dice: int, defense: int, mod: int = 0) -> int:
     """Roll `num_dice` d8 and count hits against `defense`."""
     dmg = 0
@@ -65,12 +82,14 @@ def roll_hits(num_dice: int, defense: int, mod: int = 0) -> int:
     return dmg
 
 main
+
 @dataclass
 class Hero:
     name: str
     max_hp: int
     base_cards: List[Card]
     upg_cards: List[Card]
+ main
 
     def reset(self) -> None:
         self.hp = self.max_hp
@@ -212,7 +231,6 @@ def monster_attack(hero: Hero, ctx: Dict) -> None:
     hero.armor_pool -= soak
     hero.hp -= max(0, raw - soak)
  main
-
 
 def fight_one(hero: Hero) -> bool:
     hero.reset()

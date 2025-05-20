@@ -271,6 +271,21 @@ def area_damage(n: int) -> Callable[[Hero, Dict[str, object]], None]:
         ctx['area_damage'] = ctx.get('area_damage', 0) + n
     return _fx
 
+def discard_for_fate(discard_n: int, gain: int) -> Callable[[Hero, Dict[str, object]], None]:
+    """Discard ``discard_n`` random cards then gain ``gain`` Fate."""
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        for _ in range(min(discard_n, len(h.deck.hand))):
+            i = RNG.randrange(len(h.deck.hand))
+            h.deck.disc.append(h.deck.hand.pop(i))
+        h.gain_fate(gain)
+    return _fx
+
+def modify_enemy_defense(amount: int) -> Callable[[Hero, Dict[str, object]], None]:
+    """Adjust enemy defense for the rest of the exchange."""
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        ctx['enemy_defense_mod'] = ctx.get('enemy_defense_mod', 0) + amount
+    return _fx
+
 def cleave_all(hero_list: List[Hero], dmg: int) -> None:
     """Apply ``dmg`` to every hero in ``hero_list`` ignoring order."""
     for h in hero_list:
@@ -369,22 +384,47 @@ herc_base = [
     atk("Pillar", CardType.MELEE, 2, Element.BRUTAL),
     atk("Heroism", CardType.MELEE, 1, Element.DIVINE, armor=1, effect=gain_armor(1)),
     atk("Javelin", CardType.RANGED, 2, Element.DIVINE),
+    atk("Strangle", CardType.MELEE, 1, Element.BRUTAL, effect=discard_random(1)),
+    atk("Spin", CardType.MELEE, 1, multi=True),
+    atk("Atlas", CardType.UTIL, 0, armor=2, effect=gain_armor(2)),
 ]
-# placeholder upgrade cards
-herc_common_upg = [atk("Slam", CardType.MELEE, 2)]
-herc_uncommon_upg = [atk("Dragon Spear", CardType.MELEE, 3, Element.DIVINE)]
-herc_rare_upg = [atk("Labour", CardType.MELEE, 4, Element.BRUTAL, effect=gain_fate_fx(1))]
+herc_common_upg = [
+    atk("Slam", CardType.MELEE, 2),
+    atk("Training", CardType.UTIL, 0, effect=draw_cards(1)),
+    atk("Shout", CardType.UTIL, 0, effect=area_damage(1)),
+]
+herc_uncommon_upg = [
+    atk("Dragon Spear", CardType.MELEE, 3, Element.DIVINE, effect=modify_enemy_defense(-1)),
+    atk("Bone Whirl", CardType.MELEE, 2, multi=True, effect=area_damage(1)),
+]
+herc_rare_upg = [
+    atk("Labour", CardType.MELEE, 4, Element.BRUTAL, effect=gain_fate_fx(1)),
+    atk("Enduring Wave", CardType.UTIL, 0, armor=3, effect=gain_armor(3), persistent="combat"),
+    atk("War Cry", CardType.UTIL, 0, effect=discard_for_fate(1, 1)),
+]
 herc_pool = weighted_pool(herc_common_upg, herc_uncommon_upg, herc_rare_upg)
 hercules = Hero("Hercules", 25, herc_base, herc_pool)
 
 bryn_base = [
     atk("Descent", CardType.MELEE, 1, Element.SPIRITUAL),
-    atk("Shields", CardType.UTIL, 0, hymn=True, persistent="combat"),
+    atk("Shields", CardType.UTIL, 0, hymn=True, persistent="combat", effect=gain_armor(1)),
     atk("Storms", CardType.UTIL, 0, effect=end_hymns_fx),
+    atk("Gleaming Spear", CardType.RANGED, 2, Element.DIVINE),
+    atk("Rally", CardType.UTIL, 0, effect=draw_cards(1)),
 ]
-_b_c = [atk("Song", CardType.MELEE, 1, Element.SPIRITUAL, effect=gain_fate_fx(1))]
-_b_u = [atk("Choir", CardType.UTIL, 0, hymn=True, persistent="exchange", effect=draw_cards(1))]
-_b_r = [atk("Valhalla", CardType.MELEE, 3, Element.DIVINE, effect=temp_vuln(Element.DIVINE))]
+_b_c = [
+    atk("Song", CardType.MELEE, 1, Element.SPIRITUAL, effect=gain_fate_fx(1)),
+    atk("Guard", CardType.UTIL, 0, armor=1, persistent="exchange"),
+    atk("Strike", CardType.MELEE, 2),
+]
+_b_u = [
+    atk("Choir", CardType.UTIL, 0, hymn=True, persistent="exchange", effect=draw_cards(1)),
+    atk("Valkyrie Lance", CardType.RANGED, 3, Element.DIVINE),
+]
+_b_r = [
+    atk("Valhalla", CardType.MELEE, 3, Element.DIVINE, effect=temp_vuln(Element.DIVINE)),
+    atk("Heaven's Blessing", CardType.UTIL, 0, effect=gain_fate_fx(2), persistent="combat"),
+]
 b_pool = weighted_pool(_b_c, _b_u, _b_r)
 brynhild = Hero("Brynhild", 18, bryn_base, b_pool)
 
@@ -513,7 +553,7 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
         vuln = ctx.pop("temp_vuln", e.vulnerability)
         hits = roll_hits(
             card.dice,
-            e.defense,
+            e.defense + ctx.get("enemy_defense_mod", 0),
             mod,
             hero=hero,
             element=card.element,
@@ -615,6 +655,7 @@ def fight_one(hero: Hero) -> bool:
             apply_persistent(hero, ctx)
             ctx["ranged_to_melee"] = False
             ctx["draw_penalty"] = 0
+            ctx["enemy_defense_mod"] = 0
             ctx["attack_hooks"] = []
             ctx["end_hooks"] = []
             for e in ctx["enemies"]:

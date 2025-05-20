@@ -55,7 +55,6 @@ class Deck:
     cards: List[Card]
     hand: List[Card] = field(default_factory=list)
     disc: List[Card] = field(default_factory=list)
-main
     MAX_HAND: int = 7
 
     def start_combat(self) -> None:
@@ -143,6 +142,8 @@ class Enemy:
     armor_pool: int = 0
     barrier_elems: Set[Element] = field(default_factory=set)
     rolled_dice: int = 0  # dice rolled against this enemy in the current exchange
+    attack_mod: Optional[Callable[[Hero, Card, Dict[str, object], int], int]] = None
+    end_fx: Optional[Callable[[Hero, Dict[str, object], "Enemy"], None]] = None
 
 # ---------------------------------------------------------------------------
 # Helper functions
@@ -204,10 +205,26 @@ def spiked_armor(hero: Hero, dmg: int) -> None:
     if dmg >= 3:
         hero.hp -= 1
 
+def void_soldier_mod(hero: Hero, card: Card, ctx: Dict[str, object], dmg: int) -> int:
+    """Reduce multi-target damage by one while a Void Soldier lives."""
+    if card.multi:
+        return max(0, dmg - 1)
+    return dmg
+
+def end_cursed_thorns(hero: Hero, ctx: Dict[str, object], _: Enemy) -> None:
+    cursed_thorns(hero)
+
+def end_banshee_wail(hero: Hero, ctx: Dict[str, object], enemy: Enemy) -> None:
+    banshee_wail(ctx["heroes"], enemy.rolled_dice)
+
+def end_power_sap(hero: Hero, ctx: Dict[str, object], enemy: Enemy) -> None:
+    power_sap(ctx, enemy)
+
 # map ability names to helper functions
 ABILITY_FUNCS = {
     "dark-phalanx": dark_phalanx,
     "spiked-armor": spiked_armor,
+    "void-soldier": void_soldier_mod,
 }
 
 # simple card effects ---------------------------------------------------------
@@ -382,16 +399,17 @@ ENEMIES: Dict[str, Enemy] = {
     "Shadow Spinner (basic)": Enemy("Shadow Spinner (basic)", 1, 4, Element.SPIRITUAL, [0, 0, 1, 3], web_slinger),
     "Shadow Spinner (elite)": Enemy("Shadow Spinner (elite)", 2, 5, Element.SPIRITUAL, [0, 0, 1, 3], sticky_web),
     # legacy entries used by the existing waves
-    "Spinner": Enemy("Spinner", 1, 4, Element.SPIRITUAL, [1, 0, 1, 0], "web-slinger"),
+    "Spinner": Enemy("Spinner", 1, 4, Element.SPIRITUAL, [1, 0, 1, 0], web_slinger),
     "Soldier": Enemy("Soldier", 2, 5, Element.PRECISE, [0, 0, 0, 2], "dark-phalanx"),
-    "Banshee": Enemy("Banshee", 4, 5, Element.DIVINE, [0, 0, 1, 3], "banshee-wail"),
+    "Void Soldier": Enemy("Void Soldier", 2, 5, Element.PRECISE, [0, 0, 0, 2], "void-soldier", attack_mod=void_soldier_mod),
+    "Banshee": Enemy("Banshee", 4, 5, Element.DIVINE, [0, 0, 1, 3], "banshee-wail", end_fx=end_banshee_wail),
     "Priest": Enemy("Priest", 2, 3, Element.ARCANE, [0, 0, 1, 1], power_of_death),
-    "Dryad": Enemy("Dryad", 2, 4, Element.BRUTAL, [0, 0, 1, 1], "cursed-thorns"),
+    "Dryad": Enemy("Dryad", 2, 4, Element.BRUTAL, [0, 0, 1, 1], "cursed-thorns", end_fx=end_cursed_thorns),
     "Minotaur": Enemy("Minotaur", 4, 3, Element.PRECISE, [0, 0, 1, 3], "cleave_all"),
     "Wizard": Enemy("Wizard", 2, 3, Element.BRUTAL, [0, 1, 1, 3], "curse-of-torment"),
     "Shadow Banshee": Enemy("Shadow Banshee", 3, 5, Element.DIVINE, [0, 0, 1, 2], ghostly),
     "Gryphon": Enemy("Gryphon", 4, 5, Element.SPIRITUAL, [0, 1, 3, 4], "aerial-combat"),
-    "Treant": Enemy("Treant", 7, 6, Element.DIVINE, [0, 1, 1, 4], "power-sap"),
+    "Treant": Enemy("Treant", 7, 6, Element.DIVINE, [0, 1, 1, 4], "power-sap", end_fx=end_power_sap),
     "Angel": Enemy("Angel", 5, 5, Element.ARCANE, [0, 1, 2, 5], "corrupted-destiny"),
     "Elite Spinner": Enemy("Elite Spinner", 2, 5, Element.SPIRITUAL, [0, 0, 1, 4], "sticky-web"),
     "Elite Soldier": Enemy("Elite Soldier", 3, 6, Element.PRECISE, [0, 0, 1, 3], "spiked-armor"),
@@ -399,7 +417,7 @@ ENEMIES: Dict[str, Enemy] = {
     "Elite Dryad": Enemy("Elite Dryad", 2, 5, Element.BRUTAL, [0, 1, 1, 2], "disturbed-flow"),
     "Elite Minotaur": Enemy("Elite Minotaur", 5, 3, Element.PRECISE, [0, 0, 2, 4], "enrage"),
     "Elite Wizard": Enemy("Elite Wizard", 2, 4, Element.BRUTAL, [0, 2, 2, 3], "void-barrier"),
-    "Elite Banshee": Enemy("Elite Banshee", 4, 5, Element.DIVINE, [0, 0, 1, 3], "banshee-wail"),
+    "Elite Banshee": Enemy("Elite Banshee", 4, 5, Element.DIVINE, [0, 0, 1, 3], "banshee-wail", end_fx=end_banshee_wail),
     "Elite Gryphon": Enemy("Elite Gryphon", 5, 5, Element.SPIRITUAL, [0, 2, 4, 6], "ephemeral-wings"),
     "Elite Treant": Enemy("Elite Treant", 8, 7, Element.DIVINE, [0, 1, 3, 5], "roots-of-despair"),
     "Elite Angel": Enemy("Elite Angel", 7, 6, Element.ARCANE, [0, 3, 3, 6], "denied-heaven"),
@@ -417,6 +435,11 @@ def make_wave(name: str, count: int) -> Dict[str, object]:
                 tmpl.vulnerability,
                 tmpl.damage_band[:],
                 tmpl.ability,
+                armor_pool=0,
+                barrier_elems=set(),
+                rolled_dice=0,
+                attack_mod=tmpl.attack_mod,
+                end_fx=tmpl.end_fx,
             )
             for _ in range(count)
         ],
@@ -474,7 +497,8 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
     targets = enemies[:] if card.multi else [enemies[0]]
     allow_reroll = not ctx.get("no_reroll", False)
     for e in targets[:]:
-        mod = -1 if (card.ctype == CardType.MELEE and e.ability == "aerial-combat") else 0
+        actual_type = CardType.MELEE if ctx.get("ranged_to_melee") and card.ctype == CardType.RANGED else card.ctype
+        mod = -1 if (actual_type == CardType.MELEE and e.ability == "aerial-combat") else 0
         if e.ability == "banshee-wail":
             e.rolled_dice += card.dice
         vuln = ctx.pop("temp_vuln", e.vulnerability)
@@ -490,6 +514,8 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
         if e.ability == "roots-of-despair":
             roots_of_despair(hero, card.dice > 0 and hits == 0)
         dmg = hits
+        for fx in ctx.get("attack_hooks", []):
+            dmg = fx(hero, card, ctx, dmg)
         if block_void and e.ability == "ephemeral-wings":
             dmg = 0
             block_void = False
@@ -573,9 +599,15 @@ def fight_one(hero: Hero) -> bool:
             apply_persistent(hero, ctx)
             ctx["ranged_to_melee"] = False
             ctx["draw_penalty"] = 0
+            ctx["attack_hooks"] = []
+            ctx["end_hooks"] = []
             for e in ctx["enemies"]:
                 if callable(e.ability):
                     e.ability(ctx)
+                if e.attack_mod and e.attack_mod not in ctx["attack_hooks"]:
+                    ctx["attack_hooks"].append(e.attack_mod)
+                if e.end_fx:
+                    ctx["end_hooks"].append((e.end_fx, e))
 
             # utilities first
             c = hero.deck.pop_first(CardType.UTIL)
@@ -615,14 +647,10 @@ def fight_one(hero: Hero) -> bool:
                     break
 
             # end-of-exchange abilities
-            if any(e.ability == "cursed-thorns" for e in ctx["enemies"]):
-                cursed_thorns(hero)
-            for e in ctx["enemies"][:]:
-                if e.ability == "banshee-wail":
-                    banshee_wail(ctx["heroes"], e.rolled_dice)
-            for e in ctx["enemies"]:
-                if e.ability == "power-sap":
-                    power_sap(ctx, e)
+            if ctx.get("end_hooks"):
+                for fx, enemy in ctx["end_hooks"]:
+                    fx(hero, ctx, enemy)
+
 
             if not ctx["enemies"]:
                 break

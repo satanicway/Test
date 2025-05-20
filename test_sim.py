@@ -258,5 +258,38 @@ class TestAngelAbilities(unittest.TestCase):
         dmg = sim.roll_hits(1, 1, hero=hero, enemy=enemy, allow_reroll=False)
         self.assertEqual(dmg, 1)
 
+
+class TestPersistentEffects(unittest.TestCase):
+    def test_exchange_effect_expires(self):
+        hero = sim.Hero("Hero", 10, [])
+        card = sim.atk("Chant", sim.CardType.UTIL, 0,
+                       effect=sim.gain_fate_fx(1), persistent="exchange")
+        enemy = sim.Enemy("Dummy", 1, 5, sim.Element.NONE, [0, 0, 0, 0])
+        ctx = {"enemies": [enemy]}
+        sim.resolve_attack(hero, card, ctx)
+        self.assertEqual(len(hero.exchange_effects), 1)
+        # start next exchange: clear effects
+        hero.exchange_effects.clear()
+        hero.active_hymns = [h for h in hero.active_hymns if h.persistent == "combat"]
+        sim.apply_persistent(hero, ctx)
+        self.assertEqual(len(hero.exchange_effects), 0)
+        self.assertEqual(hero.fate, 1)
+
+    def test_combat_effect_persists(self):
+        hero = sim.Hero("Hero", 10, [])
+        card = sim.atk("Bless", sim.CardType.UTIL, 0,
+                       effect=sim.gain_fate_fx(1), persistent="combat")
+        enemy = sim.Enemy("Dummy", 1, 5, sim.Element.NONE, [0, 0, 0, 0])
+        ctx = {"enemies": [enemy]}
+        sim.resolve_attack(hero, card, ctx)
+        self.assertEqual(hero.fate, 1)
+        sim.apply_persistent(hero, ctx)
+        self.assertEqual(hero.fate, 2)
+        # end combat clears effects
+        hero.combat_effects.clear()
+        sim.apply_persistent(hero, ctx)
+        self.assertEqual(hero.fate, 2)
+
+
 if __name__ == "__main__":
     unittest.main()

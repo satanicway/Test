@@ -301,57 +301,43 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict) -> None:
     dmg_bonus = ctx.get("dmg_bonus", 0)
     if not ctx["enemies"]:
         return
-    targets = ctx["enemies"][:] if card.multi else [ctx["enemies"][0]]
-    soldiers = sum(1 for m in ctx["enemies"] if m.traits.get("ability") == "dark-phalanx")
-    roots = any(m.traits.get("ability") == "roots-despair" for m in ctx["enemies"])
-    curse = any(m.traits.get("ability") == "curse-torment" for m in ctx["enemies"])
-    for e in targets:
-        mod = 0
-        if card.ctype == CardType.MELEE and e.traits.get("ability") == "aerial-combat":
-            mod -= 1
-        ctx_r = {
-            "no_reroll": ctx.get("no_reroll"),
-            "deny_heaven": e.traits.get("ability") == "denied-heaven",
-            "curse_torment": curse,
-        }
-        hits = roll_hits(
+    if card.multi:
+        # roll once and apply to all
+        dmg = roll_hits(
             card.dice,
-            e.defense,
-            mod,
+            ctx["enemies"][0].defense,
             hero=hero,
             element=card.element,
-            vulnerability=e.vulnerability,
-            ctx=ctx_r,
-        )
-        if hits == 0 and roots:
-            hero.hp -= 1
-            if hero.hp <= 0:
-                return
-        dmg = hits + dmg_bonus
-        if card.multi and e.traits.get("ability") == "dark-phalanx" and soldiers >= 2:
-            dmg = max(1, dmg - 1)
-        if e.traits.get("ability") == "ephemeral-wings":
-            if ctx.get("no_dmg_to_gryphon"):
-                dmg = 0
-                ctx["no_dmg_to_gryphon"] = False
-            elif dmg > 0:
-                ctx["no_dmg_to_gryphon"] = True
-        if e.traits.get("ability") == "void-barrier" and dmg > 0:
-            elems = e.traits.setdefault("elements", set())
-            if card.element not in elems and card.element != Element.NONE:
-                elems.add(card.element)
-                e.traits["armor"] = e.traits.get("armor", 0) + 1
-            dmg = max(0, dmg - e.traits.get("armor", 0))
-        if e.traits.get("ability") == "spiked-armor" and dmg >= 3:
-            hero.hp -= 1
-            if hero.hp <= 0:
-                return
-        e.hp -= dmg
-        if e.traits.get("ability") == "banshee-wail":
+            vulnerability=ctx["enemies"][0].vulnerability,
+        ) + dmg_bonus
+        for e in ctx["enemies"][:]:
+            apply = dmg
+            if (
+                e.traits.get("ability") == "dark-phalanx"
+                and sum(1 for m in ctx["enemies"] if m.traits.get("ability") == "dark-phalanx") >= 2
+            ):
+                apply = max(1, apply - 1)
+            e.hp -= apply
+            if e.traits.get("ability") == "banshee-wail":
+                ctx["banshee_dice"] = ctx.get("banshee_dice", 0) + card.dice
+            if e.hp <= 0:
+                ctx["enemies"].remove(e)
+    else:
+        target = ctx["enemies"][0]
+        dmg = roll_hits(
+            card.dice,
+            target.defense,
+            hero=hero,
+            element=card.element,
+            vulnerability=target.vulnerability,
+        ) + dmg_bonus
+        if target.traits.get("ability") == "banshee-wail":
             ctx["banshee_dice"] = ctx.get("banshee_dice", 0) + card.dice
-        if e.hp <= 0:
-            ctx["enemies"].remove(e)
-    if card.effect and not ctx.get("silence"):
+        target.hp -= dmg
+        if target.hp <= 0:
+            ctx["enemies"].pop(0)
+    if card.effect:
+ main
         ctx["current_target"] = ctx["enemies"][0] if ctx["enemies"] else None
         card.effect(hero, ctx)
 
@@ -376,10 +362,8 @@ def fight_one(hero: Hero) -> bool:
     for enemy, count in BASIC_WAVES:
         ctx = make_wave(enemy, count)
         ctx['banshee_dice'] = 0
-        for exch in range(4):
-            if exch == 3 and ctx['enemy_type'].ability == 'ghostly':
-                ctx['enemies'].clear()
-                break
+        for exch in range(3):
+ main
             hero.exchange_effects.clear()
             hero.armor_pool = 0
             if exch:
@@ -451,17 +435,7 @@ def fight_one(hero: Hero) -> bool:
                 hero.deck.disc.append(c)
             if not ctx["enemies"]:
                 break
-            if hero.armor_pool > 0 and any(e.traits.get('ability') == 'cursed-thorns' for e in ctx['enemies']):
-                hero.hp -= hero.armor_pool
-                hero.armor_pool = 0
-                if hero.hp <= 0:
-                    return False
-            if any(e.traits.get('ability') == 'power-sap' for e in ctx['enemies']):
-                if hero.combat_effects:
-                    hero.combat_effects.pop()
-                    for e in ctx['enemies']:
-                        if e.traits.get('ability') == 'power-sap':
-                            e.hp += 1
+ main
             # Banshee wail damage at end of exchange
             if (
                 ctx["enemy_type"].ability == "banshee-wail"

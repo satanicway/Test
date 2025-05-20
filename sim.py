@@ -812,7 +812,7 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
     if not enemies:
         return
 
-    block_void = ctx.pop("ephemeral_block", False)
+    blocks = ctx.setdefault("ephemeral_block", set())
     if card.multi:
         if card.max_targets is None:
             targets = enemies[:]
@@ -845,9 +845,11 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
         dmg = hits
         for fx in ctx.get("attack_hooks", []):
             dmg = fx(hero, card, ctx, dmg)
-        if block_void and e.ability == "ephemeral-wings":
+        blocked = False
+        if id(e) in blocks and e.ability == "ephemeral-wings":
             dmg = 0
-            block_void = False
+            blocks.remove(id(e))
+            blocked = True
         if card.multi and e.ability == "dark-phalanx":
             dmg = dark_phalanx(enemies, dmg)
         area = ctx.pop("area_damage", 0)
@@ -864,8 +866,8 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
             void_barrier(e, card.element)
         if e.ability == "spiked-armor":
             spiked_armor(hero, dmg)
-        if e.ability == "ephemeral-wings" and not block_void:
-            ctx["ephemeral_block"] = True
+        if e.ability == "ephemeral-wings":
+            blocks.add(id(e))
 
         if e.hp <= 0:
             enemies.remove(e)

@@ -140,25 +140,17 @@ class Hero:
         return False
 
 @dataclass
-class EnemyType:
-    """Template describing an enemy type."""
+class Enemy:
+    """Enemy template/instance used during combat."""
 
     name: str
     hp: int
     defense: int
-    bands: List[int]
-    vulnerability: Element
-    ability: Optional[str] = None
-
-
-@dataclass
-class Enemy:
-    """Instance of a monster encountered in combat."""
-
-    hp: int
-    defense: int
-    vulnerability: Element = Element.NONE
-    ability: Optional[str] = None
+    band: List[int]
+    vuln: Element
+    ability: Optional[
+        Callable[[Dict[str, object]], None] | str
+    ] = None
 
 # ---------------------------------------------------------------------------
 # Helper functions
@@ -193,10 +185,33 @@ def roll_hits(num_dice: int, defense: int, mod: int = 0, *,
 # persistent effect application
 
 def apply_persistent(hero: Hero, ctx: Dict[str, object]) -> None:
+    if ctx.get("silenced"):
+        return
     for fx, _ in hero.combat_effects:
         fx(hero, ctx)
     for fx, _ in hero.exchange_effects:
         fx(hero, ctx)
+
+# ---------------------------------------------------------------------------
+# Enemy ability helpers
+# ---------------------------------------------------------------------------
+def dark_phalanx(enemies: List[Enemy], dmg: int, multi: bool) -> int:
+    """Reduce multi-target damage while multiple Soldiers are alive."""
+    if multi and sum(1 for e in enemies if e.ability == "dark-phalanx") >= 2:
+        return max(1, dmg - 1)
+    return dmg
+
+
+def spiked_armor(hero: Hero, dmg: int) -> None:
+    """Punish heavy hits against the soldier."""
+    if dmg >= 3:
+        hero.hp -= 1
+
+# map ability names to helper functions
+ABILITY_FUNCS = {
+    "dark-phalanx": dark_phalanx,
+    "spiked-armor": spiked_armor,
+}
 
 # simple card effects ---------------------------------------------------------
 
@@ -294,41 +309,102 @@ brynhild = Hero("Brynhild", 18, bryn_base, b_pool)
 HEROES = [hercules, brynhild]
 
 # ---------------------------------------------------------------------------
-# Enemy waves
+# Enemy abilities and catalog
 # ---------------------------------------------------------------------------
 
-def make_wave(et: EnemyType, count: int, wave_idx: int) -> Dict[str, object]:
+def web_slinger(ctx: Dict[str, object]) -> None:
+    """Ranged attacks become melee while any Spinners remain."""
+    ctx["ranged_to_melee"] = True
+
+
+def sticky_web(ctx: Dict[str, object]) -> None:
+    """Reduce cards drawn each exchange by one."""
+    ctx["draw_penalty"] = ctx.get("draw_penalty", 0) + 1
+
+
+ENEMIES: Dict[str, Enemy] = {
+    "Shadow Spinner (basic)": Enemy(
+        "Shadow Spinner (basic)", 1, 4, [0, 0, 1, 3], Element.SPIRITUAL, web_slinger
+    ),
+    "Shadow Spinner (elite)": Enemy(
+        "Shadow Spinner (elite)", 2, 5, [0, 0, 1, 3], Element.SPIRITUAL, sticky_web
+    ),
+    # legacy entries used by the existing waves
+    "Spinner": Enemy("Spinner", 1, 4, [1, 0, 1, 0], Element.SPIRITUAL, "web-slinger"),
+    "Soldier": Enemy("Soldier", 2, 5, [1, 1, 1, 2], Element.PRECISE, "dark-phalanx"),
+    "Banshee": Enemy("Banshee", 4, 5, [0, 0, 1, 3], Element.DIVINE, "banshee-wail"),
+    "Priest": Enemy("Priest", 2, 3, [0, 0, 1, 1], Element.ARCANE, "power-of-death"),
+    "Dryad": Enemy("Dryad", 2, 4, [0, 0, 1, 1], Element.BRUTAL, "cursed-thorns"),
+    "Minotaur": Enemy("Minotaur", 4, 3, [0, 0, 1, 3], Element.PRECISE, "cleaving"),
+    "Wizard": Enemy("Wizard", 2, 3, [0, 1, 1, 3], Element.BRUTAL, "curse-of-torment"),
+    "Shadow Banshee": Enemy("Shadow Banshee", 3, 5, [0, 0, 1, 2], Element.DIVINE, "ghostly"),
+    "Gryphon": Enemy("Gryphon", 4, 5, [0, 1, 3, 4], Element.SPIRITUAL, "aerial-combat"),
+    "Treant": Enemy("Treant", 7, 6, [0, 1, 1, 4], Element.DIVINE, "power-sap"),
+    "Angel": Enemy("Angel", 5, 5, [0, 1, 2, 5], Element.ARCANE, "corrupted-destiny"),
+    "Elite Spinner": Enemy("Elite Spinner", 2, 5, [0, 0, 1, 4], Element.SPIRITUAL, "sticky-web"),
+    "Elite Soldier": Enemy("Elite Soldier", 3, 6, [0, 0, 1, 3], Element.PRECISE, "spiked-armor"),
+    "Elite Priest": Enemy("Elite Priest", 3, 4, [0, 0, 1, 2], Element.ARCANE, "silence"),
+    "Elite Dryad": Enemy("Elite Dryad", 2, 5, [0, 1, 1, 2], Element.BRUTAL, "disturbed-flow"),
+    "Elite Minotaur": Enemy("Elite Minotaur", 5, 3, [0, 0, 2, 4], Element.PRECISE, "enrage"),
+    "Elite Wizard": Enemy("Elite Wizard", 2, 4, [0, 2, 2, 3], Element.BRUTAL, "void-barrier"),
+    "Elite Banshee": Enemy("Elite Banshee", 4, 5, [0, 0, 1, 3], Element.DIVINE, "banshee-wail"),
+    "Elite Gryphon": Enemy("Elite Gryphon", 5, 5, [0, 2, 4, 6], Element.SPIRITUAL, "ephemeral-wings"),
+    "Elite Treant": Enemy("Elite Treant", 8, 7, [0, 1, 3, 5], Element.DIVINE, "roots-of-despair"),
+    "Elite Angel": Enemy("Elite Angel", 7, 6, [0, 3, 3, 6], Element.ARCANE, "denied-heaven"),
+}
+
+def make_wave(name: str, count: int) -> Dict[str, object]:
+    tmpl = ENEMIES[name]
     return {
-        "enemy_type": et,
-        "wave_idx": wave_idx,
+        "enemy_type": tmpl,
         "enemies": [
-            Enemy(et.hp, et.defense, et.vulnerability, et.ability) for _ in range(count)
+            Enemy(
+                tmpl.name,
+                tmpl.hp,
+                tmpl.defense,
+                tmpl.band[:],
+                tmpl.vuln,
+                tmpl.ability,
+            )
+            for _ in range(count)
         ],
     }
 
+
+def cursed_thorns(hero: Hero) -> None:
+    """Convert remaining armor into HP loss."""
+    if hero.armor_pool > 0:
+        hero.hp -= hero.armor_pool
+        hero.armor_pool = 0
+
+
+def disturbed_flow(ctx: Dict[str, object]) -> None:
+    """Disable fate-based rerolls for the current combat."""
+    ctx["no_reroll"] = True
+
 # basic and elite monster roster
 ENEMY_WAVES = [
-    (EnemyType("Spinner", 1, 4, [1, 0, 1, 0], Element.SPIRITUAL, "web-slinger"), 3),
-    (EnemyType("Soldier", 2, 5, [1, 1, 1, 2], Element.PRECISE, "dark-phalanx"), 3),
-    (EnemyType("Banshee", 4, 5, [0, 0, 1, 3], Element.DIVINE, "banshee-wail"), 2),
-    (EnemyType("Priest", 2, 3, [0, 0, 1, 1], Element.ARCANE, "power-of-death"), 3),
-    (EnemyType("Dryad", 2, 4, [0, 0, 1, 1], Element.BRUTAL, "cursed-thorns"), 3),
-    (EnemyType("Minotaur", 4, 3, [0, 0, 1, 3], Element.PRECISE, "cleave_all"), 2),
-    (EnemyType("Wizard", 2, 3, [0, 1, 1, 3], Element.BRUTAL, "curse-of-torment"), 2),
-    (EnemyType("Shadow Banshee", 3, 5, [0, 0, 1, 2], Element.DIVINE, "ghostly"), 2),
-    (EnemyType("Gryphon", 4, 5, [0, 1, 3, 4], Element.SPIRITUAL, "aerial-combat"), 1),
-    (EnemyType("Treant", 7, 6, [0, 1, 1, 4], Element.DIVINE, "power-sap"), 1),
-    (EnemyType("Angel", 5, 5, [0, 1, 2, 5], Element.ARCANE, "corrupted-destiny"), 1),
-    (EnemyType("Elite Spinner", 2, 5, [0, 0, 1, 4], Element.SPIRITUAL, "sticky-web"), 3),
-    (EnemyType("Elite Soldier", 3, 6, [0, 0, 1, 3], Element.PRECISE, "spiked-armor"), 3),
-    (EnemyType("Elite Priest", 3, 4, [0, 0, 1, 2], Element.ARCANE, "silence"), 3),
-    (EnemyType("Elite Dryad", 2, 5, [0, 1, 1, 2], Element.BRUTAL, "disturbed-flow"), 3),
-    (EnemyType("Elite Minotaur", 5, 3, [0, 0, 2, 4], Element.PRECISE, "enrage"), 2),
-    (EnemyType("Elite Wizard", 2, 4, [0, 2, 2, 3], Element.BRUTAL, "void-barrier"), 2),
-    (EnemyType("Elite Banshee", 4, 5, [0, 0, 1, 3], Element.DIVINE, "banshee-wail"), 2),
-    (EnemyType("Elite Gryphon", 5, 5, [0, 2, 4, 6], Element.SPIRITUAL, "ephemeral-wings"), 1),
-    (EnemyType("Elite Treant", 8, 7, [0, 1, 3, 5], Element.DIVINE, "roots-of-despair"), 1),
-    (EnemyType("Elite Angel", 7, 6, [0, 3, 3, 6], Element.ARCANE, "denied-heaven"), 1),
+    ("Spinner", 3),
+    ("Soldier", 3),
+    ("Banshee", 2),
+    ("Priest", 3),
+    ("Dryad", 3),
+    ("Minotaur", 2),
+    ("Wizard", 2),
+    ("Shadow Banshee", 2),
+    ("Gryphon", 1),
+    ("Treant", 1),
+    ("Angel", 1),
+    ("Elite Spinner", 3),
+    ("Elite Soldier", 3),
+    ("Elite Priest", 3),
+    ("Elite Dryad", 3),
+    ("Elite Minotaur", 2),
+    ("Elite Wizard", 2),
+    ("Elite Banshee", 2),
+    ("Elite Gryphon", 1),
+    ("Elite Treant", 1),
+    ("Elite Angel", 1),
 ]
 
 
@@ -343,27 +419,30 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
         return
 
     targets = enemies[:] if card.multi else [enemies[0]]
+    allow_reroll = not ctx.get("no_reroll", False)
     for e in targets[:]:
-        vuln = ctx.pop("temp_vuln", e.vulnerability)
+        vuln = ctx.pop("temp_vuln", e.vuln)
         dmg = roll_hits(card.dice, e.defense, hero=hero, element=card.element,
                         vulnerability=vuln)
-        if (
-            card.multi
-            and e.ability == "dark-phalanx"
-            and sum(1 for m in enemies if m.ability == "dark-phalanx") >= 2
-        ):
-            dmg = max(1, dmg - 1)
+        if e.ability == "dark-phalanx":
+            dmg = dark_phalanx(enemies, dmg, card.multi)
         area = ctx.pop("area_damage", 0)
         dmg += area
         e.hp -= dmg
+        if e.ability == "spiked-armor":
+            spiked_armor(hero, dmg)
         if e.hp <= 0:
             enemies.remove(e)
+            if e.ability == "power-of-death":
+                ctx["dead_priests"] = ctx.get("dead_priests", 0) + 1
     if card.effect:
-        card.effect(hero, ctx)
-        if card.persistent == "combat":
-            hero.combat_effects.append((card.effect, card))
-        elif card.persistent == "exchange":
-            hero.exchange_effects.append((card.effect, card))
+        if not (ctx.get("silenced") and card.persistent):
+            card.effect(hero, ctx)
+        if card.persistent and not ctx.get("silenced"):
+            if card.persistent == "combat":
+                hero.combat_effects.append((card.effect, card))
+            elif card.persistent == "exchange":
+                hero.exchange_effects.append((card.effect, card))
     if card.hymn:
         hero.active_hymns.append(card)
     hero.deck.disc.append(card)
@@ -371,20 +450,13 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
 
 def monster_attack(heroes: List[Hero], ctx: Dict[str, object]) -> None:
     """Resolve monster attacks for the current wave."""
-    wave_idx = ctx.get("wave_idx", 0)
-    band = BANDS[wave_idx % len(BANDS)]
-    base = band[(d8() - 1) // 2]
-    enemies = ctx["enemies"]
-    for m in enemies:
-        attacks = 2 if m.ability == "enrage" and enrage(m) else 1
-        for _ in range(attacks):
-            if m.ability == "cleave_all":
-                cleave_all(heroes, base)
-            else:
-                h = heroes[0]
-                soak = min(h.armor_pool, base)
-                h.armor_pool -= soak
-                h.hp -= max(0, base - soak)
+    dmg = 0
+    for e in ctx["enemies"]:
+        band = e.band
+        dmg += band[(d8() - 1) // 2]
+    soak = min(hero.armor_pool, dmg)
+    hero.armor_pool -= soak
+    hero.hp -= max(0, dmg - soak)
 
 # very small fight simulation -------------------------------------------------
 
@@ -394,11 +466,23 @@ def fight_one(hero: Hero) -> bool:
     hero.reset()
     hero.deck.start_combat()
 
-    for wave_idx, (et, count) in enumerate(ENEMY_WAVES):
-        ctx = make_wave(et, count, wave_idx)
+    for name, count in ENEMY_WAVES:
+        ctx = make_wave(name, count)
         for exch in range(3):
             ctx["exchange"] = exch
+            if any(e.ability == "silence" for e in ctx["enemies"]):
+                if not ctx["silenced"]:
+                    ctx["silenced"] = True
+                    hero.combat_effects.clear()
+                    hero.exchange_effects.clear()
+                    hero.active_hymns.clear()
             apply_persistent(hero, ctx)
+
+            ctx["ranged_to_melee"] = False
+            ctx["draw_penalty"] = 0
+            for e in ctx["enemies"]:
+                if callable(e.ability):
+                    e.ability(ctx)
 
             # utilities first
             c = hero.deck.pop_first(CardType.UTIL)
@@ -412,7 +496,7 @@ def fight_one(hero: Hero) -> bool:
                 c = hero.deck.pop_first(CardType.RANGED)
                 if not c:
                     break
-                if any(e.ability == "web-slinger" for e in ctx["enemies"]):
+                if ctx.get("ranged_to_melee"):
                     delayed.append(c)
                     continue
                 resolve_attack(hero, c, ctx)
@@ -438,6 +522,8 @@ def fight_one(hero: Hero) -> bool:
                     break
 
             # end-of-exchange abilities
+            if any(e.ability == "cursed-thorns" for e in ctx["enemies"]):
+                cursed_thorns(hero)
             if any(e.ability == "ghostly" for e in ctx["enemies"]) and exch >= 2:
                 ctx["enemies"].clear()
 
@@ -451,7 +537,9 @@ def fight_one(hero: Hero) -> bool:
             if not ctx["enemies"]:
                 break
 
-            hero.deck.draw(1)
+            draw_amt = max(0, 1 - ctx.get("draw_penalty", 0))
+            if draw_amt:
+                hero.deck.draw(draw_amt)
 
         if ctx["enemies"] or hero.hp <= 0:
             return False

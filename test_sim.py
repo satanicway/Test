@@ -156,5 +156,18 @@ class TestMinotaurAbilities(unittest.TestCase):
         sim.monster_attack([hero], ctx)
         self.assertEqual(hero.hp, 2)
 
+
+class TestBansheeAbilities(unittest.TestCase):
+    def test_ghostly_clears_on_fourth_exchange(self):
+        enemy = sim.Enemy("Shadow Banshee", 3, 5, sim.Element.DIVINE, [0, 0, 0, 0], sim.ghostly)
+        ctx = {"enemies": [enemy], "exchange": 3}
+        sim.ghostly(ctx)
+        self.assertFalse(ctx["enemies"])
+
+    def test_banshee_wail_damage(self):
+        hero = sim.Hero("Hero", 10, [])
+        sim.banshee_wail([hero], 7)
+        self.assertEqual(hero.hp, 8)
+
 if __name__ == "__main__":
     unittest.main()

@@ -151,6 +151,7 @@ class Enemy:
     ability: Optional[Callable[[Dict[str, object]], None] | str] = None
     armor_pool: int = 0
     barrier_elems: Set[Element] = field(default_factory=set)
+    rolled_dice: int = 0  # dice rolled against this enemy in the current exchange
 
 # ---------------------------------------------------------------------------
 # Helper functions
@@ -291,6 +292,19 @@ def silence(ctx: Dict[str, object]) -> None:
     """Prevent all card effects for the rest of combat."""
     ctx["silenced"] = True
 
+
+def ghostly(ctx: Dict[str, object]) -> None:
+    """Remove all banshees at the start of the fourth exchange."""
+    if ctx.get("exchange", 0) >= 3:
+        ctx["enemies"].clear()
+
+
+def banshee_wail(heroes: List[Hero], dice_count: int) -> None:
+    """Deal 1 damage to every hero per 3 dice rolled."""
+    dmg = dice_count // 3
+    if dmg:
+        cleave_all(heroes, dmg)
+
 # ---------------------------------------------------------------------------
 # Card helpers to create attack cards
 # ---------------------------------------------------------------------------
@@ -360,7 +374,7 @@ ENEMIES: Dict[str, Enemy] = {
     "Dryad": Enemy("Dryad", 2, 4, Element.BRUTAL, [0, 0, 1, 1], "cursed-thorns"),
     "Minotaur": Enemy("Minotaur", 4, 3, Element.PRECISE, [0, 0, 1, 3], "cleave_all"),
     "Wizard": Enemy("Wizard", 2, 3, Element.BRUTAL, [0, 1, 1, 3], "curse-of-torment"),
-    "Shadow Banshee": Enemy("Shadow Banshee", 3, 5, Element.DIVINE, [0, 0, 1, 2], "ghostly"),
+    "Shadow Banshee": Enemy("Shadow Banshee", 3, 5, Element.DIVINE, [0, 0, 1, 2], ghostly),
     "Gryphon": Enemy("Gryphon", 4, 5, Element.SPIRITUAL, [0, 1, 3, 4], "aerial-combat"),
     "Treant": Enemy("Treant", 7, 6, Element.DIVINE, [0, 1, 1, 4], "power-sap"),
     "Angel": Enemy("Angel", 5, 5, Element.ARCANE, [0, 1, 2, 5], "corrupted-destiny"),
@@ -446,6 +460,8 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
     allow_reroll = not ctx.get("no_reroll", False)
     for e in targets[:]:
         mod = -1 if (card.ctype == CardType.MELEE and e.ability == "aerial-combat") else 0
+        if e.ability == "banshee-wail":
+            e.rolled_dice += card.dice
         vuln = ctx.pop("temp_vuln", e.vulnerability)
         dmg = roll_hits(
             card.dice,
@@ -523,8 +539,11 @@ def fight_one(hero: Hero) -> bool:
 
     for name, count in ENEMY_WAVES:
         ctx = make_wave(name, count)
-        for exch in range(3):
+        ctx["heroes"] = [hero]
+        for exch in range(4):
             ctx["exchange"] = exch
+            for e in ctx["enemies"]:
+                e.rolled_dice = 0
             if any((e.ability == "silence" or e.ability is silence) for e in ctx["enemies"]):
                 if not ctx.get("silenced"):
                     ctx["silenced"] = True
@@ -579,8 +598,9 @@ def fight_one(hero: Hero) -> bool:
             # end-of-exchange abilities
             if any(e.ability == "cursed-thorns" for e in ctx["enemies"]):
                 cursed_thorns(hero)
-            if any(e.ability == "ghostly" for e in ctx["enemies"]) and exch >= 2:
-                ctx["enemies"].clear()
+            for e in ctx["enemies"][:]:
+                if e.ability == "banshee-wail":
+                    banshee_wail(ctx["heroes"], e.rolled_dice)
             if any(e.ability == "power-sap" for e in ctx["enemies"]) and hero.combat_effects:
                 hero.combat_effects.pop(RNG.randrange(len(hero.combat_effects)))
                 for e in ctx["enemies"]:

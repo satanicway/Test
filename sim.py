@@ -150,6 +150,7 @@ class Enemy:
     barrier_elems: Set[Element] = field(default_factory=set)
     rolled_dice: int = 0  # dice rolled against this enemy in the current exchange
     attack_mod: Optional[Callable[[Hero, Card, Dict[str, object], int], int]] = None
+    start_fx: Optional[Callable[[Dict[str, object]], None]] = None
     end_fx: Optional[Callable[[Hero, Dict[str, object], "Enemy"], None]] = None
 
 # ---------------------------------------------------------------------------
@@ -461,7 +462,10 @@ ENEMIES: Dict[str, Enemy] = {
     "Dryad": Enemy("Dryad", 2, 4, Element.BRUTAL, [0, 0, 1, 1], "cursed-thorns", end_fx=end_cursed_thorns),
     "Minotaur": Enemy("Minotaur", 4, 3, Element.PRECISE, [0, 0, 1, 3], "cleave_all"),
     "Wizard": Enemy("Wizard", 2, 3, Element.BRUTAL, [0, 1, 1, 3], "curse-of-torment"),
-    "Shadow Banshee": Enemy("Shadow Banshee", 3, 5, Element.DIVINE, [0, 0, 1, 2], ghostly),
+    "Shadow Banshee": Enemy(
+        "Shadow Banshee", 3, 5, Element.DIVINE, [0, 0, 1, 2],
+        ability=None, start_fx=ghostly
+    ),
     "Gryphon": Enemy("Gryphon", 4, 5, Element.SPIRITUAL, [0, 1, 3, 4], "aerial-combat"),
     "Treant": Enemy("Treant", 7, 6, Element.DIVINE, [0, 1, 1, 4], "power-sap", end_fx=end_power_sap),
     "Angel": Enemy("Angel", 5, 5, Element.ARCANE, [0, 1, 2, 5], "corrupted-destiny"),
@@ -493,6 +497,7 @@ def make_wave(name: str, count: int) -> Dict[str, object]:
                 barrier_elems=set(),
                 rolled_dice=0,
                 attack_mod=tmpl.attack_mod,
+                start_fx=tmpl.start_fx,
                 end_fx=tmpl.end_fx,
             )
             for _ in range(count)
@@ -668,14 +673,21 @@ def fight_one(hero: Hero) -> bool:
             ctx["draw_penalty"] = 0
             ctx["enemy_defense_mod"] = 0
             ctx["attack_hooks"] = []
+            ctx["start_hooks"] = []
             ctx["end_hooks"] = []
             for e in ctx["enemies"]:
+                if e.start_fx:
+                    ctx["start_hooks"].append((e.start_fx, e))
                 if callable(e.ability):
                     e.ability(ctx)
                 if e.attack_mod and e.attack_mod not in ctx["attack_hooks"]:
                     ctx["attack_hooks"].append(e.attack_mod)
                 if e.end_fx:
                     ctx["end_hooks"].append((e.end_fx, e))
+
+            if ctx.get("start_hooks"):
+                for fx, enemy in ctx["start_hooks"]:
+                    fx(ctx)
 
             # utilities first
             c = hero.deck.pop_first(CardType.UTIL)

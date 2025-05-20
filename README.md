@@ -1,21 +1,39 @@
 # Board Game Simulator
 
-This repository contains a small Python script `sim.py` that performs a very
-lightweight simulation of a card‑driven board game. The current implementation
-only models a handful of cards and monsters, but demonstrates key mechanics
-such as armor, Fate points, and elemental vulnerabilities.
+This repository contains a small Python script `sim.py` that performs a
+lightweight simulation of a card‑driven board game.  The implementation
+models a handful of heroes, cards and monsters and demonstrates key mechanics
+such as armor, Fate points, persistent effects and elemental vulnerabilities.
 
-Run a quick simulation by executing:
- main
+## Running a simulation
+
+Execute the script directly to run a short combat simulation:
 
 ```bash
 python3 sim.py
 ```
-The script randomly selects one of the heroes and attempts a short series of
-battles against simplified enemies. The output prints the overall win rate for
-100 trials.
 
-This code is intentionally compact and omits most card effects from the full
-game description. It should be treated as an illustrative starting point rather
-than a final rules implementation.
- main
+By default the script picks a random hero and resolves a fight against the
+predefined monster waves.  The output prints the win rate across a number of
+trials (20 by default).  You can adjust the number of trials by editing the
+`N` constant at the bottom of `sim.py`.
+
+## Fate and rerolls
+
+Heroes accumulate **Fate** as they progress.  When rolling a die they may
+spend Fate to reroll a result that fails to meet the target defense.  Hercules
+may reroll while above 3 Fate whereas Brynhild requires more than 5.  Fate is
+capped at 10.
+
+## Elemental vulnerability
+
+Every enemy has an elemental weakness.  When an attack's element matches the
+enemy's vulnerability the damage of each hit is doubled.  This is handled by
+`roll_hits` which multiplies the number of hits when a vulnerability is
+present.
+
+## Upgrades
+
+After clearing a wave the hero gains one upgrade which is drawn from that
+hero's upgrade pool and permanently added to the deck.  Upgrades allow the deck
+to grow stronger over the course of a run.

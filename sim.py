@@ -185,6 +185,8 @@ def roll_hits(num_dice: int, defense: int, mod: int = 0, *,
 # persistent effect application
 
 def apply_persistent(hero: Hero, ctx: Dict[str, object]) -> None:
+    if ctx.get("silenced"):
+        return
     for fx, _ in hero.combat_effects:
         fx(hero, ctx)
     for fx, _ in hero.exchange_effects:
@@ -407,12 +409,16 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
             spiked_armor(hero, dmg)
         if e.hp <= 0:
             enemies.remove(e)
+            if e.ability == "power-of-death":
+                ctx["dead_priests"] = ctx.get("dead_priests", 0) + 1
     if card.effect:
-        card.effect(hero, ctx)
-        if card.persistent == "combat":
-            hero.combat_effects.append((card.effect, card))
-        elif card.persistent == "exchange":
-            hero.exchange_effects.append((card.effect, card))
+        if not (ctx.get("silenced") and card.persistent):
+            card.effect(hero, ctx)
+        if card.persistent and not ctx.get("silenced"):
+            if card.persistent == "combat":
+                hero.combat_effects.append((card.effect, card))
+            elif card.persistent == "exchange":
+                hero.exchange_effects.append((card.effect, card))
     if card.hymn:
         hero.active_hymns.append(card)
     hero.deck.disc.append(card)
@@ -440,6 +446,12 @@ def fight_one(hero: Hero) -> bool:
         ctx = make_wave(name, count)
         for exch in range(3):
             ctx["exchange"] = exch
+            if any(e.ability == "silence" for e in ctx["enemies"]):
+                if not ctx["silenced"]:
+                    ctx["silenced"] = True
+                    hero.combat_effects.clear()
+                    hero.exchange_effects.clear()
+                    hero.active_hymns.clear()
             apply_persistent(hero, ctx)
 
             ctx["ranged_to_melee"] = False

@@ -1,25 +1,11 @@
 #!/usr/bin/env python3
-"""Advanced board game simulator (partial implementation).
-
-This script provides a basic combat simulator for heroes and monsters.
-It introduces Fate, vulnerability, and persistent effects.
-Only a subset of cards is fully implemented.
-"""
-
-from __future__ import annotations
-
-import random
-from dataclasses import dataclass, field
-from enum import Enum, auto
-from typing import Callable, Dict, List, Optional
-
-# Dice and RNG
 RNG = random.Random()
 
 def d8() -> int:
     return RNG.randint(1, 8)
 
 # Enumerations
+ main
 class CardType(Enum):
     MELEE = auto()
     RANGED = auto()
@@ -34,6 +20,7 @@ class Element(Enum):
     NONE = "-"
 
 # Data structures
+main
 @dataclass
 class Card:
     name: str
@@ -61,13 +48,13 @@ class Deck:
                 if not self.cards:
                     break
             self.hand.append(self.cards.pop())
+main
 
     def pop_first(self, ctype: CardType) -> Optional[Card]:
         for i, c in enumerate(self.hand):
             if c.ctype == ctype:
                 return self.hand.pop(i)
         return None
-
 def roll_hits(num_dice: int, defense: int, mod: int = 0) -> int:
     """Roll `num_dice` d8 and count hits against `defense`."""
     dmg = 0
@@ -77,6 +64,7 @@ def roll_hits(num_dice: int, defense: int, mod: int = 0) -> int:
             dmg += 2 if r == 8 else 1
     return dmg
 
+main
 @dataclass
 class Hero:
     name: str
@@ -223,6 +211,7 @@ def monster_attack(hero: Hero, ctx: Dict) -> None:
     soak = min(hero.armor_pool, raw)
     hero.armor_pool -= soak
     hero.hp -= max(0, raw - soak)
+ main
 
 
 def fight_one(hero: Hero) -> bool:
@@ -230,12 +219,14 @@ def fight_one(hero: Hero) -> bool:
     hero.deck.draw(4)
     for enemy, count in BASIC_WAVES:
         ctx = make_wave(enemy, count)
+ main
         for exch in range(3):
             hero.exchange_effects.clear()
             hero.armor_pool = 0
             if exch:
                 hero.deck.draw(1)
             apply_persistent(hero, ctx)
+ main
             while True:
                 c = hero.deck.pop_first(CardType.UTIL)
                 if not c:
@@ -272,3 +263,4 @@ if __name__ == "__main__":
     N = 20
     wins = sum(fight_one(random.choice(HEROES)) for _ in range(N))
     print("Win rate", wins/N)
+ main

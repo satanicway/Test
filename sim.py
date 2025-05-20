@@ -11,14 +11,12 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import List, Callable, Optional, Dict, Any
 
- main
 RNG = random.Random()
 
 def d8() -> int:
     return RNG.randint(1, 8)
 
 # Enumerations
- main
   
 class CardType(Enum):
     MELEE = auto()
@@ -34,7 +32,7 @@ class Element(Enum):
     NONE = "-"
 
 # Data structures
-main
+
 
 @dataclass
 class Card:
@@ -45,7 +43,7 @@ class Card:
     armor: int = 0
     effect: Optional[Callable[["Hero", Dict], None]] = None
     persistent: Optional[str] = None  # "combat" or "exchange"
- main
+
 
 @dataclass
 class Deck:
@@ -64,7 +62,6 @@ class Deck:
                 if not self.cards:
                     break
             self.hand.append(self.cards.pop())
-main
 
     def pop_first(self, ctype: CardType) -> Optional[Card]:
         for i, c in enumerate(self.hand):
@@ -72,16 +69,31 @@ main
                 return self.hand.pop(i)
         return None
 
-def roll_hits(num_dice: int, defense: int, mod: int = 0) -> int:
-    """Roll `num_dice` d8 and count hits against `defense`."""
+FATE_MAX = 10
+
+def roll_hits(
+    num_dice: int, defense: int, mod: int = 0,
+    *, hero: Optional["Hero"] = None
+) -> int:
+    """Roll `num_dice` d8 and count hits against `defense`.
+
+    If ``hero`` is supplied, allow rerolls by spending Fate when below the
+    defense threshold. Heroes only spend Fate while above 3 points (or 5 for
+    Brynhild).
+    """
     dmg = 0
     for _ in range(num_dice):
         r = max(1, min(8, d8() + mod))
+        while (
+            hero is not None
+            and r < defense
+            and hero.fate > (5 if hero.name == "Brynhild" else 3)
+            and hero.spend_fate(1)
+        ):
+            r = max(1, min(8, d8() + mod))
         if r >= defense:
             dmg += 2 if r == 8 else 1
     return dmg
-
-main
 
 @dataclass
 class Hero:
@@ -89,7 +101,7 @@ class Hero:
     max_hp: int
     base_cards: List[Card]
     upg_cards: List[Card]
- main
+    fate: int = 0
 
     def reset(self) -> None:
         self.hp = self.max_hp
@@ -99,6 +111,17 @@ class Hero:
         self.combat_effects: List[Callable[["Hero", Dict], None]] = []
         self.exchange_effects: List[Callable[["Hero", Dict], None]] = []
         self.armor_pool = 0
+
+    def gain_fate(self, n: int = 1) -> None:
+        """Increase fate up to ``FATE_MAX``."""
+        self.fate = min(FATE_MAX, self.fate + n)
+
+    def spend_fate(self, n: int = 1) -> bool:
+        """Spend ``n`` fate if available, returning True on success."""
+        if self.fate >= n:
+            self.fate -= n
+            return True
+        return False
 
 # Utility
 
@@ -213,7 +236,7 @@ def apply_persistent(hero: Hero, ctx: Dict) -> None:
 def resolve_attack(hero: Hero, card: Card, ctx: Dict) -> None:
     dmg_bonus = ctx.get("dmg_bonus", 0)
     defense = ctx["enemy_type"].defense
-    dmg = roll_hits(card.dice, defense) + dmg_bonus
+    dmg = roll_hits(card.dice, defense, hero=hero) + dmg_bonus
     if ctx["enemy_type"].vulnerability == card.element:
         dmg *= 2
     if ctx["enemy_hp"]:
@@ -230,21 +253,18 @@ def monster_attack(hero: Hero, ctx: Dict) -> None:
     soak = min(hero.armor_pool, raw)
     hero.armor_pool -= soak
     hero.hp -= max(0, raw - soak)
- main
 
 def fight_one(hero: Hero) -> bool:
     hero.reset()
     hero.deck.draw(4)
     for enemy, count in BASIC_WAVES:
         ctx = make_wave(enemy, count)
- main
         for exch in range(3):
             hero.exchange_effects.clear()
             hero.armor_pool = 0
             if exch:
                 hero.deck.draw(1)
             apply_persistent(hero, ctx)
- main
             while True:
                 c = hero.deck.pop_first(CardType.UTIL)
                 if not c:
@@ -274,6 +294,7 @@ def fight_one(hero: Hero) -> bool:
                 break
         if ctx["enemy_hp"] or hero.hp <= 0:
             return False
+        hero.gain_fate(1)
         # gain upgrades placeholder
     return True
 
@@ -281,4 +302,3 @@ if __name__ == "__main__":
     N = 20
     wins = sum(fight_one(random.choice(HEROES)) for _ in range(N))
     print("Win rate", wins/N)
- main

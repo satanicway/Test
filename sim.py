@@ -49,6 +49,7 @@ class Card:
     persistent: Optional[str] = None  # "combat" or "exchange"
     hymn: bool = False
     multi: bool = False
+    max_targets: Optional[int] = None
 
 @dataclass
 class Deck:
@@ -218,8 +219,8 @@ def spiked_armor(hero: Hero, dmg: int) -> None:
         hero.hp -= 1
 
 def void_soldier_mod(hero: Hero, card: Card, ctx: Dict[str, object], dmg: int) -> int:
-    """Reduce multi-target damage by one while a Void Soldier lives."""
-    if card.multi:
+    """Reduce multi-target damage if at least two Void Soldiers remain."""
+    if card.multi and sum(1 for e in ctx.get("enemies", []) if e.ability == "void-soldier") >= 2:
         return max(0, dmg - 1)
     return dmg
 
@@ -370,8 +371,9 @@ def denied_heaven(roll: int, mod: int = 0) -> int:
 def atk(name: str, ctype: CardType, dice: int, element: Element = Element.NONE,
         armor: int = 0, effect: Optional[Callable[[Hero, Dict], None]] = None,
         persistent: Optional[str] = None, hymn: bool = False,
-        multi: bool = False) -> Card:
-    return Card(name, ctype, dice, element, armor, effect, persistent, hymn, multi)
+        multi: bool = False, max_targets: Optional[int] = None) -> Card:
+    return Card(name, ctype, dice, element, armor, effect,
+                persistent, hymn, multi, max_targets)
 
 def weighted_pool(common: List[Card], uncommon: List[Card], rare: List[Card]) -> List[Card]:
     pool: List[Card] = []
@@ -546,7 +548,13 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
         return
 
     block_void = ctx.pop("ephemeral_block", False)
-    targets = enemies[:] if card.multi else [enemies[0]]
+    if card.multi:
+        if card.max_targets is None:
+            targets = enemies[:]
+        else:
+            targets = enemies[:card.max_targets]
+    else:
+        targets = [enemies[0]]
     allow_reroll = not ctx.get("no_reroll", False)
     for e in targets[:]:
         actual_type = CardType.MELEE if ctx.get("ranged_to_melee") and card.ctype == CardType.RANGED else card.ctype

@@ -176,7 +176,7 @@ def roll_hits(num_dice: int, defense: int, mod: int = 0, *,
     dmg = 0
     for _ in range(num_dice):
         r = roll_die(defense, mod, hero=hero, allow_reroll=allow_reroll)
-        if enemy and enemy.ability == "curse_of_torment" and hero:
+        if enemy and enemy.ability == "curse-of-torment" and hero:
             curse_of_torment(hero, r)
         if r >= defense:
             hit = 2 if r == 8 else 1
@@ -447,8 +447,15 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
     for e in targets[:]:
         mod = -1 if (card.ctype == CardType.MELEE and e.ability == "aerial-combat") else 0
         vuln = ctx.pop("temp_vuln", e.vulnerability)
-        dmg = roll_hits(card.dice, e.defense, mod, hero=hero, element=card.element,
-                        vulnerability=vuln)
+        dmg = roll_hits(
+            card.dice,
+            e.defense,
+            mod,
+            hero=hero,
+            element=card.element,
+            vulnerability=vuln,
+            enemy=e,
+        )
         if block_void and e.ability == "ephemeral-wings":
             dmg = 0
             block_void = False
@@ -460,6 +467,8 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
         e.armor_pool -= soak
         dmg -= soak
         e.hp -= dmg
+        if e.ability == "void-barrier":
+            void_barrier(e, card.element)
         if e.ability == "spiked-armor":
             spiked_armor(hero, dmg)
         if e.ability == "ephemeral-wings" and not block_void:

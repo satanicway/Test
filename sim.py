@@ -84,6 +84,7 @@ def roll_hits(
     hero: Optional["Hero"] = None,
     element: "Element" = None,
     vulnerability: "Element" = None,
+    ctx: Optional[Dict[str, Any]] = None,
 ) -> int:
     """Roll ``num_dice`` d8 and count hits against ``defense``.
 
@@ -91,21 +92,28 @@ def roll_hits(
     supplied, allow rerolls by spending Fate when below the defense threshold.
     Heroes only spend Fate while above 3 points (or 5 for Brynhild).
     """
+    ctx = ctx or {}
     dmg = 0
     for _ in range(num_dice):
         r = max(1, min(8, d8() + mod))
         while (
             hero is not None
+            and not ctx.get("no_reroll")
             and r < defense
             and hero.fate > (5 if hero.name == "Brynhild" else 3)
             and hero.spend_fate(1)
         ):
             r = max(1, min(8, d8() + mod))
+        if ctx.get("deny_heaven"):
+            while r == 8:
+                r = max(1, min(8, d8() + mod))
         if r >= defense:
             hit = 2 if r == 8 else 1
             if element is not None and element == vulnerability:
                 hit *= 2
             dmg += hit
+        elif ctx.get("curse_torment") and hero is not None and r in (1, 2):
+            hero.hp -= 1
     return dmg
 
 @dataclass
@@ -266,24 +274,24 @@ def make_wave(enemy: EnemyType, count: int) -> Dict:
         )
         for _ in range(count)
     ]
-    return {"enemies": monsters, "enemy_type": enemy}
+    return {"enemies": monsters, "enemy_type": enemy, "enemy_total": count}
 
 BASIC_WAVES = [
-    (
-        EnemyType("Spinner", 1, 4, [1,0,1,0], Element.SPIRITUAL, ability="web-slinger"),
-        3,
-    ),
-    (
-        EnemyType("Soldier", 2, 5, [1,1,1,2], Element.PRECISE, ability="dark-phalanx"),
-        3,
-    ),
-    (
-        EnemyType("Banshee", 4, 5, [0,0,1,3], Element.DIVINE, ability="banshee-wail"),
-        2,
-    ),
+    (EnemyType("Spinner", 1, 4, [1, 0, 1, 0], Element.SPIRITUAL, "web-slinger"), 3),
+    (EnemyType("Soldier", 2, 5, [1, 1, 1, 2], Element.PRECISE, "dark-phalanx"), 3),
+    (EnemyType("Priest", 2, 3, [0, 0, 1, 1], Element.ARCANE, "power-of-death"), 3),
+    (EnemyType("Dryad", 2, 4, [0, 0, 1, 1], Element.BRUTAL, "cursed-thorns"), 3),
+    (EnemyType("Minotaur", 4, 3, [0, 0, 1, 3], Element.PRECISE, "cleaving-stomp"), 2),
+    (EnemyType("Wizard", 2, 3, [0, 1, 1, 3], Element.BRUTAL, "curse-torment"), 2),
+    (EnemyType("Banshee", 3, 5, [0, 0, 1, 2], Element.DIVINE, "ghostly"), 2),
+    (EnemyType("Gryphon", 4, 5, [0, 1, 3, 4], Element.SPIRITUAL, "aerial-combat"), 1),
+    (EnemyType("Treant", 7, 6, [0, 1, 1, 4], Element.DIVINE, "power-sap"), 1),
+    (EnemyType("Angel", 5, 5, [0, 1, 2, 5], Element.ARCANE, "corrupted-destiny"), 1),
 ]
 
 def apply_persistent(hero: Hero, ctx: Dict) -> None:
+    if ctx.get("silence"):
+        return
     for fx, _ in hero.combat_effects:
         fx(hero, ctx)
     for fx, _ in hero.exchange_effects:
@@ -329,13 +337,21 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict) -> None:
         if target.hp <= 0:
             ctx["enemies"].pop(0)
     if card.effect:
+ main
         ctx["current_target"] = ctx["enemies"][0] if ctx["enemies"] else None
         card.effect(hero, ctx)
 
 
 def monster_attack(hero: Hero, ctx: Dict) -> None:
     band = ctx["enemy_type"].bands
-    raw = band[(d8()-1)//2] * len(ctx["enemies"])
+    val = band[(d8() - 1) // 2]
+    raw = val * len(ctx["enemies"])
+    if ctx["enemy_type"].ability == "power-of-death":
+        dead = ctx.get("enemy_total", 0) - len(ctx["enemies"])
+        raw += dead * len(ctx["enemies"])
+    if ctx["enemy_type"].ability == "enrage":
+        enraged = sum(1 for e in ctx["enemies"] if e.hp <= 3)
+        raw += val * enraged
     soak = min(hero.armor_pool, raw)
     hero.armor_pool -= soak
     hero.hp -= max(0, raw - soak)
@@ -347,10 +363,18 @@ def fight_one(hero: Hero) -> bool:
         ctx = make_wave(enemy, count)
         ctx['banshee_dice'] = 0
         for exch in range(3):
+ main
             hero.exchange_effects.clear()
             hero.armor_pool = 0
             if exch:
-                hero.deck.draw(1)
+                draw_n = 1
+                if any(e.traits.get('ability') == 'sticky-web' for e in ctx['enemies']):
+                    draw_n = max(0, draw_n - 1)
+                hero.deck.draw(draw_n)
+            if any(e.traits.get('ability') == 'corrupted-destiny' for e in ctx['enemies']):
+                hero.fate = max(0, hero.fate - 2)
+            ctx['silence'] = any(e.traits.get('ability') == 'silence' for e in ctx['enemies'])
+            ctx['no_reroll'] = any(e.traits.get('ability') == 'disturbed-flow' for e in ctx['enemies'])
             ctx.pop("dmg_bonus", None)
             apply_persistent(hero, ctx)
             while True:
@@ -411,6 +435,7 @@ def fight_one(hero: Hero) -> bool:
                 hero.deck.disc.append(c)
             if not ctx["enemies"]:
                 break
+ main
             # Banshee wail damage at end of exchange
             if (
                 ctx["enemy_type"].ability == "banshee-wail"

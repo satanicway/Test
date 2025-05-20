@@ -103,12 +103,27 @@ class TestCorruptedDryadAbilities(unittest.TestCase):
         sim.RNG.seed(5)
         hero = sim.Hero("Hero", 10, [])
         card = sim.atk("Strike", sim.CardType.MELEE, 1)
-        enemy = sim.Enemy("Elite Gryphon", 5, 5, sim.Element.SPIRITUAL, [0, 0, 0, 0], "ephemeral-wings")
-        ctx = {"enemies": [enemy]}
+        g1 = sim.Enemy("Elite Gryphon", 5, 5, sim.Element.SPIRITUAL, [0, 0, 0, 0], "ephemeral-wings")
+        g2 = sim.Enemy("Elite Gryphon", 5, 5, sim.Element.SPIRITUAL, [0, 0, 0, 0], "ephemeral-wings")
+        ctx = {"enemies": [g1, g2]}
+
+        # first hit damages g1 and sets its block
         sim.resolve_attack(hero, card, ctx)
-        self.assertEqual(enemy.hp, 4)
+        self.assertEqual(g1.hp, 4)
+
+        # hitting g2 should not consume g1's block
+        ctx["enemies"] = [g2, g1]
         sim.resolve_attack(hero, card, ctx)
-        self.assertEqual(enemy.hp, 4)
+        self.assertEqual(g2.hp, 4)
+
+        # next attacks are absorbed by the respective gryphon that set the block
+        ctx["enemies"] = [g1, g2]
+        sim.resolve_attack(hero, card, ctx)
+        self.assertEqual(g1.hp, 4)
+
+        ctx["enemies"] = [g2, g1]
+        sim.resolve_attack(hero, card, ctx)
+        self.assertEqual(g2.hp, 4)
 
 class TestSpinnerAbilities(unittest.TestCase):
     def test_web_slinger_converts_ranged(self):

@@ -44,6 +44,7 @@ class Card:
     effect: Optional[Callable[["Hero", Dict], None]] = None
     persistent: Optional[str] = None  # "combat" or "exchange"
     hymn: bool = False
+    multi: bool = False  # attack targets all enemies
 
 
 @dataclass
@@ -171,8 +172,9 @@ def atk(
     effect: Optional[Callable[[Hero, Dict], None]] = None,
     persistent: Optional[str] = None,
     hymn: bool = False,
+    multi: bool = False,
 ) -> Card:
-    return Card(name, ctype, dice, element, armor, effect, persistent, hymn)
+    return Card(name, ctype, dice, element, armor, effect, persistent, hymn, multi)
 
 # Hero decks (incomplete)
 herc_base = [
@@ -184,16 +186,16 @@ herc_base = [
     atk("Heroism", CardType.MELEE, 1, Element.DIVINE, armor=1, effect=gain_armor(1)),
     atk("Javelin", CardType.RANGED, 2, Element.DIVINE, effect=sky_javelin_fx,
         persistent="exchange"),
-    atk("Spin", CardType.MELEE, 1, Element.PRECISE),
-    atk("Spin", CardType.MELEE, 1, Element.PRECISE),
+    atk("Spin", CardType.MELEE, 1, Element.PRECISE, multi=True),
+    atk("Spin", CardType.MELEE, 1, Element.PRECISE, multi=True),
     atk("Atlas", CardType.UTIL, 0, armor=3, effect=gain_armor(3)),
     atk("Atlas", CardType.UTIL, 0, armor=3, effect=gain_armor(3)),
 ]
 hercules = Hero("Hercules", 25, herc_base, [])
 
 mer_base = [
-    atk("Volley", CardType.RANGED, 1, Element.ARCANE),
-    atk("Volley", CardType.RANGED, 1, Element.ARCANE),
+    atk("Volley", CardType.RANGED, 1, Element.ARCANE, multi=True),
+    atk("Volley", CardType.RANGED, 1, Element.ARCANE, multi=True),
     atk("Warden", CardType.MELEE, 1, Element.ARCANE, armor=2, effect=gain_armor(2)),
     atk("Warden", CardType.MELEE, 1, Element.ARCANE, armor=2, effect=gain_armor(2)),
     atk("Weaver", CardType.RANGED, 1, Element.DIVINE),
@@ -208,8 +210,8 @@ merlin = Hero("Merlin", 15, mer_base, [])
 mus_base = [
     atk("Swallow", CardType.MELEE, 1, Element.PRECISE),
     atk("Swallow", CardType.MELEE, 1, Element.PRECISE),
-    atk("Cross", CardType.MELEE, 2, Element.PRECISE),
-    atk("Cross", CardType.MELEE, 2, Element.PRECISE),
+    atk("Cross", CardType.MELEE, 2, Element.PRECISE, multi=True),
+    atk("Cross", CardType.MELEE, 2, Element.PRECISE, multi=True),
     atk("Heaven", CardType.MELEE, 2, Element.BRUTAL),
     atk("Heaven", CardType.MELEE, 2, Element.BRUTAL),
     atk("Parry", CardType.MELEE, 1, Element.SPIRITUAL, armor=1, effect=gain_armor(1)),
@@ -242,6 +244,7 @@ class EnemyType:
     defense: int
     bands: List[int]
     vulnerability: Element
+    ability: Optional[str] = None
 
 
 @dataclass
@@ -259,15 +262,25 @@ def make_wave(enemy: EnemyType, count: int) -> Dict:
             hp=enemy.hp,
             defense=enemy.defense,
             vulnerability=enemy.vulnerability,
-            traits={"name": enemy.name},
+            traits={"name": enemy.name, "ability": enemy.ability},
         )
         for _ in range(count)
     ]
     return {"enemies": monsters, "enemy_type": enemy}
 
 BASIC_WAVES = [
-    (EnemyType("Spinner", 1, 4, [1,0,1,0], Element.SPIRITUAL), 3),
-    (EnemyType("Soldier", 2, 5, [1,1,1,2], Element.PRECISE), 3),
+    (
+        EnemyType("Spinner", 1, 4, [1,0,1,0], Element.SPIRITUAL, ability="web-slinger"),
+        3,
+    ),
+    (
+        EnemyType("Soldier", 2, 5, [1,1,1,2], Element.PRECISE, ability="dark-phalanx"),
+        3,
+    ),
+    (
+        EnemyType("Banshee", 4, 5, [0,0,1,3], Element.DIVINE, ability="banshee-wail"),
+        2,
+    ),
 ]
 
 def apply_persistent(hero: Hero, ctx: Dict) -> None:
@@ -280,18 +293,43 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict) -> None:
     dmg_bonus = ctx.get("dmg_bonus", 0)
     if not ctx["enemies"]:
         return
-    target = ctx["enemies"][0]
-    dmg = roll_hits(
-        card.dice,
-        target.defense,
-        hero=hero,
-        element=card.element,
-        vulnerability=target.vulnerability,
-    ) + dmg_bonus
-    target.hp -= dmg
-    if target.hp <= 0:
-        ctx["enemies"].pop(0)
+    if card.multi:
+        # roll once and apply to all
+        dmg = roll_hits(
+            card.dice,
+            ctx["enemies"][0].defense,
+            hero=hero,
+            element=card.element,
+            vulnerability=ctx["enemies"][0].vulnerability,
+        ) + dmg_bonus
+        for e in ctx["enemies"][:]:
+            apply = dmg
+            if (
+                e.traits.get("ability") == "dark-phalanx"
+                and sum(1 for m in ctx["enemies"] if m.traits.get("ability") == "dark-phalanx") >= 2
+            ):
+                apply = max(1, apply - 1)
+            e.hp -= apply
+            if e.traits.get("ability") == "banshee-wail":
+                ctx["banshee_dice"] = ctx.get("banshee_dice", 0) + card.dice
+            if e.hp <= 0:
+                ctx["enemies"].remove(e)
+    else:
+        target = ctx["enemies"][0]
+        dmg = roll_hits(
+            card.dice,
+            target.defense,
+            hero=hero,
+            element=card.element,
+            vulnerability=target.vulnerability,
+        ) + dmg_bonus
+        if target.traits.get("ability") == "banshee-wail":
+            ctx["banshee_dice"] = ctx.get("banshee_dice", 0) + card.dice
+        target.hp -= dmg
+        if target.hp <= 0:
+            ctx["enemies"].pop(0)
     if card.effect:
+        ctx["current_target"] = ctx["enemies"][0] if ctx["enemies"] else None
         card.effect(hero, ctx)
 
 
@@ -307,6 +345,7 @@ def fight_one(hero: Hero) -> bool:
     hero.deck.draw(RNG.choice([3, 4]))
     for enemy, count in BASIC_WAVES:
         ctx = make_wave(enemy, count)
+        ctx['banshee_dice'] = 0
         for exch in range(3):
             hero.exchange_effects.clear()
             hero.armor_pool = 0
@@ -328,10 +367,14 @@ def fight_one(hero: Hero) -> bool:
                 if c.hymn:
                     hero.active_hymns.append(c)
                 hero.deck.disc.append(c)
+            delayed_ranged: List[Card] = []
             while ctx["enemies"]:
                 c = hero.deck.pop_first(CardType.RANGED)
                 if not c:
                     break
+                if ctx["enemy_type"].ability == "web-slinger":
+                    delayed_ranged.append(c)
+                    continue
                 resolve_attack(hero, c, ctx)
                 if c.persistent == "combat" and c.effect:
                     hero.combat_effects.append((c.effect, c))
@@ -345,6 +388,15 @@ def fight_one(hero: Hero) -> bool:
             monster_attack(hero, ctx)
             if hero.hp <= 0:
                 return False
+            # delayed ranged attacks are executed now if web slinger was active
+            for c in delayed_ranged:
+                if not ctx["enemies"]:
+                    break
+                resolve_attack(hero, c, ctx)
+                if c.hymn:
+                    hero.active_hymns.append(c)
+                hero.deck.disc.append(c)
+            delayed_ranged.clear()
             while ctx["enemies"]:
                 c = hero.deck.pop_first(CardType.MELEE)
                 if not c:
@@ -359,6 +411,15 @@ def fight_one(hero: Hero) -> bool:
                 hero.deck.disc.append(c)
             if not ctx["enemies"]:
                 break
+            # Banshee wail damage at end of exchange
+            if (
+                ctx["enemy_type"].ability == "banshee-wail"
+                and ctx.get("banshee_dice", 0) >= 3
+            ):
+                hero.hp -= ctx["banshee_dice"] // 3
+                ctx["banshee_dice"] = 0
+                if hero.hp <= 0:
+                    return False
         if ctx["enemies"] or hero.hp <= 0:
             return False
         hero.gain_fate(1)

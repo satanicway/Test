@@ -10,6 +10,17 @@ class TestDiceRolls(unittest.TestCase):
         self.assertEqual(result, 2)
         self.assertEqual(hero.fate, 3)
 
+    def test_roll_hits_reroll_for_kill(self):
+        """roll_hits should spend fate when a reroll can kill."""
+        sim.RNG.seed(3)
+        hero = sim.Hero("Hero", 10, [])
+        hero.fate = 5
+        enemy = sim.Enemy("Dummy", 1, 5, sim.Element.NONE, [0, 0, 0, 0])
+        dmg = sim.roll_hits(1, enemy.defense, hero=hero,
+                             enemy=enemy, allow_reroll=True)
+        self.assertEqual(dmg, 1)
+        self.assertEqual(hero.fate, 3)
+
     def test_roll_die_without_reroll(self):
         sim.RNG.seed(1)
         hero = sim.Hero("Hero", 10, [])

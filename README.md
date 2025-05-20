@@ -23,7 +23,8 @@ trials (20 by default).  You can adjust the number of trials by editing the
 Heroes accumulate **Fate** as they progress.  When rolling a die they may
 spend Fate to reroll a result that fails to meet the target defense.  Hercules
 may reroll while above 3 Fate whereas Brynhild requires more than 5.  Fate is
-capped at 10.
+capped at 10.  ``roll_hits`` also checks if a single reroll could finish off an
+enemy and automatically uses Fate when possible.
 
 ## Elemental vulnerability
 

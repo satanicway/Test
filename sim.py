@@ -115,6 +115,7 @@ class Hero:
         self.active_hymns.clear()
 
     def gain_fate(self, n: int = 1) -> None:
+        """Increase ``fate`` but never above ``FATE_MAX``."""
         self.fate = min(FATE_MAX, self.fate + n)
 
     def gain_upgrades(self, n: int = 1) -> None:
@@ -124,7 +125,9 @@ class Hero:
         self.deck.cards.extend(choices)
 
     def spend_fate(self, n: int = 1) -> bool:
-        if self.fate >= n:
+        """Spend ``n`` fate if above the hero specific threshold."""
+        thresh = 5 if self.name == "Brynhild" else 3
+        if self.fate > thresh and self.fate >= n:
             self.fate -= n
             return True
         return False
@@ -154,8 +157,7 @@ def roll_die(defense: int, mod: int = 0, *, hero: Optional[Hero] = None,
     r = max(1, min(8, d8() + mod))
     if not allow_reroll or hero is None:
         return r
-    thresh = 5 if hero.name == "Brynhild" else 3
-    while r < defense and hero.fate > thresh and hero.spend_fate(1):
+    while r < defense and hero.spend_fate(1):
         r = max(1, min(8, d8() + mod))
     return r
 
@@ -168,7 +170,14 @@ def roll_hits(num_dice: int, defense: int, mod: int = 0, *,
               enemy: Optional[Enemy] = None) -> int:
     dmg = 0
     for _ in range(num_dice):
-        r = roll_die(defense, mod, hero=hero, allow_reroll=allow_reroll)
+        # initial roll without automatic rerolls
+        r = roll_die(defense, mod, hero=hero, allow_reroll=False)
+        if r < defense and allow_reroll and hero and enemy:
+            remain = enemy.hp - dmg
+            max_hit = 4 if element != Element.NONE and element == vulnerability else 2
+            if remain <= max_hit:
+                while r < defense and hero.spend_fate(1):
+                    r = max(1, min(8, d8() + mod))
         if enemy and enemy.ability == "denied-heaven":
             r = denied_heaven(r, mod)
         if enemy and enemy.ability == "curse-of-torment" and hero:

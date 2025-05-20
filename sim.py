@@ -146,11 +146,11 @@ class Enemy:
     name: str
     hp: int
     defense: int
-    band: List[int]
-    vuln: Element
-    ability: Optional[
-        Callable[[Dict[str, object]], None] | str
-    ] = None
+    vulnerability: Element
+    damage_band: List[int]
+    ability: Optional[Callable[[Dict[str, object]], None] | str] = None
+    armor_pool: int = 0
+    barrier_elems: Set[Element] = field(default_factory=set)
 
 # ---------------------------------------------------------------------------
 # Helper functions
@@ -341,34 +341,30 @@ def sticky_web(ctx: Dict[str, object]) -> None:
 
 
 ENEMIES: Dict[str, Enemy] = {
-    "Shadow Spinner (basic)": Enemy(
-        "Shadow Spinner (basic)", 1, 4, [0, 0, 1, 3], Element.SPIRITUAL, web_slinger
-    ),
-    "Shadow Spinner (elite)": Enemy(
-        "Shadow Spinner (elite)", 2, 5, [0, 0, 1, 3], Element.SPIRITUAL, sticky_web
-    ),
+    "Shadow Spinner (basic)": Enemy("Shadow Spinner (basic)", 1, 4, Element.SPIRITUAL, [0, 0, 1, 3], web_slinger),
+    "Shadow Spinner (elite)": Enemy("Shadow Spinner (elite)", 2, 5, Element.SPIRITUAL, [0, 0, 1, 3], sticky_web),
     # legacy entries used by the existing waves
-    "Spinner": Enemy("Spinner", 1, 4, [1, 0, 1, 0], Element.SPIRITUAL, "web-slinger"),
-    "Soldier": Enemy("Soldier", 2, 5, [1, 1, 1, 2], Element.PRECISE, "dark-phalanx"),
-    "Banshee": Enemy("Banshee", 4, 5, [0, 0, 1, 3], Element.DIVINE, "banshee-wail"),
-    "Priest": Enemy("Priest", 2, 3, [0, 0, 1, 1], Element.ARCANE, "power-of-death"),
-    "Dryad": Enemy("Dryad", 2, 4, [0, 0, 1, 1], Element.BRUTAL, "cursed-thorns"),
-    "Minotaur": Enemy("Minotaur", 4, 3, [0, 0, 1, 3], Element.PRECISE, "cleaving"),
-    "Wizard": Enemy("Wizard", 2, 3, [0, 1, 1, 3], Element.BRUTAL, "curse-of-torment"),
-    "Shadow Banshee": Enemy("Shadow Banshee", 3, 5, [0, 0, 1, 2], Element.DIVINE, "ghostly"),
-    "Gryphon": Enemy("Gryphon", 4, 5, [0, 1, 3, 4], Element.SPIRITUAL, "aerial-combat"),
-    "Treant": Enemy("Treant", 7, 6, [0, 1, 1, 4], Element.DIVINE, "power-sap"),
-    "Angel": Enemy("Angel", 5, 5, [0, 1, 2, 5], Element.ARCANE, "corrupted-destiny"),
-    "Elite Spinner": Enemy("Elite Spinner", 2, 5, [0, 0, 1, 4], Element.SPIRITUAL, "sticky-web"),
-    "Elite Soldier": Enemy("Elite Soldier", 3, 6, [0, 0, 1, 3], Element.PRECISE, "spiked-armor"),
-    "Elite Priest": Enemy("Elite Priest", 3, 4, [0, 0, 1, 2], Element.ARCANE, "silence"),
-    "Elite Dryad": Enemy("Elite Dryad", 2, 5, [0, 1, 1, 2], Element.BRUTAL, "disturbed-flow"),
-    "Elite Minotaur": Enemy("Elite Minotaur", 5, 3, [0, 0, 2, 4], Element.PRECISE, "enrage"),
-    "Elite Wizard": Enemy("Elite Wizard", 2, 4, [0, 2, 2, 3], Element.BRUTAL, "void-barrier"),
-    "Elite Banshee": Enemy("Elite Banshee", 4, 5, [0, 0, 1, 3], Element.DIVINE, "banshee-wail"),
-    "Elite Gryphon": Enemy("Elite Gryphon", 5, 5, [0, 2, 4, 6], Element.SPIRITUAL, "ephemeral-wings"),
-    "Elite Treant": Enemy("Elite Treant", 8, 7, [0, 1, 3, 5], Element.DIVINE, "roots-of-despair"),
-    "Elite Angel": Enemy("Elite Angel", 7, 6, [0, 3, 3, 6], Element.ARCANE, "denied-heaven"),
+    "Spinner": Enemy("Spinner", 1, 4, Element.SPIRITUAL, [1, 0, 1, 0], "web-slinger"),
+    "Soldier": Enemy("Soldier", 2, 5, Element.PRECISE, [1, 1, 1, 2], "dark-phalanx"),
+    "Banshee": Enemy("Banshee", 4, 5, Element.DIVINE, [0, 0, 1, 3], "banshee-wail"),
+    "Priest": Enemy("Priest", 2, 3, Element.ARCANE, [0, 0, 1, 1], "power-of-death"),
+    "Dryad": Enemy("Dryad", 2, 4, Element.BRUTAL, [0, 0, 1, 1], "cursed-thorns"),
+    "Minotaur": Enemy("Minotaur", 4, 3, Element.PRECISE, [0, 0, 1, 3], "cleaving"),
+    "Wizard": Enemy("Wizard", 2, 3, Element.BRUTAL, [0, 1, 1, 3], "curse-of-torment"),
+    "Shadow Banshee": Enemy("Shadow Banshee", 3, 5, Element.DIVINE, [0, 0, 1, 2], "ghostly"),
+    "Gryphon": Enemy("Gryphon", 4, 5, Element.SPIRITUAL, [0, 1, 3, 4], "aerial-combat"),
+    "Treant": Enemy("Treant", 7, 6, Element.DIVINE, [0, 1, 1, 4], "power-sap"),
+    "Angel": Enemy("Angel", 5, 5, Element.ARCANE, [0, 1, 2, 5], "corrupted-destiny"),
+    "Elite Spinner": Enemy("Elite Spinner", 2, 5, Element.SPIRITUAL, [0, 0, 1, 4], "sticky-web"),
+    "Elite Soldier": Enemy("Elite Soldier", 3, 6, Element.PRECISE, [0, 0, 1, 3], "spiked-armor"),
+    "Elite Priest": Enemy("Elite Priest", 3, 4, Element.ARCANE, [0, 0, 1, 2], "silence"),
+    "Elite Dryad": Enemy("Elite Dryad", 2, 5, Element.BRUTAL, [0, 1, 1, 2], "disturbed-flow"),
+    "Elite Minotaur": Enemy("Elite Minotaur", 5, 3, Element.PRECISE, [0, 0, 2, 4], "enrage"),
+    "Elite Wizard": Enemy("Elite Wizard", 2, 4, Element.BRUTAL, [0, 2, 2, 3], "void-barrier"),
+    "Elite Banshee": Enemy("Elite Banshee", 4, 5, Element.DIVINE, [0, 0, 1, 3], "banshee-wail"),
+    "Elite Gryphon": Enemy("Elite Gryphon", 5, 5, Element.SPIRITUAL, [0, 2, 4, 6], "ephemeral-wings"),
+    "Elite Treant": Enemy("Elite Treant", 8, 7, Element.DIVINE, [0, 1, 3, 5], "roots-of-despair"),
+    "Elite Angel": Enemy("Elite Angel", 7, 6, Element.ARCANE, [0, 3, 3, 6], "denied-heaven"),
 }
 
 def make_wave(name: str, count: int) -> Dict[str, object]:
@@ -380,8 +376,8 @@ def make_wave(name: str, count: int) -> Dict[str, object]:
                 tmpl.name,
                 tmpl.hp,
                 tmpl.defense,
-                tmpl.band[:],
-                tmpl.vuln,
+                tmpl.vulnerability,
+                tmpl.damage_band[:],
                 tmpl.ability,
             )
             for _ in range(count)
@@ -402,27 +398,27 @@ def disturbed_flow(ctx: Dict[str, object]) -> None:
 
 # basic and elite monster roster
 ENEMY_WAVES = [
-    (EnemyType("Spinner", 1, 4, [1, 0, 1, 0], Element.SPIRITUAL, "web-slinger"), 3),
-    (EnemyType("Soldier", 2, 5, [1, 1, 1, 2], Element.PRECISE, "dark-phalanx"), 3),
-    (EnemyType("Banshee", 4, 5, [0, 0, 1, 3], Element.DIVINE, "banshee-wail"), 2),
-    (EnemyType("Priest", 2, 3, [0, 0, 1, 1], Element.ARCANE, "power-of-death"), 3),
-    (EnemyType("Dryad", 2, 4, [0, 0, 1, 1], Element.BRUTAL, "cursed-thorns"), 3),
-    (EnemyType("Minotaur", 4, 3, [0, 0, 1, 3], Element.PRECISE, "cleaving"), 2),
-    (EnemyType("Wizard", 2, 3, [0, 1, 1, 3], Element.BRUTAL, "curse-of-torment"), 2),
-    (EnemyType("Shadow Banshee", 3, 5, [0, 0, 1, 2], Element.DIVINE, "ghostly"), 2),
-    (EnemyType("Void Gryphon", 4, 5, [0, 1, 3, 4], Element.SPIRITUAL, "aerial-combat"), 1),
-    (EnemyType("Treant", 7, 6, [0, 1, 1, 4], Element.DIVINE, "power-sap"), 1),
-    (EnemyType("Angel", 5, 5, [0, 1, 2, 5], Element.ARCANE, "corrupted-destiny"), 1),
-    (EnemyType("Elite Spinner", 2, 5, [0, 0, 1, 4], Element.SPIRITUAL, "sticky-web"), 3),
-    (EnemyType("Elite Soldier", 3, 6, [0, 0, 1, 3], Element.PRECISE, "spiked-armor"), 3),
-    (EnemyType("Elite Priest", 3, 4, [0, 0, 1, 2], Element.ARCANE, "silence"), 3),
-    (EnemyType("Elite Dryad", 2, 5, [0, 1, 1, 2], Element.BRUTAL, "disturbed-flow"), 3),
-    (EnemyType("Elite Minotaur", 5, 3, [0, 0, 2, 4], Element.PRECISE, "enrage"), 2),
-    (EnemyType("Elite Wizard", 2, 4, [0, 2, 2, 3], Element.BRUTAL, "void-barrier"), 2),
-    (EnemyType("Elite Banshee", 4, 5, [0, 0, 1, 3], Element.DIVINE, "banshee-wail"), 2),
-    (EnemyType("Elite Void Gryphon", 5, 5, [0, 2, 4, 6], Element.SPIRITUAL, "ephemeral-wings"), 1),
-    (EnemyType("Elite Treant", 8, 7, [0, 1, 3, 5], Element.DIVINE, "roots-of-despair"), 1),
-    (EnemyType("Elite Angel", 7, 6, [0, 3, 3, 6], Element.ARCANE, "denied-heaven"), 1),
+    ("Spinner", 3),
+    ("Soldier", 3),
+    ("Banshee", 2),
+    ("Priest", 3),
+    ("Dryad", 3),
+    ("Minotaur", 2),
+    ("Wizard", 2),
+    ("Shadow Banshee", 2),
+    ("Void Gryphon", 1),
+    ("Treant", 1),
+    ("Angel", 1),
+    ("Elite Spinner", 3),
+    ("Elite Soldier", 3),
+    ("Elite Priest", 3),
+    ("Elite Dryad", 3),
+    ("Elite Minotaur", 2),
+    ("Elite Wizard", 2),
+    ("Elite Banshee", 2),
+    ("Elite Void Gryphon", 1),
+    ("Elite Treant", 1),
+    ("Elite Angel", 1),
 ]
 
 
@@ -483,8 +479,9 @@ def monster_attack(heroes: List[Hero], ctx: Dict[str, object]) -> None:
     """Resolve monster attacks for the current wave."""
     dmg = 0
     for e in ctx["enemies"]:
-        band = e.band
+        band = e.damage_band
         dmg += band[(d8() - 1) // 2]
+    hero = heroes[0]
     soak = min(hero.armor_pool, dmg)
     hero.armor_pool -= soak
     hero.hp -= max(0, dmg - soak)

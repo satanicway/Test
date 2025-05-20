@@ -30,5 +30,27 @@ class TestBasicMechanics(unittest.TestCase):
         result = sim.fight_one(hero)
         self.assertIn(result, [True, False])
 
+    def test_upgrade_pool_restored_between_fights(self):
+        """Running two fights in a row should start with a full upgrade pool."""
+        sim.RNG.seed(0)
+        hero = sim.Hero("Hercules", 25, sim.herc_base, sim.herc_pool)
+        initial_len = len(hero.upg_pool)
+
+        lengths = []
+        orig_reset = hero.reset
+
+        def wrapped():
+            orig_reset()
+            lengths.append(len(hero.upg_pool))
+
+        hero.reset = wrapped
+
+        sim.fight_one(hero)
+        sim.fight_one(hero)
+
+        hero.reset = orig_reset
+
+        self.assertEqual(lengths, [initial_len, initial_len])
+
 if __name__ == "__main__":
     unittest.main()

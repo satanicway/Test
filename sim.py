@@ -172,11 +172,15 @@ def roll_hits(num_dice: int, defense: int, mod: int = 0, *,
               element: Element = Element.NONE,
               vulnerability: Element = Element.NONE,
               allow_reroll: bool = True,
-              enemy: Optional[Enemy] = None) -> int:
+              enemy: Optional[Enemy] = None,
+              free_rerolls: int = 0) -> int:
     dmg = 0
     for _ in range(num_dice):
         # initial roll without automatic rerolls
         r = roll_die(defense, mod, hero=hero, allow_reroll=False)
+        while r < defense and free_rerolls:
+            free_rerolls -= 1
+            r = max(1, min(8, d8() + mod))
         if r < defense and allow_reroll and hero and enemy:
             remain = enemy.hp - dmg
             max_hit = 4 if element != Element.NONE and element == vulnerability else 2
@@ -274,6 +278,31 @@ def temp_vuln(elem: Element) -> Callable[[Hero, Dict[str, object]], None]:
 def area_damage(n: int) -> Callable[[Hero, Dict[str, object]], None]:
     def _fx(h: Hero, ctx: Dict[str, object]) -> None:
         ctx['area_damage'] = ctx.get('area_damage', 0) + n
+    return _fx
+
+def add_rerolls(n: int) -> Callable[[Hero, Dict[str, object]], None]:
+    """Grant ``n`` free rerolls to the next attack."""
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        ctx['extra_rerolls'] = ctx.get('extra_rerolls', 0) + n
+    return _fx
+
+def global_reroll_fx() -> Callable[[Hero, Dict[str, object]], None]:
+    """Enable rerolls equal to dice rolled on every attack."""
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        ctx['global_reroll'] = True
+    return _fx
+
+def armor_allies(n: int) -> Callable[[Hero, Dict[str, object]], None]:
+    """Give ``n`` armor to all heroes in the context."""
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        for hero in ctx.get('heroes', [h]):
+            hero.armor_pool += n
+    return _fx
+
+def heal_fx(n: int) -> Callable[[Hero, Dict[str, object]], None]:
+    """Heal ``n`` HP up to ``max_hp``."""
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        h.hp = min(h.max_hp, h.hp + n)
     return _fx
 
 def discard_for_fate(discard_n: int, gain: int) -> Callable[[Hero, Dict[str, object]], None]:
@@ -520,6 +549,45 @@ _b_r = [
 b_pool = weighted_pool(_b_c, _b_u, _b_r)
 brynhild = Hero("Brynhild", 18, bryn_base, b_pool)
 
+# --- Merlin ---------------------------------------------------------------
+merlin_base = [
+    atk("Volley", CardType.RANGED, 1, Element.ARCANE),
+    atk("Volley", CardType.RANGED, 1, Element.ARCANE),
+    atk("Volley", CardType.RANGED, 1, Element.ARCANE),
+    atk("Warden", CardType.MELEE, 2, armor=1, effect=gain_armor(1)),
+    atk("Weaver", CardType.RANGED, 1, effect=add_rerolls(2)),
+    atk("Weaver", CardType.RANGED, 1, effect=add_rerolls(2)),
+    atk("Staff", CardType.MELEE, 1),
+    atk("Staff", CardType.MELEE, 1),
+    atk("Mists", CardType.RANGED, 1, effect=gain_fate_fx(1)),
+    atk("Mists", CardType.RANGED, 1, effect=gain_fate_fx(1)),
+    atk("Mists", CardType.RANGED, 1, effect=gain_fate_fx(1)),
+    atk("Circle", CardType.UTIL, 0, effect=global_reroll_fx(), persistent="combat"),
+]
+
+_mer_common = [
+    atk("Magic Bolt", CardType.RANGED, 2, Element.ARCANE),
+    atk("Minor Ward", CardType.UTIL, 0, armor=1, effect=armor_allies(1)),
+    atk("Focus", CardType.UTIL, 0, effect=add_rerolls(1)),
+    atk("Minor Heal", CardType.UTIL, 0, effect=heal_fx(1)),
+    atk("Arcane Burst", CardType.RANGED, 1, Element.ARCANE, multi=True),
+    atk("Meditate", CardType.UTIL, 0, effect=gain_fate_fx(1)),
+]
+
+_mer_uncommon = [
+    atk("Arcane Lance", CardType.RANGED, 3, Element.ARCANE),
+    atk("Greater Heal", CardType.UTIL, 0, effect=heal_fx(2)),
+]
+
+_mer_rare = [
+    atk("Meteor Swarm", CardType.RANGED, 2, Element.ARCANE, multi=True, effect=area_damage(1)),
+    atk("Protective Aura", CardType.UTIL, 0, armor=2, persistent="combat",
+        effect=combine_effects(armor_allies(1), global_reroll_fx())),
+]
+
+merlin_pool = weighted_pool(_mer_common, _mer_uncommon, _mer_rare)
+merlin = Hero("Merlin", 15, merlin_base, merlin_pool)
+
 # --- Musashi ---------------------------------------------------------------
 swallow_cut = atk("Swallow-Cut", CardType.MELEE, 1, Element.PRECISE)
 swallow_cut.effect = double_attack(swallow_cut)
@@ -591,7 +659,7 @@ _m_rare = [
 musashi_pool = weighted_pool(_m_common, _m_uncommon, _m_rare)
 musashi = Hero("Musashi", 20, musashi_base, musashi_pool)
 
-HEROES = [hercules, brynhild, musashi]
+HEROES = [hercules, brynhild, merlin, musashi]
 
 # ---------------------------------------------------------------------------
 # Enemy abilities and catalog
@@ -718,6 +786,9 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
     else:
         targets = [enemies[0]]
     allow_reroll = not ctx.get("no_reroll", False)
+    rer_bonus = ctx.pop('extra_rerolls', 0)
+    if ctx.get('global_reroll'):
+        rer_bonus += card.dice
     for e in targets[:]:
         actual_type = CardType.MELEE if ctx.get("ranged_to_melee") and card.ctype == CardType.RANGED else card.ctype
         mod = -1 if (actual_type == CardType.MELEE and e.ability == "aerial-combat") else 0
@@ -732,6 +803,7 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
             element=card.element,
             vulnerability=vuln,
             enemy=e,
+            free_rerolls=rer_bonus,
         )
         if e.ability == "roots-of-despair":
             roots_of_despair(hero, card.dice > 0 and hits == 0)
@@ -831,6 +903,8 @@ def fight_one(hero: Hero) -> bool:
             ctx["draw_penalty"] = 0
             ctx["enemy_defense_mod"] = 0
             ctx["hymn_damage"] = 0
+            ctx["extra_rerolls"] = 0
+            ctx["global_reroll"] = False
             apply_persistent(hero, ctx)
             ctx["attack_hooks"] = []
             ctx["start_hooks"] = []

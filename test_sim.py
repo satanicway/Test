@@ -432,5 +432,25 @@ class TestMusashiCards(unittest.TestCase):
         sim.resolve_attack(hero, attack, ctx)
         self.assertFalse(ctx["enemies"])  # bonus damage from armor hook applied
 
+
+class TestMerlinCards(unittest.TestCase):
+    def test_arcane_damage_card(self):
+        sim.RNG.seed(0)
+        hero = sim.Hero("Hero", 10, [])
+        card = sim.atk("Arcane Bolt", sim.CardType.RANGED, 1, sim.Element.ARCANE)
+        enemy = sim.Enemy("Dummy", 2, 5, sim.Element.ARCANE, [0, 0, 0, 0])
+        ctx = {"enemies": [enemy]}
+        sim.resolve_attack(hero, card, ctx)
+        self.assertFalse(ctx["enemies"])  # vulnerability doubled damage
+
+    def test_heal_effect(self):
+        hero = sim.Hero("Hero", 10, [])
+        hero.hp = 5
+        heal = sim.atk("Heal", sim.CardType.UTIL, 0, effect=sim.heal_fx(3))
+        enemy = sim.Enemy("Dummy", 1, 5, sim.Element.NONE, [0, 0, 0, 0])
+        ctx = {"enemies": [enemy]}
+        sim.resolve_attack(hero, heal, ctx)
+        self.assertEqual(hero.hp, 8)
+
 if __name__ == "__main__":
     unittest.main()

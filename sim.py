@@ -13,17 +13,9 @@ from typing import Callable, Dict, List, Optional, Tuple, Set
 
 RNG = random.Random()
 
-# Damage bands per wave for monster attacks
-BANDS = [
-    [1, 0, 1, 0],
-    [1, 1, 1, 2],
-    [0, 2, 0, 0],
-    [6, 1, 1, 1],
-    [1, 0, 6, 1],
-    [5, 0, 2, 3],
-    [3, 1, 2, 0],
-    [2, 0, 1, 0],
-]
+# Each enemy template stores its own damage band so the old per-wave
+# ``BANDS`` table is no longer required.  Enemy lookups below provide the
+# appropriate values for each wave.
 
 def d8() -> int:
     return RNG.randint(1, 8)

@@ -1,15 +1,21 @@
-# Test Simulator
+# Board Game Simulator
 
-This repository contains a small Python script `sim.py` that demonstrates a
-lightweight board game combat simulation. It defines several heroes, a few
-example enemies and implements mechanics such as Fate, vulnerability and some
-card effects. The script is not a full recreation of the original game but
-offers a framework for experimentation.
+This repository contains a small Python script `sim.py` that performs a very
+lightweight simulation of a card‑driven board game. The current implementation
+only models a handful of cards and monsters, but demonstrates key mechanics
+such as armor, Fate points, and elemental vulnerabilities.
 
-Run the simulator with:
+Run a quick simulation by executing:
+ main
 
 ```bash
 python3 sim.py
 ```
+The script randomly selects one of the heroes and attempts a short series of
+battles against simplified enemies. The output prints the overall win rate for
+100 trials.
 
-It will pick random heroes and enemies and report the win rate for 20 runs.
+This code is intentionally compact and omits most card effects from the full
+game description. It should be treated as an illustrative starting point rather
+than a final rules implementation.
+ main

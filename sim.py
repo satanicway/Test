@@ -2207,16 +2207,16 @@ CARD_CORRELATIONS: Dict[str, Dict[str, Dict[str, Dict[str, int]]]] = defaultdict
     }
 )
 
+from collections import Counter
+
 def _record_run_result(hero: Hero, won: bool) -> None:
     stats = CARD_CORRELATIONS[hero.name]
-    seen = set(hero.combat_record.get("drawn", {})) | set(hero.combat_record.get("played", {}))
-    for name in seen:
+    result_key = "win" if won else "loss"
+    counts = Counter(hero.combat_record.get("drawn", {}))
+    counts.update(hero.combat_record.get("played", {}))
+    for name, n in counts.items():
         rarity = hero.card_rarity.get(name, "base")
-        entry = stats[rarity][name]
-        if won:
-            entry["win"] += 1
-        else:
-            entry["loss"] += 1
+        stats[rarity][name][result_key] += n
 
 def get_card_correlations() -> Dict[str, Dict[str, Dict[str, Dict[str, int]]]]:
     """Return aggregated card win/loss counts for each hero."""

@@ -733,5 +733,31 @@ class TestHerculesCards(unittest.TestCase):
         self.assertEqual(hero.fate, 2)
         self.assertEqual(hero.armor_pool, 0)
 
+    def test_true_might_first_dice_attack_bonus(self):
+        """True Might deals 8 bonus damage when played before any dice cards."""
+        sim.RNG.seed(0)
+        hero = sim.Hero("Hero", 10, [])
+        card = sim.atk("True Might", sim.CardType.MELEE, 4, sim.Element.BRUTAL,
+                       effect=sim.true_might_fx, pre=True)
+        enemy = sim.Enemy("Dummy", 20, 1, sim.Element.NONE, [0, 0, 0, 0])
+        ctx = {"enemies": [enemy]}
+        sim.resolve_attack(hero, card, ctx)
+        # four hits plus bonus 8 damage => 12 total
+        self.assertEqual(enemy.hp, 8)
+
+    def test_true_might_no_bonus_after_dice_card(self):
+        """True Might bonus does not trigger if another dice card was played."""
+        sim.RNG.seed(0)
+        hero = sim.Hero("Hero", 10, [])
+        first = sim.atk("Strike", sim.CardType.MELEE, 1)
+        mighty = sim.atk("True Might", sim.CardType.MELEE, 4, sim.Element.BRUTAL,
+                         effect=sim.true_might_fx, pre=True)
+        enemy = sim.Enemy("Dummy", 20, 1, sim.Element.NONE, [0, 0, 0, 0])
+        ctx = {"enemies": [enemy]}
+        sim.resolve_attack(hero, first, ctx)
+        sim.resolve_attack(hero, mighty, ctx)
+        # first attack hits for 1, second for 5 with no bonus => total 6
+        self.assertEqual(enemy.hp, 14)
+
 if __name__ == "__main__":
     unittest.main()

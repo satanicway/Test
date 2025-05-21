@@ -751,27 +751,26 @@ class TestHerculesCards(unittest.TestCase):
         sim.resolve_attack(hero, kill, ctx)
         self.assertEqual(e2.hp, 1)
 
-    def test_fortunes_throw_choice(self):
+    def test_fortunes_throw_gain_fate_when_available(self):
         hero = sim.Hero("Hero", 10, [])
         hero.fate = 0
         card = sim.atk("Fortune", sim.CardType.RANGED, 0,
                        effect=sim.fortunes_throw_fx)
         enemy = sim.Enemy("Dummy", 1, 1, sim.Element.NONE, [0, 0, 0, 0])
         ctx = {"enemies": [enemy]}
-        with unittest.mock.patch("builtins.input", return_value="F"):
-            sim.resolve_attack(hero, card, ctx)
+        sim.resolve_attack(hero, card, ctx)
         self.assertEqual(hero.fate, 2)
         self.assertEqual(hero.armor_pool, 0)
 
-    def test_fortunes_throw_armor_choice(self):
+    def test_fortunes_throw_gain_armor_when_at_fate_cap(self):
         hero = sim.Hero("Hero", 10, [])
+        hero.fate = sim.FATE_MAX - 1
         card = sim.atk("Fortune", sim.CardType.RANGED, 0,
                        effect=sim.fortunes_throw_fx)
         enemy = sim.Enemy("Dummy", 1, 1, sim.Element.NONE, [0, 0, 0, 0])
         ctx = {"enemies": [enemy]}
-        with unittest.mock.patch("builtins.input", return_value="A"):
-            sim.resolve_attack(hero, card, ctx)
-        self.assertEqual(hero.fate, 0)
+        sim.resolve_attack(hero, card, ctx)
+        self.assertEqual(hero.fate, sim.FATE_MAX - 1)
         self.assertEqual(hero.armor_pool, 2)
 
     def test_true_might_first_dice_attack_bonus(self):

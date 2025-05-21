@@ -668,6 +668,78 @@ def exchange_damage_bonus(n: int) -> Callable[[Hero, Dict[str, object]], None]:
             h.exchange_effects.append((per_exchange, None))
     return _fx
 
+# Brynhild uncommon card helpers --------------------------------------------
+
+def hymn_of_fate_end(hero: Hero, ctx: Dict[str, object], _enemy: Optional[Enemy]) -> None:
+    hero.gain_fate(hymn_count(hero))
+
+def hymn_of_fate_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    ctx.setdefault('end_hooks', []).append((hymn_of_fate_end, None))
+    def per_exchange(h: Hero, c: Dict[str, object]) -> None:
+        c.setdefault('end_hooks', []).append((hymn_of_fate_end, None))
+    if (per_exchange, hymn_of_fate_fx) not in hero.combat_effects:
+        hero.combat_effects.append((per_exchange, hymn_of_fate_fx))
+
+
+def echoes_of_gungnir_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    def hook(h: Hero, card: Card, c: Dict[str, object], dmg: int) -> int:
+        bonus = c.get('prev_misses', 0)
+        c['prev_misses'] = c.get('last_misses', 0)
+        return dmg + bonus
+    def per_exchange(h: Hero, c: Dict[str, object]) -> None:
+        c.setdefault('attack_hooks', []).append(hook)
+    ctx.setdefault('attack_hooks', []).append(hook)
+    if (per_exchange, hook) not in hero.combat_effects:
+        hero.combat_effects.append((per_exchange, hook))
+
+
+def overflowing_grace_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    if hasattr(hero, '_overflowing_grace'):
+        return
+    orig = hero.gain_fate
+    def patched(n: int = 1) -> None:
+        total = hero.fate + n
+        if total > FATE_MAX:
+            hero.fate = FATE_MAX
+            hero.hp = min(hero.max_hp, hero.hp + total - FATE_MAX)
+        else:
+            hero.fate = total
+    hero.gain_fate = patched
+    hero._overflowing_grace = orig
+    def cleanup(h: Hero, _c: Dict[str, object]) -> None:
+        if hasattr(h, '_overflowing_grace'):
+            h.gain_fate = h._overflowing_grace  # type: ignore[attr-defined]
+            delattr(h, '_overflowing_grace')
+    hero.combat_effects.append((cleanup, None))
+
+
+def misfortunes_muse_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    if ctx.get('last_misses', 0) >= 4:
+        hero.deck.draw(1)
+
+
+def tyrs_choice_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    if hero.fate <= FATE_MAX - 2:
+        hero.gain_fate(2)
+    else:
+        hero.armor_pool += 2
+
+
+def norns_gambit_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    ctx['hit_mod'] = ctx.get('hit_mod', 0) - 2
+    ctx['bonus_damage'] = ctx.get('bonus_damage', 0) + 4
+
+
+def hymn_hit_bonus(n: int) -> Callable[[Hero, Dict[str, object]], None]:
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        ctx['hit_mod'] = ctx.get('hit_mod', 0) + n
+    return _fx
+
+
+def triumphant_blow_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    if ctx.get('killed'):
+        hero.gain_fate(2)
+
 
 # ---------------------------------------------------------------------------
 # Enemy ability helpers
@@ -875,6 +947,15 @@ _b_u = [
     atk("Choir", CardType.UTIL, 0, hymn=True, persistent="exchange", effect=draw_cards(1)),
     atk("Valkyrie Lance", CardType.RANGED, 3, Element.DIVINE),
     atk("Ballad", CardType.UTIL, 0, hymn=True, persistent="exchange", effect=hymn_damage(1)),
+    atk("Hymn of Fate", CardType.MELEE, 0, hymn=True, persistent="combat", effect=hymn_of_fate_fx),
+    atk("Echoes of Gungnir", CardType.MELEE, 0, effect=echoes_of_gungnir_fx, persistent="combat"),
+    atk("Overflowing Grace", CardType.MELEE, 0, effect=overflowing_grace_fx, persistent="combat"),
+    atk("Misfortune's Muse", CardType.MELEE, 4, Element.DIVINE, effect=misfortunes_muse_fx),
+    atk("Tyr's Choice", CardType.MELEE, 2, Element.DIVINE, effect=tyrs_choice_fx),
+    atk("Chorus Throw", CardType.RANGED, 4, Element.PRECISE, dmg_per_hymn=1),
+    atk("Norn's Gambit", CardType.MELEE, 4, Element.PRECISE, effect=norns_gambit_fx),
+    atk("Hymn of Thunder", CardType.MELEE, 0, hymn=True, persistent="combat", effect=hymn_hit_bonus(1)),
+    atk("Triumphant Blow", CardType.MELEE, 4, Element.BRUTAL, effect=triumphant_blow_fx),
 ]
 thrust_of_destiny = atk("Thrust of Destiny", CardType.MELEE, 2, Element.DIVINE, dmg_per_hymn=1)
 _b_r = [
@@ -1231,6 +1312,7 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
             rer_bonus += card.dice
         else:
             rer_bonus += int(g_reroll)
+    killed_any = False
     for e in targets[:]:
         actual_type = CardType.MELEE if ctx.get("ranged_to_melee") and card.ctype == CardType.RANGED else card.ctype
         mod = -1 if (actual_type == CardType.MELEE and e.ability == "aerial-combat") else 0
@@ -1286,8 +1368,11 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
             if e.ability == "power-of-death" or e.ability is power_of_death:
                 ctx["dead_priests"] = ctx.get("dead_priests", 0) + 1
                 ctx["priest_bonus"] = ctx["dead_priests"]
+            killed_any = True
     if card.effect and not ctx.get("silenced") and not card.pre:
+        ctx['killed'] = killed_any
         card.effect(hero, ctx)
+        ctx.pop('killed', None)
         if card.persistent:
             if card.persistent == "combat":
                 hero.combat_effects.append((card.effect, card))

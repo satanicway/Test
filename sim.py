@@ -383,6 +383,17 @@ def discard_for_area_damage(mult: int) -> Callable[[Hero, Dict[str, object]], No
             ctx['area_damage'] = ctx.get('area_damage', 0) + mult * count
     return _fx
 
+def discard_bonus_damage(mult: int) -> Callable[[Hero, Dict[str, object]], None]:
+    """Discard all cards to gain ``mult`` damage per card this attack."""
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        count = len(h.deck.hand)
+        for _ in range(count):
+            i = RNG.randrange(len(h.deck.hand))
+            h.deck.disc.append(h.deck.hand.pop(i))
+        if count:
+            ctx['bonus_damage'] = ctx.get('bonus_damage', 0) + mult * count
+    return _fx
+
 def heal_self_or_ally(self_amt: int, ally_amt: int) -> Callable[[Hero, Dict[str, object]], None]:
     """Heal hero or an ally if present."""
     def _fx(h: Hero, ctx: Dict[str, object]) -> None:
@@ -673,6 +684,23 @@ def heal_on_kill(amount: int) -> Callable[[Hero, Dict[str, object]], None]:
             h.combat_effects.append((per_exchange, None))
     return _fx
 
+def horde_breaker_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """[Combat] When an enemy dies, others lose 2 HP."""
+    def apply(_h: Hero, c: Dict[str, object]) -> None:
+        count = c.get('killed_count', 0)
+        if count:
+            enemies = c.get('enemies', [])
+            for e in enemies[:]:
+                e.hp -= 2 * count
+            c['enemies'] = [e for e in enemies if e.hp > 0]
+
+    def per_exchange(h: Hero, c: Dict[str, object]) -> None:
+        apply(h, c)
+
+    apply(hero, ctx)
+    if (per_exchange, None) not in hero.combat_effects:
+        hero.combat_effects.append((per_exchange, None))
+
 def ally_damage_bonus(n: int) -> Callable[[Hero, Dict[str, object]], None]:
     """Give an ally +``n`` damage to all attacks for this combat."""
     def _fx(h: Hero, ctx: Dict[str, object]) -> None:
@@ -958,6 +986,13 @@ def misfortunes_muse_fx(hero: Hero, ctx: Dict[str, object]) -> None:
 
 
 def tyrs_choice_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    if hero.fate <= FATE_MAX - 2:
+        hero.gain_fate(2)
+    else:
+        hero.armor_pool += 2
+
+def fortunes_throw_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """Gain 2 Fate if not near max, otherwise gain 2 Armor."""
     if hero.fate <= FATE_MAX - 2:
         hero.gain_fate(2)
     else:
@@ -1358,20 +1393,23 @@ herc_base = [
     atk("Atlas Guard", CardType.RANGED, 0, effect=gain_armor(3)),
 ]
 herc_common_upg = [
-    atk("Bondless Effort", CardType.MELEE, 3, Element.BRUTAL),
+    atk("Bondless Effort", CardType.MELEE, 3, Element.BRUTAL,
+        effect=discard_bonus_damage(3)),
     atk("Colossus Smash", CardType.MELEE, 3, Element.BRUTAL, armor=1, effect=gain_armor(1)),
     atk("Olympian Call", CardType.MELEE, 1, Element.DIVINE,
         effect=reroll_per_attack_fx(1), persistent="combat"),
     atk("Divine Resilience", CardType.MELEE, 1, Element.DIVINE,
         armor=1, effect=armor_per_enemy()),
-    atk("Horde Breaker", CardType.MELEE, 2, Element.DIVINE),
+    atk("Horde Breaker", CardType.MELEE, 2, Element.DIVINE,
+        effect=horde_breaker_fx, persistent="combat"),
     atk("Disorienting Blow", CardType.MELEE, 2, Element.PRECISE,
         effect=modify_enemy_defense(-3), persistent="exchange"),
     atk("Piercing Spear", CardType.RANGED, 2, Element.PRECISE,
         effect=modify_enemy_defense(-1), persistent="combat"),
     atk("Fated War", CardType.MELEE, 2, Element.SPIRITUAL, multi=True,
         effect=gain_fate_per_enemy(1)),
-    atk("Fortune's Throw", CardType.RANGED, 2, Element.SPIRITUAL, effect=gain_armor(2)),
+    atk("Fortune's Throw", CardType.RANGED, 2, Element.SPIRITUAL,
+        effect=fortunes_throw_fx),
 ]
 pain_strike = atk("Pain Strike", CardType.MELEE, 4, Element.BRUTAL,
                    effect=hp_for_damage_scaled(6), pre=True)

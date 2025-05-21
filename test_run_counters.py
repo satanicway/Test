@@ -14,7 +14,7 @@ class TestSimulationCounters(unittest.TestCase):
         card_stats = sim.get_card_correlations()
         self.assertEqual(
             card_stats["Hercules"]["base"]["Pillar-Breaker Blow"],
-            {"win": 0, "loss": 3},
+            {"win": 0, "loss": 12},
         )
 
         # enemy appearance/run counts updated

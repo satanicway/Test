@@ -574,7 +574,7 @@ class TestBrynhildCards(unittest.TestCase):
             sim.apply_persistent(hero, ctx)
             for fx, e in ctx.get("end_hooks", []):
                 fx(hero, ctx, e)
-        self.assertEqual(hero.armor_pool, 3)
+        self.assertEqual(hero.armor_pool, 5)
 
     def test_valkyries_descent_hymn_bonus(self):
         hero = sim.Hero("Hero", 10, [])

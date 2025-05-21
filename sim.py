@@ -1361,6 +1361,56 @@ def strength_from_anger_fx(hero: Hero, ctx: Dict[str, object]) -> None:
         hero.combat_effects.append((per_exchange, hook))
 
 
+def true_might_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """Add 4 dice if no other dice card was played this exchange."""
+    if not ctx.get('dice_played'):
+        ctx['bonus_dice'] = ctx.get('bonus_dice', 0) + 4
+
+
+def athenas_guidance_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """Discard 1 card then double all damage for this combat."""
+    if hero.deck.hand:
+        i = RNG.randrange(len(hero.deck.hand))
+        hero.deck.disc.append(hero.deck.hand.pop(i))
+
+    def hook(_h: Hero, _c: Card, _ctx: Dict[str, object], dmg: int) -> int:
+        return dmg * 2
+
+    def per_exchange(h: Hero, c: Dict[str, object]) -> None:
+        c.setdefault('attack_hooks', []).append(hook)
+
+    ctx.setdefault('attack_hooks', []).append(hook)
+    if (per_exchange, hook) not in hero.combat_effects:
+        hero.combat_effects.append((per_exchange, hook))
+
+
+def apollos_sunburst_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """Discard hand to add area damage."""
+    count = len(hero.deck.hand)
+    for _ in range(count):
+        i = RNG.randrange(len(hero.deck.hand))
+        hero.deck.disc.append(hero.deck.hand.pop(i))
+    if count:
+        ctx['area_damage'] = ctx.get('area_damage', 0) + 3 * count
+
+
+def nike_desire_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """Draw 1 or pay 1 Fate to draw 2."""
+    if hero.fate >= 1:
+        hero.fate -= 1
+        hero.deck.draw(2)
+    else:
+        hero.deck.draw(1)
+
+
+def hermes_delivery_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """Draw a card and immediately play it as an attack."""
+    hero.deck.draw(1)
+    if hero.deck.hand:
+        card = hero.deck.hand.pop()
+        resolve_attack(hero, card, ctx)
+
+
 # ---------------------------------------------------------------------------
 # Enemy ability helpers
 # ---------------------------------------------------------------------------
@@ -1532,14 +1582,53 @@ herc_uncommon_upg = [
 herc_rare_upg = [
     atk("Zeus' Wrath", CardType.MELEE, 4, Element.BRUTAL, multi=True),
     ares_will,
-    atk("True Might of Hercules", CardType.MELEE, 4, Element.BRUTAL),
-    atk("Athena's Guidance", CardType.MELEE, 0, Element.DIVINE),
-    atk("Apollo's Sunburst", CardType.RANGED, 3, Element.DIVINE, multi=True),
-    atk("Nike's Desire", CardType.MELEE, 1, Element.DIVINE, effect=draw_cards(1)),
+    atk(
+        "True Might of Hercules",
+        CardType.MELEE,
+        4,
+        Element.BRUTAL,
+        effect=true_might_fx,
+        pre=True,
+    ),
+    atk(
+        "Athena's Guidance",
+        CardType.MELEE,
+        0,
+        Element.DIVINE,
+        effect=athenas_guidance_fx,
+        persistent="combat",
+    ),
+    atk(
+        "Apollo's Sunburst",
+        CardType.RANGED,
+        3,
+        Element.DIVINE,
+        multi=True,
+        effect=apollos_sunburst_fx,
+        pre=True,
+    ),
+    atk(
+        "Nike's Desire",
+        CardType.MELEE,
+        1,
+        Element.DIVINE,
+        effect=nike_desire_fx,
+    ),
     atk("Blessing of Hephaestus", CardType.RANGED, 0, effect=gain_armor(5)),
-    atk("Hermes' Delivery", CardType.MELEE, 3, Element.PRECISE, effect=draw_cards(1)),
-    atk("Eris' Pandemonium", CardType.MELEE, 0,
-        effect=damage_bonus_per_enemy(1), persistent="exchange"),
+    atk(
+        "Hermes' Delivery",
+        CardType.MELEE,
+        3,
+        Element.PRECISE,
+        effect=hermes_delivery_fx,
+    ),
+    atk(
+        "Eris' Pandemonium",
+        CardType.MELEE,
+        0,
+        effect=damage_bonus_per_enemy(1),
+        persistent="exchange",
+    ),
 ]
 herc_pool = weighted_pool(herc_common_upg, herc_uncommon_upg, herc_rare_upg)
 hercules = Hero("Hercules", 25, herc_base, herc_pool)
@@ -2118,6 +2207,8 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
         hero.active_hymns.append(card)
     hero.deck.disc.append(orig_card)
     ctx['attacks_used'] = ctx.get('attacks_used', 0) + 1
+    if orig_card.dice > 0:
+        ctx['dice_played'] = True
     ctx.pop('double_rerolls', None)
 
     if repeat and ctx.get('enemies') and hero.hp > 0:
@@ -2209,6 +2300,7 @@ def fight_one(hero: Hero) -> bool:
             ctx["global_reroll"] = False
             ctx["exchange_bonus"] = 0
             ctx["attacks_used"] = 0
+            ctx["dice_played"] = False
             apply_persistent(hero, ctx)
             ctx["attack_hooks"] = []
             ctx["start_hooks"] = []

@@ -811,6 +811,69 @@ def fate_severer_fx(hero: Hero, ctx: Dict[str, object]) -> None:
         ctx['bonus_damage'] = ctx.get('bonus_damage', 0) + 3 * spend
 
 
+def chance_seizing_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """Pay 1 Fate to triple vulnerability damage for this combat."""
+    if hero.fate >= 1:
+        hero.fate -= 1
+
+        def hook(_h: Hero, card: Card, c: Dict[str, object], dmg: int) -> int:
+            enemies = c.get('enemies', [])
+            if enemies and card.element != Element.NONE and enemies[0].vulnerability == card.element:
+                return dmg + dmg // 2
+            return dmg
+
+        def per_exchange(h: Hero, c: Dict[str, object]) -> None:
+            c.setdefault('attack_hooks', []).append(hook)
+
+        ctx.setdefault('attack_hooks', []).append(hook)
+        if (per_exchange, hook) not in hero.combat_effects:
+            hero.combat_effects.append((per_exchange, hook))
+
+
+def susanoo_cut_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """Add damage equal to hero armor // 2."""
+
+    def hook(h: Hero, card: Card, c: Dict[str, object], dmg: int) -> int:
+        return dmg + h.armor_pool // 2
+
+    ctx.setdefault('attack_hooks', []).append(hook)
+
+
+def water_mirror_split_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """Next single-target attack hits two enemies."""
+    ctx['split_next'] = True
+
+
+def iron_will_guard_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """Gain 3 armor or pay 1 Fate for 5."""
+    if hero.fate >= 1:
+        hero.fate -= 1
+        hero.armor_pool += 5
+    else:
+        hero.armor_pool += 3
+
+
+def ghost_step_slash_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """Repeat attack on another enemy if one was killed."""
+    if ctx.get('killed') and ctx.get('enemies') and not ctx.get('ghost_step'):        
+        ctx['ghost_step'] = True
+        temp = Card('Ghost-Step Slash', CardType.MELEE, 3, Element.DIVINE)
+        resolve_attack(hero, temp, ctx)
+        ctx.pop('ghost_step', None)
+
+
+def heavenly_dragon_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """Lock element of all attacks for the rest of the exchange."""
+    elem = ctx.get('last_element', Element.ARCANE)
+
+    def per_exchange(h: Hero, c: Dict[str, object]) -> None:
+        c['next_element'] = elem
+
+    ctx['next_element'] = elem
+    if (per_exchange, elem) not in hero.exchange_effects:
+        hero.exchange_effects.append((per_exchange, elem))
+
+
 # ---------------------------------------------------------------------------
 # Enemy ability helpers
 # ---------------------------------------------------------------------------
@@ -1171,16 +1234,22 @@ scroll_cut_slash = atk(
     "Scroll-Cut Slash", CardType.MELEE, 3, Element.PRECISE,
     multi=True, max_targets=2
 )
-chance_seizing = atk("Chance-Seizing Blade", CardType.MELEE, 1, Element.BRUTAL)
-susanoo_cut = atk("Susanoo-Descent Cut", CardType.MELEE, 3, Element.BRUTAL)
-water_mirror_split = atk("Water-Mirror Split", CardType.MELEE, 0)
+chance_seizing = atk("Chance-Seizing Blade", CardType.MELEE, 1, Element.BRUTAL,
+    effect=chance_seizing_fx)
+susanoo_cut = atk("Susanoo-Descent Cut", CardType.MELEE, 3, Element.BRUTAL,
+    effect=susanoo_cut_fx)
+water_mirror_split = atk("Water-Mirror Split", CardType.MELEE, 0,
+    effect=water_mirror_split_fx)
 spirit_cleaver = atk(
     "Spirit-Cleaver", CardType.MELEE, 2, Element.SPIRITUAL,
     effect=change_element(Element.BRUTAL)
 )
-iron_will_guard = atk("Iron-Will Guard", CardType.RANGED, 0, armor=3)
-ghost_step_slash = atk("Ghost-Step Slash", CardType.MELEE, 3, Element.DIVINE)
-heavenly_dragon = atk("Heavenly-Dragon Stance", CardType.MELEE, 2, Element.ARCANE)
+iron_will_guard = atk("Iron-Will Guard", CardType.RANGED, 0,
+    effect=iron_will_guard_fx)
+ghost_step_slash = atk("Ghost-Step Slash", CardType.MELEE, 3, Element.DIVINE,
+    effect=ghost_step_slash_fx)
+heavenly_dragon = atk("Heavenly-Dragon Stance", CardType.MELEE, 2,
+    Element.ARCANE, effect=heavenly_dragon_fx)
 
 _m_common = [
     battojutsu_strike,
@@ -1372,6 +1441,13 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
     if not enemies:
         return
 
+    orig_card = card
+    if ctx.pop('split_next', False) and not card.multi:
+        card = Card(card.name, card.ctype, card.dice, card.element,
+                    card.armor, card.effect, card.persistent, card.hymn,
+                    True, 2, card.dmg_per_hymn, card.pre, card.before_ranged,
+                    card.hit_mod)
+
     blocks = ctx.setdefault("ephemeral_block", set())
     if card.effect and not ctx.get("silenced") and card.pre:
         card.effect(hero, ctx)
@@ -1405,6 +1481,7 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
             e.rolled_dice += card.dice
         vuln = ctx.pop("temp_vuln", e.vulnerability)
         elem = ctx.pop('next_element', card.element)
+        ctx['last_element'] = elem
         hits = roll_hits(
             card.dice,
             e.defense + ctx.get("enemy_defense_mod", 0),
@@ -1463,7 +1540,7 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
                 hero.exchange_effects.append((card.effect, card))
     if card.hymn:
         hero.active_hymns.append(card)
-    hero.deck.disc.append(card)
+    hero.deck.disc.append(orig_card)
     ctx['attacks_used'] = ctx.get('attacks_used', 0) + 1
 
 

@@ -48,12 +48,16 @@ def run_gauntlet(hero: sim.Hero) -> bool:
 def run_stats(num_runs: int = 50000) -> Dict[str, int]:
     """Run ``num_runs`` gauntlets for each hero and return win counts."""
     results: Dict[str, int] = {h.name: 0 for h in sim.HEROES}
-    for proto in sim.HEROES:
-        for _ in range(num_runs):
-            hero = sim.Hero(proto.name, proto.max_hp, proto.base_cards[:],
-                            proto._orig_pool[:])
-            if run_gauntlet(hero):
-                results[proto.name] += 1
+    sim.AUTO_MODE = True
+    try:
+        for proto in sim.HEROES:
+            for _ in range(num_runs):
+                hero = sim.Hero(proto.name, proto.max_hp, proto.base_cards[:],
+                                proto._orig_pool[:])
+                if run_gauntlet(hero):
+                    results[proto.name] += 1
+    finally:
+        sim.AUTO_MODE = False
     return results
 
 if __name__ == "__main__":

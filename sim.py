@@ -197,6 +197,9 @@ def roll_hits(num_dice: int, defense: int, mod: int = 0, *,
         # initial roll without automatic rerolls
         r = roll_die(defense, mod, hero=hero, allow_reroll=False)
         rerolled = False
+        if r < defense and ctx and ctx.get('reroll_misses_once'):
+            r = max(1, min(8, d8() + mod))
+            rerolled = True
         while r < defense and free_rerolls:
             free_rerolls -= 1
             r = max(1, min(8, d8() + mod))
@@ -332,9 +335,9 @@ def add_rerolls(n: int) -> Callable[[Hero, Dict[str, object]], None]:
     return _fx
 
 def global_reroll_fx() -> Callable[[Hero, Dict[str, object]], None]:
-    """Enable rerolls equal to dice rolled on every attack."""
+    """Reroll each die that misses once for this exchange."""
     def _fx(h: Hero, ctx: Dict[str, object]) -> None:
-        ctx['global_reroll'] = True
+        ctx['reroll_misses_once'] = True
     return _fx
 
 def reroll_per_attack_fx(n: int) -> Callable[[Hero, Dict[str, object]], None]:
@@ -2354,6 +2357,7 @@ def fight_one(hero: Hero) -> bool:
             ctx["hymn_damage"] = 0
             ctx["extra_rerolls"] = 0
             ctx["global_reroll"] = False
+            ctx["reroll_misses_once"] = False
             ctx["exchange_bonus"] = 0
             ctx["attacks_used"] = 0
             ctx["dice_played"] = False

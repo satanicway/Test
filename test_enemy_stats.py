@@ -25,10 +25,10 @@ class TestEnemyRunStats(unittest.TestCase):
             sim.AUTO_MODE = old_auto
 
         stats = sim.get_enemy_run_counts()
-        self.assertEqual(stats['Easy']['common']['win'], 1)
-        self.assertEqual(stats['Easy']['common']['loss'], 0)
-        self.assertEqual(stats['Easy']['elite']['win'], 1)
-        self.assertEqual(stats['Easy']['elite']['loss'], 1)
+        self.assertEqual(stats['Hero']['Easy']['common']['win'], 1)
+        self.assertEqual(stats['Hero']['Easy']['common']['loss'], 0)
+        self.assertEqual(stats['Hero']['Easy']['elite']['win'], 1)
+        self.assertEqual(stats['Hero']['Easy']['elite']['loss'], 1)
 
 if __name__ == '__main__':
     unittest.main()

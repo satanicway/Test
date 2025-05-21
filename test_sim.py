@@ -691,9 +691,23 @@ class TestHerculesCards(unittest.TestCase):
                        effect=sim.discard_bonus_damage(3))
         enemy = sim.Enemy("Dummy", 6, 1, sim.Element.NONE, [0, 0, 0, 0])
         ctx = {"enemies": [enemy]}
-        sim.resolve_attack(hero, card, ctx)
+        with unittest.mock.patch("builtins.input", return_value="2"):
+            sim.resolve_attack(hero, card, ctx)
         self.assertEqual(enemy.hp, 0)
         self.assertEqual(len(hero.deck.hand), 0)
+
+    def test_bondless_effort_partial_discard(self):
+        sim.RNG.seed(0)
+        hero = sim.Hero("Hero", 10, [])
+        hero.deck.hand = [sim.atk("a", sim.CardType.UTIL, 0) for _ in range(3)]
+        card = sim.atk("Bondless Effort", sim.CardType.MELEE, 0,
+                       effect=sim.discard_bonus_damage(3))
+        enemy = sim.Enemy("Dummy", 3, 1, sim.Element.NONE, [0, 0, 0, 0])
+        ctx = {"enemies": [enemy]}
+        with unittest.mock.patch("builtins.input", return_value="1"):
+            sim.resolve_attack(hero, card, ctx)
+        self.assertEqual(enemy.hp, 0)
+        self.assertEqual(len(hero.deck.hand), 2)
 
     def test_horde_breaker_death_trigger(self):
         sim.RNG.seed(0)

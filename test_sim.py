@@ -563,5 +563,27 @@ class TestBrynhildCards(unittest.TestCase):
         sim.resolve_attack(hero, sim.thrust_of_destiny, ctx)
         self.assertEqual(enemy.hp, 2)
 
+
+class TestHerculesCards(unittest.TestCase):
+    def test_pain_strike_hp_bonus(self):
+        sim.RNG.seed(0)
+        hero = sim.Hero("Hero", 10, [])
+        enemy = sim.Enemy("Dummy", 7, 1, sim.Element.NONE, [0, 0, 0, 0])
+        ctx = {"enemies": [enemy]}
+        sim.resolve_attack(hero, sim.pain_strike, ctx)
+        self.assertLess(hero.hp, 10)
+        self.assertFalse(ctx["enemies"])  # enemy defeated
+
+    def test_ares_will_persistent(self):
+        sim.RNG.seed(0)
+        hero = sim.Hero("Hero", 10, [])
+        enemy = sim.Enemy("Dummy", 5, 1, sim.Element.NONE, [0, 0, 0, 0])
+        ctx = {"enemies": [enemy]}
+        sim.resolve_attack(hero, sim.ares_will, ctx)
+        self.assertEqual(enemy.hp, 2)
+        attack = sim.atk("Strike", sim.CardType.MELEE, 1)
+        sim.resolve_attack(hero, attack, ctx)
+        self.assertFalse(ctx["enemies"])  # extra HP loss killed enemy
+
 if __name__ == "__main__":
     unittest.main()

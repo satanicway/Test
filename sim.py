@@ -299,6 +299,16 @@ def global_reroll_fx() -> Callable[[Hero, Dict[str, object]], None]:
         ctx['global_reroll'] = True
     return _fx
 
+def reroll_per_attack_fx(n: int) -> Callable[[Hero, Dict[str, object]], None]:
+    """Grant ``n`` free rerolls on every attack for this combat."""
+    def per_exchange(h: Hero, c: Dict[str, object]) -> None:
+        c['global_reroll'] = c.get('global_reroll', 0) + n
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        ctx['global_reroll'] = ctx.get('global_reroll', 0) + n
+        if (per_exchange, n) not in h.combat_effects:
+            h.combat_effects.append((per_exchange, n))
+    return _fx
+
 def armor_allies(n: int) -> Callable[[Hero, Dict[str, object]], None]:
     """Give ``n`` armor to all heroes in the context."""
     def _fx(h: Hero, ctx: Dict[str, object]) -> None:
@@ -440,6 +450,66 @@ def double_attack(card: Card) -> Callable[[Hero, Dict[str, object]], None]:
         resolve_attack(hero, temp, ctx)
     return _fx
 
+def hp_for_damage_scaled(max_bonus: int) -> Callable[[Hero, Dict[str, object]], None]:
+    """Spend up to ``max_bonus`` HP to gain the same damage on this attack."""
+    def hook(hero: Hero, card: Card, ctx: Dict[str, object], dmg: int) -> int:
+        spend = min(max_bonus, hero.hp - 1)
+        if spend > 0:
+            hero.hp -= spend
+            return dmg + spend
+        return dmg
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        ctx.setdefault('attack_hooks', []).append(hook)
+    return _fx
+
+def per_attack_hp_loss(amount: int) -> Callable[[Hero, Dict[str, object]], None]:
+    """Enemies lose ``amount`` HP each time you resolve an attack."""
+    def hook(hero: Hero, card: Card, ctx2: Dict[str, object], dmg: int) -> int:
+        enemies = ctx2.get('enemies', [])
+        if card.multi:
+            for e in enemies:
+                e.hp -= amount
+        elif enemies:
+            enemies[0].hp -= amount
+        return dmg
+    def per_exchange(h: Hero, c: Dict[str, object]) -> None:
+        c.setdefault('attack_hooks', []).append(hook)
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        ctx.setdefault('attack_hooks', []).append(hook)
+        if (per_exchange, hook) not in h.combat_effects:
+            h.combat_effects.append((per_exchange, hook))
+    return _fx
+
+def damage_bonus_per_enemy(amount: int) -> Callable[[Hero, Dict[str, object]], None]:
+    """Add ``amount`` damage for each enemy in combat."""
+    def hook(hero: Hero, card: Card, ctx2: Dict[str, object], dmg: int) -> int:
+        return dmg + amount * len(ctx2.get('enemies', []))
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        ctx.setdefault('attack_hooks', []).append(hook)
+    return _fx
+
+def gain_fate_per_enemy(amount: int) -> Callable[[Hero, Dict[str, object]], None]:
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        h.gain_fate(len(ctx.get('enemies', [])) * amount)
+    return _fx
+
+def armor_per_enemy(base: int = 0) -> Callable[[Hero, Dict[str, object]], None]:
+    """Gain armor equal to ``base`` plus one per enemy."""
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        h.armor_pool += base + len(ctx.get('enemies', []))
+    return _fx
+
+def exchange_damage_bonus(n: int) -> Callable[[Hero, Dict[str, object]], None]:
+    """Increase damage of future attacks this exchange by ``n``."""
+    def per_exchange(h: Hero, c: Dict[str, object]) -> None:
+        c['exchange_bonus'] = c.get('exchange_bonus', 0) + n
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        ctx['exchange_bonus'] = ctx.get('exchange_bonus', 0) + n
+        if (per_exchange, None) not in h.exchange_effects:
+            h.exchange_effects.append((per_exchange, None))
+    return _fx
+
+
 # ---------------------------------------------------------------------------
 # Enemy ability helpers
 # ---------------------------------------------------------------------------
@@ -521,38 +591,67 @@ def weighted_pool(common: List[Card], uncommon: List[Card], rare: List[Card]) ->
 
 # sample hero decks -----------------------------------------------------------
 herc_base = [
-    atk("Pillar", CardType.MELEE, 2, Element.BRUTAL),
-    atk("Pillar", CardType.MELEE, 2, Element.BRUTAL),
-    atk("Heroism", CardType.MELEE, 1, Element.DIVINE, armor=1, effect=gain_armor(1)),
-    atk("Heroism", CardType.MELEE, 1, Element.DIVINE, armor=1, effect=gain_armor(1)),
-    atk("Javelin", CardType.RANGED, 2, Element.DIVINE),
-    atk("Javelin", CardType.RANGED, 2, Element.DIVINE),
-    atk("Strangle", CardType.MELEE, 1, Element.BRUTAL, effect=discard_random(1)),
-    atk("Strangle", CardType.MELEE, 1, Element.BRUTAL, effect=discard_random(1)),
-    atk("Spin", CardType.MELEE, 1, multi=True),
-    atk("Spin", CardType.MELEE, 1, multi=True),
-    atk("Atlas", CardType.UTIL, 0, armor=2, effect=gain_armor(2)),
-    atk("Atlas", CardType.UTIL, 0, armor=2, effect=gain_armor(2)),
+    atk("Pillar-Breaker Blow", CardType.MELEE, 2, Element.BRUTAL),
+    atk("Pillar-Breaker Blow", CardType.MELEE, 2, Element.BRUTAL),
+    atk("Lion Strangler", CardType.MELEE, 1, Element.BRUTAL,
+        effect=per_attack_hp_loss(1), persistent="combat"),
+    atk("Demigodly Heroism", CardType.MELEE, 1, Element.DIVINE,
+        armor=1, effect=gain_armor(1)),
+    atk("Demigodly Heroism", CardType.MELEE, 1, Element.DIVINE,
+        armor=1, effect=gain_armor(1)),
+    atk("Sky Javelin", CardType.RANGED, 2, Element.DIVINE,
+        effect=exchange_damage_bonus(1), persistent="exchange"),
+    atk("Club Spin", CardType.MELEE, 1, Element.PRECISE, multi=True),
+    atk("Club Spin", CardType.MELEE, 1, Element.PRECISE, multi=True),
+    atk("Atlas Guard", CardType.RANGED, 0, effect=gain_armor(3)),
+    atk("Atlas Guard", CardType.RANGED, 0, effect=gain_armor(3)),
 ]
 herc_common_upg = [
-    atk("Slam", CardType.MELEE, 2),
-    atk("Training", CardType.UTIL, 0, effect=draw_cards(1)),
-    atk("Shout", CardType.UTIL, 0, effect=area_damage(1)),
-    atk("Brace", CardType.UTIL, 0, armor=2),
-    atk("Throw", CardType.RANGED, 2, multi=True),
-    atk("Grapple", CardType.MELEE, 1, effect=hp_for_damage(1, 1)),
+    atk("Bondless Effort", CardType.MELEE, 3, Element.BRUTAL),
+    atk("Colossus Smash", CardType.MELEE, 3, Element.BRUTAL, armor=1, effect=gain_armor(1)),
+    atk("Olympian Call", CardType.MELEE, 1, Element.DIVINE,
+        effect=reroll_per_attack_fx(1), persistent="combat"),
+    atk("Divine Resilience", CardType.MELEE, 1, Element.DIVINE,
+        armor=1, effect=armor_per_enemy()),
+    atk("Horde Breaker", CardType.MELEE, 2, Element.DIVINE),
+    atk("Disorienting Blow", CardType.MELEE, 2, Element.PRECISE,
+        effect=modify_enemy_defense(-3), persistent="exchange"),
+    atk("Piercing Spear", CardType.RANGED, 2, Element.PRECISE,
+        effect=modify_enemy_defense(-1), persistent="combat"),
+    atk("Fated War", CardType.MELEE, 2, Element.SPIRITUAL, multi=True,
+        effect=gain_fate_per_enemy(1)),
+    atk("Fortune's Throw", CardType.RANGED, 2, Element.SPIRITUAL, effect=gain_armor(2)),
 ]
+pain_strike = atk("Pain Strike", CardType.MELEE, 4, Element.BRUTAL,
+                   effect=hp_for_damage_scaled(6))
+ares_will = atk("Ares' Will", CardType.MELEE, 1, Element.BRUTAL,
+                effect=per_attack_hp_loss(2), persistent="combat")
 herc_uncommon_upg = [
-    atk("Dragon Spear", CardType.MELEE, 3, Element.DIVINE, effect=defense_down(1)),
-    atk("Bone Whirl", CardType.MELEE, 2, multi=True, effect=area_damage(1)),
-    atk("Rage", CardType.UTIL, 0, effect=hp_for_damage(2, 2)),
-    atk("Mighty Cleave", CardType.MELEE, 2, multi=True, effect=multi_bonus(1)),
+    pain_strike,
+    atk("Fortifying Attack", CardType.MELEE, 1, Element.BRUTAL),
+    atk("Bone-Splinter Whirl", CardType.MELEE, 3, Element.BRUTAL, multi=True,
+        effect=defense_down(1), persistent="combat"),
+    atk("Glorious Uproar", CardType.MELEE, 1, Element.DIVINE, multi=True,
+        effect=damage_bonus_per_enemy(1)),
+    atk("Guided By The Gods", CardType.MELEE, 1, Element.DIVINE,
+        effect=reroll_per_attack_fx(1), persistent="combat"),
+    atk("Chiron's Training", CardType.MELEE, 1, Element.PRECISE),
+    atk("Once Isn't Enough", CardType.MELEE, 0),
+    atk("Strength from Anger", CardType.MELEE, 1, Element.SPIRITUAL),
+    atk("Enduring Wave", CardType.MELEE, 2, Element.SPIRITUAL, multi=True,
+        armor=2, effect=gain_armor(2)),
 ]
 herc_rare_upg = [
-    atk("Labour", CardType.MELEE, 4, Element.BRUTAL, effect=hp_for_damage(2, 2)),
-    atk("Enduring Wave", CardType.UTIL, 0, armor=3, effect=gain_armor(3), persistent="combat"),
-    atk("War Cry", CardType.UTIL, 0, effect=discard_for_fate(1, 1)),
-    atk("Crushing Impact", CardType.UTIL, 0, effect=multi_bonus(2), persistent="exchange"),
+    atk("Zeus' Wrath", CardType.MELEE, 4, Element.BRUTAL, multi=True),
+    ares_will,
+    atk("True Might of Hercules", CardType.MELEE, 4, Element.BRUTAL),
+    atk("Athena's Guidance", CardType.MELEE, 0, Element.DIVINE),
+    atk("Apollo's Sunburst", CardType.RANGED, 3, Element.DIVINE, multi=True),
+    atk("Nike's Desire", CardType.MELEE, 1, Element.DIVINE, effect=draw_cards(1)),
+    atk("Blessing of Hephaestus", CardType.RANGED, 0, effect=gain_armor(5)),
+    atk("Hermes' Delivery", CardType.MELEE, 3, Element.PRECISE, effect=draw_cards(1)),
+    atk("Eris' Pandemonium", CardType.MELEE, 0,
+        effect=damage_bonus_per_enemy(1), persistent="exchange"),
 ]
 herc_pool = weighted_pool(herc_common_upg, herc_uncommon_upg, herc_rare_upg)
 hercules = Hero("Hercules", 25, herc_base, herc_pool)
@@ -851,8 +950,12 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
         targets = [enemies[0]]
     allow_reroll = not ctx.get("no_reroll", False)
     rer_bonus = ctx.pop('extra_rerolls', 0)
-    if ctx.get('global_reroll'):
-        rer_bonus += card.dice
+    g_reroll = ctx.get('global_reroll')
+    if g_reroll:
+        if g_reroll is True:
+            rer_bonus += card.dice
+        else:
+            rer_bonus += int(g_reroll)
     for e in targets[:]:
         actual_type = CardType.MELEE if ctx.get("ranged_to_melee") and card.ctype == CardType.RANGED else card.ctype
         mod = -1 if (actual_type == CardType.MELEE and e.ability == "aerial-combat") else 0
@@ -887,6 +990,7 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
         if card.dmg_per_hymn:
             dmg += damage_from_hymns(hero, card.dmg_per_hymn)
         dmg += ctx.get("hymn_damage", 0)
+        dmg += ctx.get("exchange_bonus", 0)
         soak = min(e.armor_pool, dmg)
         e.armor_pool -= soak
         dmg -= soak
@@ -913,6 +1017,7 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
     if card.hymn:
         hero.active_hymns.append(card)
     hero.deck.disc.append(card)
+    ctx['attacks_used'] = ctx.get('attacks_used', 0) + 1
 
 
 def monster_attack(heroes: List[Hero], ctx: Dict[str, object]) -> None:
@@ -973,6 +1078,8 @@ def fight_one(hero: Hero) -> bool:
             ctx["hymn_damage"] = 0
             ctx["extra_rerolls"] = 0
             ctx["global_reroll"] = False
+            ctx["exchange_bonus"] = 0
+            ctx["attacks_used"] = 0
             apply_persistent(hero, ctx)
             ctx["attack_hooks"] = []
             ctx["start_hooks"] = []

@@ -626,12 +626,16 @@ def change_element(elem: Element) -> Callable[[Hero, Dict[str, object]], None]:
     return _fx
 
 def choose_element() -> Callable[[Hero, Dict[str, object]], None]:
-    """Prompt the player to choose an element for the next attack."""
+    """Automatically choose an element for the next attack."""
 
     def _fx(h: Hero, ctx: Dict[str, object]) -> None:
-        mapping = {e.value: e for e in Element if e is not Element.NONE}
-        choice = get_input(f"Choose element ({'/'.join(mapping.keys())}): ").strip().upper()
-        ctx['next_element'] = mapping.get(choice, Element.NONE)
+        if ctx.get('enemies'):
+            vuln = ctx['enemies'][0].vulnerability
+            if vuln is not Element.NONE:
+                ctx['next_element'] = vuln
+                return
+        choices = [e for e in Element if e is not Element.NONE]
+        ctx['next_element'] = RNG.choice(choices)
 
     return _fx
 

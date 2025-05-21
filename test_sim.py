@@ -413,13 +413,12 @@ class TestNewCardEffects(unittest.TestCase):
         self.assertEqual(dmg, 4)
 
     def test_choose_element_effect(self):
-        """Player selects element for next attack via input."""
+        """Next attack uses enemy vulnerability when available."""
         hero = sim.Hero("Hero", 10, [])
         enemy = sim.Enemy("Dummy", 1, 5, sim.Element.DIVINE, [0, 0, 0, 0])
         ctx = {"enemies": [enemy]}
-        with unittest.mock.patch("builtins.input", return_value="D"):
-            fx = sim.choose_element()
-            fx(hero, ctx)
+        fx = sim.choose_element()
+        fx(hero, ctx)
         attack = sim.atk("Strike", sim.CardType.MELEE, 1)
         sim.resolve_attack(hero, attack, ctx)
         self.assertFalse(ctx["enemies"])  # vulnerability damage

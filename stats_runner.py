@@ -23,8 +23,16 @@ def _select_waves() -> list[tuple[str, int]]:
 
 # single run ------------------------------------------------------------------
 
-def run_gauntlet(hero: sim.Hero) -> bool:
-    """Run one gauntlet for ``hero`` using random waves and upgrade schedule."""
+def run_gauntlet(hero: sim.Hero, hp_log: list[int] | None = None) -> bool:
+    """Run one gauntlet for ``hero`` using random waves and upgrade schedule.
+
+    Parameters
+    ----------
+    hero:
+        The hero instance to run through the gauntlet.
+    hp_log:
+        Optional list that receives the hero's hit points after each fight.
+    """
     original_waves = sim.ENEMY_WAVES[:]
     sim.ENEMY_WAVES = _select_waves()
 
@@ -39,7 +47,7 @@ def run_gauntlet(hero: sim.Hero) -> bool:
 
     hero.gain_upgrades = patched
     try:
-        return sim.fight_one(hero)
+        return sim.fight_one(hero, hp_log)
     finally:
         hero.gain_upgrades = orig_gain
         sim.ENEMY_WAVES = original_waves
@@ -65,12 +73,14 @@ def run_stats(num_runs: int = 50000) -> Dict[str, int]:
     return results
 
 
-def run_stats_with_damage(num_runs: int = 50000) -> tuple[Dict[str, int], dict]:
-    """Run gauntlets collecting win counts and total monster damage."""
+def run_stats_with_damage(num_runs: int = 50000) -> tuple[Dict[str, int], dict, dict]:
+    """Run gauntlets collecting win counts, damage and HP progression."""
     from collections import defaultdict
 
     results: Dict[str, int] = {h.name: 0 for h in sim.HEROES}
     damage: dict = defaultdict(int)
+    hp_totals: dict[str, list[int]] = {h.name: [0]*8 for h in sim.HEROES}
+    hp_counts: dict[str, list[int]] = {h.name: [0]*8 for h in sim.HEROES}
 
     sim.CARD_CORRELATIONS.clear()
     sim.ENEMY_RUN_COUNTS.clear()
@@ -82,18 +92,36 @@ def run_stats_with_damage(num_runs: int = 50000) -> tuple[Dict[str, int], dict]:
             for _ in range(num_runs):
                 hero = sim.Hero(proto.name, proto.max_hp, proto.base_cards[:],
                                 proto._orig_pool[:])
-                if run_gauntlet(hero):
+                hp_log: list[int] = []
+                if run_gauntlet(hero, hp_log):
                     results[proto.name] += 1
+                for idx, hp in enumerate(hp_log):
+                    hp_totals[proto.name][idx] += hp
+                    hp_counts[proto.name][idx] += 1
                 for key, val in sim.get_monster_damage().items():
                     damage[key] += val
     finally:
         sim.AUTO_MODE = False
     sim.MONSTER_DAMAGE.clear()
-    return results, damage
+
+    hp_avgs: dict[str, list[float]] = {}
+    for proto in sim.HEROES:
+        totals = hp_totals[proto.name]
+        counts = hp_counts[proto.name]
+        percents: list[float] = []
+        for idx in range(8):
+            if counts[idx]:
+                pct = totals[idx] / (counts[idx] * proto.max_hp) * 100
+            else:
+                pct = 0.0
+            percents.append(pct)
+        hp_avgs[proto.name] = percents
+
+    return results, damage, hp_avgs
 
 
 def format_report(wins: Dict[str, int], card_data: dict, damage: dict,
-                  enemy_data: dict, num_runs: int) -> str:
+                  enemy_data: dict, num_runs: int, hp_avgs: dict) -> str:
     """Create a human readable report from aggregated statistics."""
     from collections import defaultdict
 
@@ -103,6 +131,9 @@ def format_report(wins: Dict[str, int], card_data: dict, damage: dict,
     for hero in sorted(wins):
         rate = (wins[hero] / num_runs) * 100 if num_runs else 0.0
         lines.append(f"{hero}: {rate:.1f}% ({wins[hero]}/{num_runs})")
+        hp_vals = hp_avgs.get(hero, [0.0] * 8)
+        hp_str = "/".join(f"{v:.0f}%" for v in hp_vals)
+        lines.append(f"  HP after fights: {hp_str}")
 
     lines.append("\n=== Card Correlations ===")
     for hero in sorted(card_data):
@@ -146,10 +177,10 @@ def format_report(wins: Dict[str, int], card_data: dict, damage: dict,
 
 def generate_report(num_runs: int = 100) -> str:
     """Run gauntlets and return a formatted statistics report."""
-    wins, damage = run_stats_with_damage(num_runs)
+    wins, damage, hp = run_stats_with_damage(num_runs)
     card_data = sim.get_card_correlations()
     enemy_data = sim.get_enemy_run_counts()
-    return format_report(wins, card_data, damage, enemy_data, num_runs)
+    return format_report(wins, card_data, damage, enemy_data, num_runs, hp)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run gauntlet statistics")

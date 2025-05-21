@@ -504,6 +504,19 @@ class TestMusashiCards(unittest.TestCase):
         sim.resolve_attack(hero, hero.deck.hand.pop(), ctx)
         self.assertFalse(ctx["enemies"])  # parry resolved before ranged
 
+    def test_dual_moon_guard_armor_gain(self):
+        sim.RNG.seed(0)
+        hero = sim.Hero("Musashi", 20, [])
+        guard = sim.dual_moon_guard
+        attack = sim.atk("Strike", sim.CardType.MELEE, 2)
+        enemy = sim.Enemy("Dummy", 10, 1, sim.Element.NONE, [0, 0, 0, 0])
+        ctx = {"enemies": [enemy]}
+        sim.resolve_attack(hero, guard, ctx)
+        sim.resolve_attack(hero, attack, ctx)
+        for fx, e in ctx.get("end_hooks", []):
+            fx(hero, ctx, e)
+        self.assertEqual(hero.armor_pool, 2)
+
 
 class TestMerlinCards(unittest.TestCase):
     def test_arcane_damage_card(self):

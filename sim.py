@@ -1134,6 +1134,25 @@ def iron_will_guard_fx(hero: Hero, ctx: Dict[str, object]) -> None:
         hero.armor_pool += 3
 
 
+def dual_moon_guard_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """End of exchange, gain Armor 1 + half damage dealt this exchange."""
+
+    key = object()
+    ctx[key] = 0
+
+    def hook(h: Hero, _c: Card, c: Dict[str, object], dmg: int) -> int:
+        if h is hero:
+            c[key] = c.get(key, 0) + dmg
+        return dmg
+
+    def end_fx(h: Hero, c: Dict[str, object], _e: Optional[Enemy]) -> None:
+        total = c.pop(key, 0)
+        h.armor_pool += 1 + total // 2
+
+    ctx.setdefault('attack_hooks', []).append(hook)
+    ctx.setdefault('end_hooks', []).append((end_fx, None))
+
+
 def ghost_step_slash_fx(hero: Hero, ctx: Dict[str, object]) -> None:
     """Repeat attack on another enemy if one was killed."""
     if ctx.get('killed') and ctx.get('enemies') and not ctx.get('ghost_step'):        
@@ -1884,7 +1903,7 @@ flowing_water = atk(
 )
 dual_moon_guard = atk(
     "Dual-Moon Guard", CardType.MELEE, 1, Element.DIVINE,
-    effect=gain_armor(1)
+    effect=dual_moon_guard_fx, pre=True
 )
 wind_read = atk(
     "Wind-Reading Focus", CardType.MELEE, 1, Element.ARCANE,

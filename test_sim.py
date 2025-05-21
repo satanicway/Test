@@ -512,6 +512,22 @@ class TestHymnMechanics(unittest.TestCase):
         sim.resolve_attack(hero, attack, ctx)
         self.assertEqual(enemy2.hp, 2)  # only combat hymn remains
 
+    def test_end_hymns_fx_preserves_other_effects(self):
+        hero = sim.Hero("Hero", 10, [])
+
+        def dummy_fx(h, ctx):
+            pass
+
+        hero.combat_effects.append((dummy_fx, None))
+        hymn = sim.atk("Song", sim.CardType.UTIL, 0, hymn=True, persistent="combat")
+        hero.active_hymns.append(hymn)
+        hero.combat_effects.append((lambda h, c: None, hymn))
+
+        sim.end_hymns_fx(hero, {})
+
+        self.assertFalse(hero.active_hymns)
+        self.assertEqual(hero.combat_effects, [(dummy_fx, None)])
+
 
 class TestMusashiCards(unittest.TestCase):
     def test_vulnerability_bonus(self):

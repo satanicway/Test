@@ -1656,7 +1656,16 @@ hymn_shields.effect = _hymn_shields_fx
 
 hymn_storms = atk("Hymn of Storms", CardType.UTIL, 0, effect=end_hymns_fx)
 
-gleaming_spear = atk("Gleaming Spear", CardType.RANGED, 2, Element.DIVINE)
+def sky_piercer_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    if ctx.get("last_misses", 0) >= 1:
+        hero.gain_fate(3)
+    else:
+        hero.gain_fate(1)
+
+sky_piercer = atk(
+    "Sky-Piercer", CardType.RANGED, 1, Element.SPIRITUAL,
+    effect=sky_piercer_fx,
+)
 rally = atk("Rally", CardType.UTIL, 0, effect=draw_cards(1))
 aria = atk("Aria", CardType.UTIL, 0, hymn=True, persistent="combat", effect=hymn_damage(1))
 
@@ -1664,7 +1673,7 @@ bryn_base = [
     valkyrie_descent, valkyrie_descent,
     hymn_shields, hymn_shields,
     hymn_storms, hymn_storms,
-    gleaming_spear, gleaming_spear,
+    sky_piercer, sky_piercer,
     rally, rally,
     aria, aria,
 ]

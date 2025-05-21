@@ -6,11 +6,24 @@ implementation that still demonstrates the same mechanics."""
 
 from __future__ import annotations
 import random
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Callable, Dict, List, Optional, Tuple, Set
 
 RNG = random.Random()
+
+# When ``AUTO_MODE`` is True user prompts fall back to default responses.
+AUTO_MODE = False
+
+def get_input(prompt: str) -> str:
+    """Wrapper around ``input`` respecting ``AUTO_MODE``."""
+    if AUTO_MODE:
+        return ""
+    try:
+        return input(prompt)
+    except Exception:
+        return ""
 
 # Each enemy template stores its own damage band so the old per-wave
 # ``BANDS`` table is no longer required.  Enemy lookups below provide the
@@ -61,6 +74,7 @@ class Deck:
     hand: List[Card] = field(default_factory=list)
     disc: List[Card] = field(default_factory=list)
     MAX_HAND: int = 7
+    owner: Optional["Hero"] = field(default=None, repr=False)
 
     def start_combat(self) -> None:
         """Initial draw at the start of combat (3 or 4 cards randomly)."""
@@ -78,7 +92,10 @@ class Deck:
                 self.cards, self.disc = self.disc, []
                 if not self.cards:
                     break
-            self.hand.append(self.cards.pop())
+            card = self.cards.pop()
+            self.hand.append(card)
+            if self.owner is not None and hasattr(self.owner, "combat_record"):
+                self.owner.combat_record["drawn"][card.name] += 1
 
     def pop_first(self, ctype: CardType) -> Optional[Card]:
         for i, c in enumerate(self.hand):
@@ -106,11 +123,20 @@ class Hero:
     combat_effects: List[Tuple[Callable[["Hero", Dict], None], Card]] = field(default_factory=list)
     exchange_effects: List[Tuple[Callable[["Hero", Dict], None], Card]] = field(default_factory=list)
     active_hymns: List[Card] = field(default_factory=list)
+    card_rarity: Dict[str, str] = field(default_factory=dict, repr=False)
+    combat_record: Dict[str, Counter] = field(default_factory=lambda: {
+        "drawn": Counter(),
+        "played": Counter(),
+    }, repr=False)
 
     def __post_init__(self) -> None:
         # store a copy of the original upgrade pool so ``reset`` can
         # restore it for subsequent runs
         self._orig_pool = self.upg_pool[:]
+        if self.name in HERO_RARITY_MAPS:
+            self.card_rarity = HERO_RARITY_MAPS[self.name]
+        else:
+            self.card_rarity = {c.name: "base" for c in self.base_cards}
         self.reset()
 
     def reset(self) -> None:
@@ -119,11 +145,12 @@ class Hero:
         self.hp = self.max_hp
         self.fate = 0
         self.armor_pool = 0
-        self.deck = Deck(self.base_cards[:])
+        self.deck = Deck(self.base_cards[:], owner=self)
         self.deck.shuffle()
         self.combat_effects.clear()
         self.exchange_effects.clear()
         self.active_hymns.clear()
+        self.combat_record = {"drawn": Counter(), "played": Counter()}
 
     def gain_fate(self, n: int = 1) -> None:
         """Increase ``fate`` but never above ``FATE_MAX``."""
@@ -423,7 +450,7 @@ def discard_bonus_damage(mult: int) -> Callable[[Hero, Dict[str, object]], None]
             return
         try:
             prompt = f"Discard how many cards (0-{len(h.deck.hand)}): "
-            choice = int(input(prompt).strip())
+            choice = int(get_input(prompt).strip() or len(h.deck.hand))
         except Exception:
             choice = len(h.deck.hand)
         n = max(0, min(choice, len(h.deck.hand)))
@@ -602,7 +629,7 @@ def choose_element() -> Callable[[Hero, Dict[str, object]], None]:
 
     def _fx(h: Hero, ctx: Dict[str, object]) -> None:
         mapping = {e.value: e for e in Element if e is not Element.NONE}
-        choice = input(f"Choose element ({'/'.join(mapping.keys())}): ").strip().upper()
+        choice = get_input(f"Choose element ({'/'.join(mapping.keys())}): ").strip().upper()
         ctx['next_element'] = mapping.get(choice, Element.NONE)
 
     return _fx
@@ -1064,7 +1091,7 @@ def misfortunes_muse_fx(hero: Hero, ctx: Dict[str, object]) -> None:
 def tyrs_choice_fx(hero: Hero, ctx: Dict[str, object]) -> None:
     """Let the player choose to gain 2 Fate or 2 Armor."""
     try:
-        choice = input("Gain 2 Fate or 2 Armor? (F/A): ").strip().upper()
+        choice = get_input("Gain 2 Fate or 2 Armor? (F/A): ").strip().upper()
     except Exception:
         choice = ""
     if choice.startswith("A"):
@@ -1075,7 +1102,7 @@ def tyrs_choice_fx(hero: Hero, ctx: Dict[str, object]) -> None:
 def fortunes_throw_fx(hero: Hero, ctx: Dict[str, object]) -> None:
     """Gain 2 Fate or 2 Armor based on player choice."""
     try:
-        choice = input("Gain 2 Fate or 2 Armor? (F/A): ").strip().upper()
+        choice = get_input("Gain 2 Fate or 2 Armor? (F/A): ").strip().upper()
     except Exception:
         choice = ""
     if choice.startswith("A"):
@@ -1242,7 +1269,7 @@ def heavenly_dragon_fx(hero: Hero, ctx: Dict[str, object]) -> None:
         for i, (name, el) in enumerate(options, 1):
             print(f"{i}: {name} ({el.value})")
         try:
-            choice = int(input("Choice: ").strip())
+            choice = int(get_input("Choice: ").strip() or 0)
             if 1 <= choice <= len(options):
                 elem = options[choice - 1][1]
         except Exception:
@@ -1600,6 +1627,22 @@ def weighted_pool(common: List[Card], uncommon: List[Card], rare: List[Card]) ->
     pool.extend(rare)
     return pool
 
+def build_rarity_map(base: List[Card], common: List[Card],
+                     uncommon: List[Card], rare: List[Card]) -> Dict[str, str]:
+    """Return mapping of card name to rarity bucket."""
+    mapping: Dict[str, str] = {}
+    for c in base:
+        mapping[c.name] = "base"
+    for c in common:
+        mapping[c.name] = "common"
+    for c in uncommon:
+        mapping[c.name] = "uncommon"
+    for c in rare:
+        mapping[c.name] = "rare"
+    return mapping
+
+HERO_RARITY_MAPS: Dict[str, Dict[str, str]] = {}
+
 # sample hero decks -----------------------------------------------------------
 herc_base = [
     atk("Pillar-Breaker Blow", CardType.MELEE, 2, Element.BRUTAL),
@@ -1739,6 +1782,9 @@ herc_rare_upg = [
     ),
 ]
 herc_pool = weighted_pool(herc_common_upg, herc_uncommon_upg, herc_rare_upg)
+HERO_RARITY_MAPS["Hercules"] = build_rarity_map(
+    herc_base, herc_common_upg, herc_uncommon_upg, herc_rare_upg
+)
 hercules = Hero("Hercules", 25, herc_base, herc_pool)
 
 # Brynhild cards --------------------------------------------------------------
@@ -1878,6 +1924,7 @@ _b_r = [
         effect=fate_severer_fx, pre=True),
 ]
 b_pool = weighted_pool(_b_c, _b_u, _b_r)
+HERO_RARITY_MAPS["Brynhild"] = build_rarity_map(bryn_base, _b_c, _b_u, _b_r)
 brynhild = Hero("Brynhild", 18, bryn_base, b_pool)
 
 # --- Merlin ---------------------------------------------------------------
@@ -1968,6 +2015,9 @@ _mer_rare = [
 ]
 
 merlin_pool = weighted_pool(_mer_common, _mer_uncommon, _mer_rare)
+HERO_RARITY_MAPS["Merlin"] = build_rarity_map(
+    merlin_base, _mer_common, _mer_uncommon, _mer_rare
+)
 merlin = Hero("Merlin", 15, merlin_base, merlin_pool)
 
 # --- Musashi ---------------------------------------------------------------
@@ -2127,10 +2177,38 @@ _m_rare = [
 ]
 
 musashi_pool = weighted_pool(_m_common, _m_uncommon, _m_rare)
+HERO_RARITY_MAPS["Musashi"] = build_rarity_map(
+    musashi_base, _m_common, _m_uncommon, _m_rare
+)
 musashi = Hero("Musashi", 20, musashi_base, musashi_pool)
 
 
 HEROES = [hercules, brynhild, merlin, musashi]
+
+# accumulate win/loss stats for card usage
+CARD_CORRELATIONS: Dict[str, Dict[str, Dict[str, Dict[str, int]]]] = defaultdict(
+    lambda: {
+        "base": defaultdict(lambda: {"win": 0, "loss": 0}),
+        "common": defaultdict(lambda: {"win": 0, "loss": 0}),
+        "uncommon": defaultdict(lambda: {"win": 0, "loss": 0}),
+        "rare": defaultdict(lambda: {"win": 0, "loss": 0}),
+    }
+)
+
+def _record_run_result(hero: Hero, won: bool) -> None:
+    stats = CARD_CORRELATIONS[hero.name]
+    seen = set(hero.combat_record.get("drawn", {})) | set(hero.combat_record.get("played", {}))
+    for name in seen:
+        rarity = hero.card_rarity.get(name, "base")
+        entry = stats[rarity][name]
+        if won:
+            entry["win"] += 1
+        else:
+            entry["loss"] += 1
+
+def get_card_correlations() -> Dict[str, Dict[str, Dict[str, Dict[str, int]]]]:
+    """Return aggregated card win/loss counts for each hero."""
+    return CARD_CORRELATIONS
 
 # ---------------------------------------------------------------------------
 # Enemy abilities and catalog
@@ -2247,6 +2325,8 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
     enemies: List[Enemy] = ctx["enemies"]
     if not enemies:
         return
+    if hasattr(hero, "combat_record"):
+        hero.combat_record["played"][card.name] += 1
 
     repeat = ctx.pop('double_next', False)
     orig_card = card
@@ -2548,6 +2628,7 @@ def fight_one(hero: Hero) -> bool:
                 hero.deck.draw(draw_amt)
 
         if ctx["enemies"] or hero.hp <= 0:
+            _record_run_result(hero, False)
             return False
 
         hero.gain_upgrades(1)
@@ -2557,7 +2638,9 @@ def fight_one(hero: Hero) -> bool:
         hero.exchange_effects.clear()
         hero.active_hymns.clear()
 
-    return hero.hp > 0
+    win = hero.hp > 0
+    _record_run_result(hero, win)
+    return win
 
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":

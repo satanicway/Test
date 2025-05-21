@@ -104,6 +104,12 @@ ATTACK_DEPTH_LIMIT = 10
 
 @dataclass
 class Hero:
+    """Playable character with a deck and persistent state.
+
+    ``combat_effects`` and ``exchange_effects`` hold tuples ``(fx, source)``
+    for persistent triggers. ``source`` is usually a :class:`Card` but may be
+    any object.
+    """
     name: str
     max_hp: int
     base_cards: List[Card]
@@ -114,8 +120,12 @@ class Hero:
     fate: int = 0
     armor_pool: int = 0
     deck: Deck = field(init=False)
-    combat_effects: List[Tuple[Callable[["Hero", Dict], None], Card]] = field(default_factory=list)
-    exchange_effects: List[Tuple[Callable[["Hero", Dict], None], Card]] = field(default_factory=list)
+    combat_effects: List[Tuple[Callable[["Hero", Dict], None], object]] = field(
+        default_factory=list
+    )  # active for the whole combat; second item may not be a Card
+    exchange_effects: List[Tuple[Callable[["Hero", Dict], None], object]] = field(
+        default_factory=list
+    )  # active for the current exchange only
     active_hymns: List[Card] = field(default_factory=list)
     card_rarity: Dict[str, str] = field(default_factory=dict, repr=False)
     combat_record: Dict[str, Counter] = field(default_factory=lambda: {
@@ -262,6 +272,12 @@ def roll_hits(num_dice: int, defense: int, mod: int = 0, *,
 # persistent effect application
 
 def apply_persistent(hero: Hero, ctx: Dict[str, object]) -> None:
+    """Invoke all persistent effects registered on ``hero``.
+
+    Entries in ``hero.combat_effects`` or ``hero.exchange_effects`` are tuples
+    ``(fx, source)`` where ``source`` may be any object, not necessarily a
+    :class:`Card`.
+    """
     if ctx.get("silenced"):
         return
     for fx, _ in hero.combat_effects:

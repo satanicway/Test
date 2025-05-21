@@ -187,18 +187,22 @@ def roll_hits(num_dice: int, defense: int, mod: int = 0, *,
               ctx: Optional[Dict[str, object]] = None) -> int:
     dmg = 0
     misses = 0
+    reroll_hits = 0
     for _ in range(num_dice):
         # initial roll without automatic rerolls
         r = roll_die(defense, mod, hero=hero, allow_reroll=False)
+        rerolled = False
         while r < defense and free_rerolls:
             free_rerolls -= 1
             r = max(1, min(8, d8() + mod))
+            rerolled = True
         if r < defense and allow_reroll and hero and enemy:
             remain = enemy.hp - dmg
             max_hit = 4 if element != Element.NONE and element == vulnerability else 2
             if remain <= max_hit:
                 while r < defense and hero.spend_fate(1):
                     r = max(1, min(8, d8() + mod))
+                    rerolled = True
         if enemy and enemy.ability == "denied-heaven":
             r = denied_heaven(r, mod)
         if enemy and enemy.ability == "curse-of-torment" and hero:
@@ -212,11 +216,14 @@ def roll_hits(num_dice: int, defense: int, mod: int = 0, *,
             hit = 2 if r == 8 else 1
             if element != Element.NONE and element == vulnerability:
                 hit *= 2
+            if rerolled:
+                reroll_hits += 1
             dmg += hit
         else:
             misses += 1
     if ctx is not None:
         ctx['last_misses'] = misses
+        ctx['reroll_hits'] = ctx.get('reroll_hits', 0) + reroll_hits
     return dmg
 
 # persistent effect application
@@ -741,6 +748,69 @@ def triumphant_blow_fx(hero: Hero, ctx: Dict[str, object]) -> None:
         hero.gain_fate(2)
 
 
+# Brynhild rare card helpers ---------------------------------------------------
+
+def hymn_all_father_end(hero: Hero, ctx: Dict[str, object], _enemy: Optional[Enemy]) -> None:
+    gain = 1 + hymn_count(hero)
+    hero.armor_pool += min(4, gain)
+
+
+def hymn_all_father_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    ctx.setdefault('end_hooks', []).append((hymn_all_father_end, None))
+    def per_exchange(h: Hero, c: Dict[str, object]) -> None:
+        c.setdefault('end_hooks', []).append((hymn_all_father_end, None))
+    if (per_exchange, hymn_all_father_fx) not in hero.combat_effects:
+        hero.combat_effects.append((per_exchange, hymn_all_father_fx))
+
+
+def lokis_trickery_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    def hook(h: Hero, card: Card, c: Dict[str, object], dmg: int) -> int:
+        bonus = c.pop('reroll_hits', 0)
+        return dmg + bonus
+    ctx.setdefault('attack_hooks', []).append(hook)
+
+
+def ragnarok_call_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    def per_exchange(h: Hero, c: Dict[str, object]) -> None:
+        c['exchange_bonus'] = c.get('exchange_bonus', 0) + 2
+        c['hit_mod'] = c.get('hit_mod', 0) - 1
+    ctx['exchange_bonus'] = ctx.get('exchange_bonus', 0) + 2
+    ctx['hit_mod'] = ctx.get('hit_mod', 0) - 1
+    if (per_exchange, None) not in hero.exchange_effects:
+        hero.exchange_effects.append((per_exchange, None))
+
+
+def storms_thunderlance_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    ctx['hit_mod'] = ctx.get('hit_mod', 0) + hymn_count(hero)
+
+
+def freyjas_command_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    def hook(h: Hero, card: Card, c: Dict[str, object], dmg: int) -> int:
+        return dmg + h.fate
+    ctx.setdefault('attack_hooks', []).append(hook)
+
+
+def blessing_of_balder_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    spend = hero.fate
+    if spend:
+        hero.fate = 0
+        hero.armor_pool += spend * 2
+
+
+def storms_rhyme_crash_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    ended = hymn_count(hero)
+    if ended:
+        ctx['bonus_damage'] = ctx.get('bonus_damage', 0) + 2 * ended
+    end_hymns_fx(hero, ctx)
+
+
+def fate_severer_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    spend = hero.fate
+    if spend:
+        hero.fate = 0
+        ctx['bonus_damage'] = ctx.get('bonus_damage', 0) + 3 * spend
+
+
 # ---------------------------------------------------------------------------
 # Enemy ability helpers
 # ---------------------------------------------------------------------------
@@ -959,10 +1029,23 @@ _b_u = [
 ]
 thrust_of_destiny = atk("Thrust of Destiny", CardType.MELEE, 2, Element.DIVINE, dmg_per_hymn=1)
 _b_r = [
-    atk("Valhalla", CardType.MELEE, 3, Element.DIVINE, effect=temp_vuln(Element.DIVINE)),
-    atk("Heaven's Blessing", CardType.UTIL, 0, effect=gain_fate_fx(2), persistent="combat"),
-    atk("Requiem", CardType.UTIL, 0, hymn=True, persistent="combat", effect=hymn_damage(2)),
-    thrust_of_destiny,
+    atk("Hymn of the All-Father", CardType.MELEE, 0, hymn=True,
+        persistent="combat", effect=hymn_all_father_fx),
+    atk("Loki's Trickery", CardType.MELEE, 3, Element.SPIRITUAL,
+        effect=lokis_trickery_fx, pre=True),
+    atk("Ragnarok Call", CardType.MELEE, 4, Element.SPIRITUAL,
+        effect=ragnarok_call_fx, persistent="exchange"),
+    atk("Storm's Thunderlance", CardType.RANGED, 5, Element.DIVINE,
+        effect=storms_thunderlance_fx, pre=True),
+    atk("Freyja's Command", CardType.MELEE, 1, Element.DIVINE,
+        effect=freyjas_command_fx, pre=True),
+    atk("Meteor Skyfall", CardType.MELEE, 7, Element.PRECISE,
+        hit_mod=-2, multi=True),
+    atk("Blessing of Balder", CardType.MELEE, 0, effect=blessing_of_balder_fx),
+    atk("Storm's Rhyme Crash", CardType.MELEE, 4, Element.BRUTAL,
+        multi=True, effect=storms_rhyme_crash_fx, pre=True),
+    atk("The Fate-Severer", CardType.MELEE, 3, Element.BRUTAL,
+        effect=fate_severer_fx, pre=True),
 ]
 b_pool = weighted_pool(_b_c, _b_u, _b_r)
 brynhild = Hero("Brynhild", 18, bryn_base, b_pool)

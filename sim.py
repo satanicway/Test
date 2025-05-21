@@ -1987,7 +1987,7 @@ musashi_base = [
 
 battojutsu_strike = atk(
     "Battojutsu Strike", CardType.MELEE, 2, Element.PRECISE,
-    armor=2, effect=gain_armor(2), before_ranged=True
+    armor=1, before_ranged=True
 )
 scroll_cut_slash = atk(
     "Scroll-Cut Slash", CardType.MELEE, 3, Element.PRECISE,

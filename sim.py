@@ -1175,6 +1175,17 @@ def ghost_step_slash_fx(hero: Hero, ctx: Dict[str, object]) -> None:
 def heavenly_dragon_fx(hero: Hero, ctx: Dict[str, object]) -> None:
     """Lock element of all attacks for the rest of the exchange."""
     elem = ctx.get('last_element', Element.ARCANE)
+    options = ctx.get('played_attacks', [])
+    if options:
+        print("Select attack element to lock:")
+        for i, (name, el) in enumerate(options, 1):
+            print(f"{i}: {name} ({el.value})")
+        try:
+            choice = int(input("Choice: ").strip())
+            if 1 <= choice <= len(options):
+                elem = options[choice - 1][1]
+        except Exception:
+            elem = options[-1][1]
 
     def per_exchange(h: Hero, c: Dict[str, object]) -> None:
         c['next_element'] = elem
@@ -2267,6 +2278,7 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
                 ctx["priest_bonus"] = ctx["dead_priests"]
             killed_any = True
             killed_count += 1
+    ctx.setdefault('played_attacks', []).append((orig_card.name, elem))
     if card.effect and not ctx.get("silenced") and not card.pre:
         ctx['killed'] = killed_any
         ctx['killed_count'] = killed_count
@@ -2382,6 +2394,7 @@ def fight_one(hero: Hero) -> bool:
             ctx["exchange_bonus"] = 0
             ctx["attacks_used"] = 0
             ctx["dice_played"] = False
+            ctx["played_attacks"] = []
             apply_persistent(hero, ctx)
             ctx["attack_hooks"] = []
             ctx["start_hooks"] = []

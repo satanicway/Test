@@ -635,6 +635,100 @@ def gain_fate_from_attacks() -> Callable[[Hero, Dict[str, object]], None]:
         h.gain_fate(ctx.get('attacks_used', 0))
     return _fx
 
+def gain_fate_per_kill(amount: int) -> Callable[[Hero, Dict[str, object]], None]:
+    """Gain Fate for each enemy killed by the last attack."""
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        h.gain_fate(ctx.get('killed_count', 0) * amount)
+    return _fx
+
+def double_rerolls_fx() -> Callable[[Hero, Dict[str, object]], None]:
+    """Allow free rerolls to be applied twice for the next attack."""
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        ctx['double_rerolls'] = True
+    return _fx
+
+def heal_on_kill(amount: int) -> Callable[[Hero, Dict[str, object]], None]:
+    """Heal hero or an ally whenever an enemy dies."""
+    def apply(h: Hero, c: Dict[str, object]) -> None:
+        count = c.get('killed_count', 0)
+        if count:
+            allies = [x for x in c.get('heroes', [h]) if x is not h]
+            target = allies[0] if allies else h
+            target.hp = min(target.max_hp, target.hp + amount * count)
+
+    def per_exchange(hero: Hero, c: Dict[str, object]) -> None:
+        apply(hero, c)
+
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        apply(h, ctx)
+        if (per_exchange, None) not in h.combat_effects:
+            h.combat_effects.append((per_exchange, None))
+    return _fx
+
+def ally_damage_bonus(n: int) -> Callable[[Hero, Dict[str, object]], None]:
+    """Give an ally +``n`` damage to all attacks for this combat."""
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        allies = [x for x in ctx.get('heroes', [h]) if x is not h]
+        if not allies:
+            return
+        target = allies[0]
+
+        def per_exchange(hero: Hero, c: Dict[str, object]) -> None:
+            if hero is target:
+                c['exchange_bonus'] = c.get('exchange_bonus', 0) + n
+
+        if (per_exchange, None) not in target.combat_effects:
+            target.combat_effects.append((per_exchange, None))
+    return _fx
+
+def guard_from_beyond_fx() -> Callable[[Hero, Dict[str, object]], None]:
+    """Grant an ally 5 Armor and draw all enemy attacks to them this exchange."""
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        allies = [x for x in ctx.get('heroes', [h]) if x is not h]
+        target = allies[0] if allies else h
+        target.armor_pool += 5
+        ctx['forced_target'] = target
+        def per_exchange(hero: Hero, c: Dict[str, object]) -> None:
+            c['forced_target'] = target
+        if (per_exchange, target) not in h.exchange_effects:
+            h.exchange_effects.append((per_exchange, target))
+    return _fx
+
+def spiritual_gifts_fx() -> Callable[[Hero, Dict[str, object]], None]:
+    """Discard 1 to let an ally gain 2 Fate and draw 1."""
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        allies = [x for x in ctx.get('heroes', [h]) if x is not h]
+        if not allies or not h.deck.hand:
+            return
+        i = RNG.randrange(len(h.deck.hand))
+        h.deck.disc.append(h.deck.hand.pop(i))
+        target = allies[0]
+        target.gain_fate(2)
+        target.deck.draw(1)
+    return _fx
+
+def crits_are_four() -> Callable[[Hero, Dict[str, object]], None]:
+    """[Combat] Critical hits deal 4 damage instead of 2."""
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        def die_hook(_h: Hero, roll: int) -> int:
+            if roll == 8:
+                ctx['crits'] = ctx.get('crits', 0) + 1
+            return roll
+
+        def atk_hook(_h: Hero, _c: Card, c: Dict[str, object], dmg: int) -> int:
+            bonus = c.pop('crits', 0)
+            return dmg + bonus * 2
+
+        def per_exchange(hero: Hero, c: Dict[str, object]) -> None:
+            c.setdefault('die_hooks', []).append(die_hook)
+            c.setdefault('attack_hooks', []).append(atk_hook)
+
+        ctx.setdefault('die_hooks', []).append(die_hook)
+        ctx.setdefault('attack_hooks', []).append(atk_hook)
+        if (per_exchange, None) not in h.combat_effects:
+            h.combat_effects.append((per_exchange, None))
+    return _fx
+
 def fate_for_damage_scaled(max_amt: int) -> Callable[[Hero, Dict[str, object]], None]:
     """Spend up to ``max_amt`` Fate for equal bonus damage on this attack."""
     def hook(hero: Hero, card: Card, ctx: Dict[str, object], dmg: int) -> int:
@@ -1377,21 +1471,23 @@ _mer_common = [
 
 _mer_uncommon = [
     atk("Waves of Destiny", CardType.RANGED, 3, Element.ARCANE, multi=True,
-        effect=gain_fate_per_enemy(1), persistent="exchange"),
+        effect=gain_fate_per_kill(1), persistent="exchange"),
     atk("Ancestral Echoes", CardType.RANGED, 3, Element.ARCANE, multi=True,
-        effect=add_rerolls(1)),
+        effect=double_rerolls_fx(), pre=True),
     atk("Whispers of the Wyrd", CardType.RANGED, 0,
-        persistent="combat", effect=exchange_damage_bonus(2)),
+        persistent="combat", effect=ally_damage_bonus(2)),
     atk("Nature's Rebuke", CardType.RANGED, 2, Element.DIVINE, multi=True,
-        effect=heal(1)),
-    atk("Guard from Beyond", CardType.RANGED, 0, effect=armor_allies(5)),
+        effect=heal_on_kill(1), persistent="combat"),
+    atk("Guard from Beyond", CardType.RANGED, 0,
+        effect=guard_from_beyond_fx(), persistent="exchange"),
     atk("Sage's Alacrity", CardType.RANGED, 2, Element.PRECISE,
         effect=reroll_per_attack_fx(2), persistent="combat"),
     atk("Charged Spirits", CardType.RANGED, 2, Element.SPIRITUAL, multi=True,
-        effect=fate_for_damage_scaled(5)),
-    atk("Avalon's Light", CardType.RANGED, 3, Element.SPIRITUAL),
+        effect=fate_for_damage_scaled(5), pre=True),
+    atk("Avalon's Light", CardType.RANGED, 3, Element.SPIRITUAL,
+        persistent="combat", effect=crits_are_four()),
     atk("Spiritual Gifts", CardType.RANGED, 4, Element.SPIRITUAL,
-        effect=combine_effects(discard_random(1), gain_fate_fx(2), draw_cards(1))),
+        effect=spiritual_gifts_fx()),
 ]
 
 _mer_rare = [
@@ -1720,6 +1816,8 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
         ctx['last_target'] = targets[0]
     allow_reroll = not ctx.get("no_reroll", False)
     rer_bonus = ctx.pop('extra_rerolls', 0)
+    if ctx.get('double_rerolls'):
+        rer_bonus *= 2
     g_reroll = ctx.get('global_reroll')
     if g_reroll:
         if g_reroll is True:
@@ -1727,6 +1825,7 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
         else:
             rer_bonus += int(g_reroll)
     killed_any = False
+    killed_count = 0
     for e in targets[:]:
         actual_type = CardType.MELEE if ctx.get("ranged_to_melee") and card.ctype == CardType.RANGED else card.ctype
         mod = -1 if (actual_type == CardType.MELEE and e.ability == "aerial-combat") else 0
@@ -1789,10 +1888,13 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
                 ctx["dead_priests"] = ctx.get("dead_priests", 0) + 1
                 ctx["priest_bonus"] = ctx["dead_priests"]
             killed_any = True
+            killed_count += 1
     if card.effect and not ctx.get("silenced") and not card.pre:
         ctx['killed'] = killed_any
+        ctx['killed_count'] = killed_count
         card.effect(hero, ctx)
         ctx.pop('killed', None)
+        ctx.pop('killed_count', None)
         if card.persistent:
             if card.persistent == "combat":
                 hero.combat_effects.append((card.effect, card))
@@ -1802,6 +1904,7 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
         hero.active_hymns.append(card)
     hero.deck.disc.append(orig_card)
     ctx['attacks_used'] = ctx.get('attacks_used', 0) + 1
+    ctx.pop('double_rerolls', None)
 
 
 def monster_attack(heroes: List[Hero], ctx: Dict[str, object]) -> None:
@@ -1828,10 +1931,12 @@ def monster_attack(heroes: List[Hero], ctx: Dict[str, object]) -> None:
             if e.ability == "cleave_all":
                 cleave_all(heroes, dmg)
             else:
-                apply(heroes[0], e, dmg)
+                target = ctx.get('forced_target', heroes[0])
+                apply(target, e, dmg)
 
     if bonus:
-        apply(heroes[0], None, bonus)
+        target = ctx.get('forced_target', heroes[0])
+        apply(target, None, bonus)
 
 # very small fight simulation -------------------------------------------------
 

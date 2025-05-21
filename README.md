@@ -54,3 +54,30 @@ Attack and utility cards may have effects in addition to their dice or armor
 values. Effects can grant armor, draw cards, or impose temporary conditions on
 monsters. Some effects persist for an exchange or an entire combat, while
 others resolve immediately.
+
+## Bulk Statistics
+
+For larger scale analysis the repository includes `run_stats.py`. This script
+executes many full gauntlet runs for every hero and summarizes the overall
+performance. Run it directly from the command line:
+
+```bash
+python3 run_stats.py
+```
+
+By default it simulates **50\,000** runs for each hero. The number of runs can
+be adjusted with the `--runs` option:
+
+```bash
+python3 run_stats.py --runs 10000
+```
+
+The output begins with a win‑rate summary similar to the following:
+
+```text
+=== Hero Win Rates ===
+Brynhild: 0.0% (0/10)
+Hercules: 0.0% (0/10)
+Merlin: 0.0% (0/10)
+Musashi: 0.0% (0/10)
+```

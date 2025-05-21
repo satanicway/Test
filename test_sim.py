@@ -381,6 +381,16 @@ class TestNewCardEffects(unittest.TestCase):
         sim.resolve_attack(hero, attack, ctx)
         self.assertTrue(all(e.hp == 0 for e in enemies))
 
+    def test_global_reroll_fx(self):
+        """Missed dice are rerolled once for the exchange."""
+        sim.RNG.seed(0)
+        hero = sim.Hero("Hero", 10, [])
+        enemy = sim.Enemy("Dummy", 10, 6, sim.Element.NONE, [0, 0, 0, 0])
+        ctx = {"enemies": [enemy]}
+        sim.global_reroll_fx()(hero, ctx)
+        dmg = sim.roll_hits(4, enemy.defense, hero=hero, enemy=enemy, ctx=ctx, allow_reroll=False)
+        self.assertEqual(dmg, 4)
+
 class TestHymnMechanics(unittest.TestCase):
     def test_hymn_armor_scaling(self):
         hero = sim.Hero("Hero", 10, [])

@@ -14,17 +14,9 @@ from typing import Callable, Dict, List, Optional, Tuple, Set
 
 RNG = random.Random()
 
-# When ``AUTO_MODE`` is True user prompts fall back to default responses.
+# ``AUTO_MODE`` remains for backward compatibility but no longer affects
+# gameplay because all interactive prompts have been removed.
 AUTO_MODE = False
-
-def get_input(prompt: str) -> str:
-    """Wrapper around ``input`` respecting ``AUTO_MODE``."""
-    if AUTO_MODE:
-        return ""
-    try:
-        return input(prompt)
-    except Exception:
-        return ""
 
 # Each enemy template stores its own damage band so the old per-wave
 # ``BANDS`` table is no longer required.  Enemy lookups below provide the
@@ -1094,15 +1086,8 @@ def misfortunes_muse_fx(hero: Hero, ctx: Dict[str, object]) -> None:
 
 
 def tyrs_choice_fx(hero: Hero, ctx: Dict[str, object]) -> None:
-    """Let the player choose to gain 2 Fate or 2 Armor."""
-    try:
-        choice = get_input("Gain 2 Fate or 2 Armor? (F/A): ").strip().upper()
-    except Exception:
-        choice = ""
-    if choice.startswith("A"):
-        hero.armor_pool += 2
-    else:
-        hero.gain_fate(2)
+    """Automatically gain 2 Fate (default choice)."""
+    hero.gain_fate(2)
 
 def fortunes_throw_fx(hero: Hero, ctx: Dict[str, object]) -> None:
     """Gain 2 Fate if possible; otherwise gain 2 Armor."""
@@ -1266,15 +1251,8 @@ def heavenly_dragon_fx(hero: Hero, ctx: Dict[str, object]) -> None:
     elem = ctx.get('last_element', Element.ARCANE)
     options = ctx.get('played_attacks', [])
     if options:
-        print("Select attack element to lock:")
-        for i, (name, el) in enumerate(options, 1):
-            print(f"{i}: {name} ({el.value})")
-        try:
-            choice = int(get_input("Choice: ").strip() or 0)
-            if 1 <= choice <= len(options):
-                elem = options[choice - 1][1]
-        except Exception:
-            elem = options[-1][1]
+        # automatically use the last played attack's element
+        elem = options[-1][1]
 
     def per_exchange(h: Hero, c: Dict[str, object]) -> None:
         c['next_element'] = elem

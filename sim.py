@@ -364,6 +364,21 @@ def reroll_per_attack_fx(n: int) -> Callable[[Hero, Dict[str, object]], None]:
             h.combat_effects.append((per_exchange, n))
     return _fx
 
+def reroll_per_attack_all_fx(n: int) -> Callable[[Hero, Dict[str, object]], None]:
+    """Grant all heroes ``n`` free rerolls on every attack for this combat."""
+
+    def per_exchange(_h: Hero, c: Dict[str, object]) -> None:
+        c['global_reroll'] = c.get('global_reroll', 0) + n
+
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        ctx['global_reroll'] = ctx.get('global_reroll', 0) + n
+        heroes = ctx.get('heroes', [h])
+        for hero in heroes:
+            if (per_exchange, n) not in hero.combat_effects:
+                hero.combat_effects.append((per_exchange, n))
+
+    return _fx
+
 def armor_allies(n: int) -> Callable[[Hero, Dict[str, object]], None]:
     """Give ``n`` armor to all heroes in the context."""
     def _fx(h: Hero, ctx: Dict[str, object]) -> None:
@@ -1860,7 +1875,7 @@ mists_of_time = atk(
     effect=dice_plus_one_fx, persistent="exchange")
 circle_of_avalon = atk(
     "Circle of Avalon", CardType.RANGED, 1, Element.SPIRITUAL,
-    effect=reroll_per_attack_fx(1), persistent="combat")
+    effect=reroll_per_attack_all_fx(1), persistent="combat")
 
 merlin_base = [
     arcane_volley, arcane_volley,

@@ -560,6 +560,16 @@ def change_element(elem: Element) -> Callable[[Hero, Dict[str, object]], None]:
         ctx['next_element'] = elem
     return _fx
 
+def choose_element() -> Callable[[Hero, Dict[str, object]], None]:
+    """Prompt the player to choose an element for the next attack."""
+
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        mapping = {e.value: e for e in Element if e is not Element.NONE}
+        choice = input(f"Choose element ({'/'.join(mapping.keys())}): ").strip().upper()
+        ctx['next_element'] = mapping.get(choice, Element.NONE)
+
+    return _fx
+
 def auto_element(*elems: Element) -> Callable[[Hero, Dict[str, object]], None]:
     """Pick the first element in ``elems`` matching enemy vulnerability."""
     def _fx(h: Hero, ctx: Dict[str, object]) -> None:
@@ -1697,11 +1707,6 @@ def _hymn_storms_end(hero: Hero, ctx: Dict[str, object],
 def _hymn_storms_fx(hero: Hero, ctx: Dict[str, object]) -> None:
     ctx['hit_mod'] = ctx.get('hit_mod', 0) - 1
     ctx.setdefault('end_hooks', []).append((_hymn_storms_end, None))
-    def per_exchange(h: Hero, c: Dict[str, object]) -> None:
-        c['hit_mod'] = c.get('hit_mod', 0) - 1
-        c.setdefault('end_hooks', []).append((_hymn_storms_end, None))
-    if (per_exchange, hymn_storms) not in hero.combat_effects:
-        hero.combat_effects.append((per_exchange, hymn_storms))
 
 hymn_storms.effect = _hymn_storms_fx
 
@@ -1907,7 +1912,7 @@ dual_moon_guard = atk(
 )
 wind_read = atk(
     "Wind-Reading Focus", CardType.MELEE, 1, Element.ARCANE,
-    effect=change_element(Element.BRUTAL)
+    effect=choose_element()
 )
 
 musashi_base = [
@@ -1935,7 +1940,7 @@ water_mirror_split = atk("Water-Mirror Split", CardType.MELEE, 0,
     effect=water_mirror_split_fx)
 spirit_cleaver = atk(
     "Spirit-Cleaver", CardType.MELEE, 2, Element.SPIRITUAL,
-    effect=change_element(Element.BRUTAL)
+    effect=choose_element()
 )
 iron_will_guard = atk("Iron-Will Guard", CardType.RANGED, 0,
     effect=iron_will_guard_fx)

@@ -595,6 +595,28 @@ class TestBrynhildCards(unittest.TestCase):
         sim.resolve_attack(hero, sim.thrust_of_destiny, ctx)
         self.assertEqual(enemy.hp, 2)
 
+    def test_hymn_storms_effect(self):
+        hero = sim.Hero("Hero", 10, [])
+        extra = sim.atk("Prayer", sim.CardType.UTIL, 0, hymn=True, persistent="combat")
+        enemy = sim.Enemy("Dummy", 7, 1, sim.Element.NONE, [0, 0, 0, 0])
+        ctx = {"enemies": [enemy]}
+        sim.resolve_attack(hero, extra, ctx)
+        sim.resolve_attack(hero, sim.hymn_storms, ctx)
+        self.assertEqual(ctx["hit_mod"], -1)
+        for fx, e in ctx.get("end_hooks", []):
+            fx(hero, ctx, e)
+        self.assertEqual(enemy.hp, 1)
+
+        next_enemy = sim.Enemy("Dummy", 6, 1, sim.Element.NONE, [0, 0, 0, 0])
+        ctx2 = {"enemies": [next_enemy]}
+        hero.exchange_effects.clear()
+        hero.active_hymns = [h for h in hero.active_hymns if h.persistent == "combat"]
+        sim.apply_persistent(hero, ctx2)
+        self.assertEqual(ctx2["hit_mod"], -1)
+        for fx, e in ctx2.get("end_hooks", []):
+            fx(hero, ctx2, e)
+        self.assertEqual(next_enemy.hp, 0)
+
 
 class TestHerculesCards(unittest.TestCase):
     def test_pain_strike_hp_bonus(self):

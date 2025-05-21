@@ -1654,7 +1654,32 @@ def _hymn_shields_fx(hero: Hero, ctx: Dict[str, object]) -> None:
 
 hymn_shields.effect = _hymn_shields_fx
 
-hymn_storms = atk("Hymn of Storms", CardType.UTIL, 0, effect=end_hymns_fx)
+hymn_storms = atk("Hymn of Storms", CardType.UTIL, 0,
+                  hymn=True, persistent="combat")
+
+def _hymn_storms_end(hero: Hero, ctx: Dict[str, object],
+                     _enemy: Optional[Enemy]) -> None:
+    """Deal 3 D damage per active Hymn at exchange end."""
+    if not ctx.get("enemies"):
+        return
+    dmg = 3 * hymn_count(hero)
+    if dmg <= 0:
+        return
+    target = ctx["enemies"][0]
+    target.hp -= dmg
+    if target.hp <= 0:
+        ctx["enemies"].pop(0)
+
+def _hymn_storms_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    ctx['hit_mod'] = ctx.get('hit_mod', 0) - 1
+    ctx.setdefault('end_hooks', []).append((_hymn_storms_end, None))
+    def per_exchange(h: Hero, c: Dict[str, object]) -> None:
+        c['hit_mod'] = c.get('hit_mod', 0) - 1
+        c.setdefault('end_hooks', []).append((_hymn_storms_end, None))
+    if (per_exchange, hymn_storms) not in hero.combat_effects:
+        hero.combat_effects.append((per_exchange, hymn_storms))
+
+hymn_storms.effect = _hymn_storms_fx
 
 def sky_piercer_fx(hero: Hero, ctx: Dict[str, object]) -> None:
     if ctx.get("last_misses", 0) >= 1:

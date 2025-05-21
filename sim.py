@@ -1458,9 +1458,12 @@ def strength_from_anger_fx(hero: Hero, ctx: Dict[str, object]) -> None:
 
 
 def true_might_fx(hero: Hero, ctx: Dict[str, object]) -> None:
-    """Add 4 dice if no other dice card was played this exchange."""
+    """Deal 8 extra Brutal damage if no dice card was played this exchange."""
     if not ctx.get('dice_played'):
-        ctx['bonus_dice'] = ctx.get('bonus_dice', 0) + 4
+        def hook(_h: Hero, _c: Card, _ctx: Dict[str, object], dmg: int) -> int:
+            return dmg + 8
+
+        ctx.setdefault('attack_hooks', []).append(hook)
 
 
 def athenas_guidance_fx(hero: Hero, ctx: Dict[str, object]) -> None:

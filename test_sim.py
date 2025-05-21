@@ -617,5 +617,41 @@ class TestHerculesCards(unittest.TestCase):
         sim.resolve_attack(hero, attack, ctx)
         self.assertFalse(ctx["enemies"])  # extra HP loss killed enemy
 
+    def test_bondless_effort_discard_bonus(self):
+        sim.RNG.seed(0)
+        hero = sim.Hero("Hero", 10, [])
+        hero.deck.hand = [sim.atk("a", sim.CardType.UTIL, 0) for _ in range(2)]
+        card = sim.atk("Bondless Effort", sim.CardType.MELEE, 0,
+                       effect=sim.discard_bonus_damage(3))
+        enemy = sim.Enemy("Dummy", 6, 1, sim.Element.NONE, [0, 0, 0, 0])
+        ctx = {"enemies": [enemy]}
+        sim.resolve_attack(hero, card, ctx)
+        self.assertEqual(enemy.hp, 0)
+        self.assertEqual(len(hero.deck.hand), 0)
+
+    def test_horde_breaker_death_trigger(self):
+        sim.RNG.seed(0)
+        hero = sim.Hero("Hero", 10, [])
+        hb = sim.atk("Horde Breaker", sim.CardType.MELEE, 0,
+                      effect=sim.horde_breaker_fx, persistent="combat")
+        e1 = sim.Enemy("E1", 1, 1, sim.Element.NONE, [0, 0, 0, 0])
+        e2 = sim.Enemy("E2", 3, 1, sim.Element.NONE, [0, 0, 0, 0])
+        ctx = {"enemies": [e1, e2]}
+        sim.resolve_attack(hero, hb, ctx)
+        kill = sim.atk("Strike", sim.CardType.MELEE, 1)
+        sim.resolve_attack(hero, kill, ctx)
+        self.assertEqual(e2.hp, 1)
+
+    def test_fortunes_throw_choice(self):
+        hero = sim.Hero("Hero", 10, [])
+        hero.fate = 0
+        card = sim.atk("Fortune", sim.CardType.RANGED, 0,
+                       effect=sim.fortunes_throw_fx)
+        enemy = sim.Enemy("Dummy", 1, 1, sim.Element.NONE, [0, 0, 0, 0])
+        ctx = {"enemies": [enemy]}
+        sim.resolve_attack(hero, card, ctx)
+        self.assertEqual(hero.fate, 2)
+        self.assertEqual(hero.armor_pool, 0)
+
 if __name__ == "__main__":
     unittest.main()

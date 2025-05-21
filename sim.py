@@ -294,6 +294,14 @@ def draw_cards(n: int) -> Callable[[Hero, Dict[str, object]], None]:
         h.deck.draw(n)
     return _fx
 
+def draw_for_all(n: int) -> Callable[[Hero, Dict[str, object]], None]:
+    """Each hero in ``ctx`` draws ``n`` cards."""
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        heroes = ctx.get('heroes', [h])
+        for hero in heroes:
+            hero.deck.draw(n)
+    return _fx
+
 def discard_random(n: int) -> Callable[[Hero, Dict[str, object]], None]:
     def _fx(h: Hero, ctx: Dict[str, object]) -> None:
         for _ in range(n):
@@ -837,6 +845,67 @@ def exchange_damage_bonus(n: int) -> Callable[[Hero, Dict[str, object]], None]:
         if (per_exchange, None) not in h.exchange_effects:
             h.exchange_effects.append((per_exchange, None))
     return _fx
+
+def conflux_lance_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """Reduce enemy defense by 2 per other hero for this attack."""
+    allies = [x for x in ctx.get('heroes', [hero]) if x is not hero]
+    mod = -2 * len(allies)
+
+    def hook(_h: Hero, _c: Card, _ctx: Dict[str, object], _e: Enemy,
+             _el: Element, _v: Element) -> int:
+        return mod
+
+    def cleanup(_h: Hero, _c: Card, c: Dict[str, object], dmg: int) -> int:
+        if 'pre_attack_hooks' in c and hook in c['pre_attack_hooks']:
+            c['pre_attack_hooks'].remove(hook)
+        return dmg
+
+    ctx.setdefault('pre_attack_hooks', []).append(hook)
+    ctx.setdefault('attack_hooks', []).append(cleanup)
+
+def echoes_of_guidance_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """Repeat the last card played by an ally this exchange."""
+    allies = [x for x in ctx.get('heroes', [hero]) if x is not hero]
+    if not allies:
+        return
+    target = allies[0]
+    if not target.deck.disc:
+        return
+    card = target.deck.disc[-1]
+    temp = Card(card.name, card.ctype, card.dice, card.element,
+                card.armor, card.effect, card.persistent, card.hymn,
+                card.multi, card.max_targets, card.dmg_per_hymn,
+                card.pre, card.before_ranged, card.hit_mod)
+    resolve_attack(target, temp, ctx)
+
+def chains_of_morrigan_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """[Exchange] +1 hit per target on all attacks."""
+
+    def hook(_h: Hero, card: Card, c: Dict[str, object], _enemy: Enemy,
+             _el: Element, _v: Element) -> int:
+        if c.get('_chains_applied'):
+            return 0
+        enemies = c.get('enemies', [])
+        if card.multi:
+            count = len(enemies) if card.max_targets is None else min(len(enemies), card.max_targets)
+        else:
+            count = 1 if enemies else 0
+        c['hit_mod'] = c.get('hit_mod', 0) + count
+        c['_chains_applied'] = True
+        return 0
+
+    def cleanup(_h: Hero, _c: Card, c: Dict[str, object], dmg: int) -> int:
+        c.pop('_chains_applied', None)
+        return dmg
+
+    def per_exchange(h: Hero, c: Dict[str, object]) -> None:
+        c.setdefault('pre_attack_hooks', []).append(hook)
+        c.setdefault('attack_hooks', []).append(cleanup)
+
+    ctx.setdefault('pre_attack_hooks', []).append(hook)
+    ctx.setdefault('attack_hooks', []).append(cleanup)
+    if (per_exchange, None) not in hero.exchange_effects:
+        hero.exchange_effects.append((per_exchange, None))
 
 # Brynhild uncommon card helpers --------------------------------------------
 
@@ -1495,16 +1564,18 @@ _mer_rare = [
         effect=modify_enemy_defense(-1), persistent="exchange"),
     atk("Sigil of Final Fate", CardType.RANGED, 0,
         persistent="combat", effect=ones_are_eights()),
-    atk("Conflux Lance", CardType.RANGED, 5, Element.ARCANE),
-    atk("Echoes of Guidance", CardType.RANGED, 0),
+    atk("Conflux Lance", CardType.RANGED, 5, Element.ARCANE,
+        effect=conflux_lance_fx, pre=True),
+    atk("Echoes of Guidance", CardType.RANGED, 0,
+        effect=echoes_of_guidance_fx, pre=True),
     atk("Mercury Guard", CardType.RANGED, 0, persistent="combat",
         effect=armor_each_exchange_per_enemy()),
     atk("Old-Ways Shillelagh", CardType.MELEE, 3, Element.PRECISE,
         effect=armor_per_hit(1)),
     atk("Favor of the Druids", CardType.RANGED, 1, Element.SPIRITUAL,
-        effect=draw_cards(1)),
+        effect=draw_for_all(1)),
     atk("Chains of Morrígan", CardType.RANGED, 0,
-        effect=modify_enemy_defense(-1), persistent="exchange"),
+        effect=chains_of_morrigan_fx, persistent="exchange"),
     atk("Spirits of the Lands", CardType.RANGED, 4, Element.SPIRITUAL,
         effect=gain_fate_from_attacks()),
 ]

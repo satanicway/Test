@@ -218,7 +218,7 @@ Basic Enemies and elite variants follow the design tables. Abilities include Web
 3. Merlin Cards – Sets 1‑3
 4. Hercules Cards – Sets 1‑3
 5. Mechanics fixes listed above
-=======
+
 This file summarises the intended card sets, enemy stats and gameplay rules for the board game simulator. It serves as a reference for future development.
 
 ## Gameplay Overview
@@ -245,7 +245,64 @@ Spear of the Æsir – Melee – 1 B DMG. [Exchange] Each miss grants +1 Armor a
 Upgrade cards extend these mechanics with stronger attacks, new Hymn types, healing and Fate manipulation.
 
 ## Enemy Roster
+Enemies appear in waves with specific HP, defense, vulnerabilities and abilities (e.g. Web Slinger converting ranged to melee, Disturbed Flow preventing rerolls). Elite versions add stronger effects like Sticky Web or Spiked Armor.
+
+### Enemy Cards
+The table below lists every enemy defined in the design. "Damage" gives the
+four-number damage band used when rolling their attacks.
+
+```text
+NameXPSpawnVulnerabilityHPDefenseTypeDamageAbility
+Shadow Spinner43 (A)Spiritual <S>14Melee0/0/1/3Web Slinger: Ranged attacks are considered Melee.
+Shadow Spinner43 (B)Spiritual <S>14Melee0/0/1/3Web Slinger: Ranged attacks are considered Melee.
+Void Soldier43 (C)Precise <P>25Melee0/0/0/2Dark Phalanx: Soldiers take -1 <DMG> (min. 1) from multi target attacks, if at least 2 Soldiers are alive.
+Void Soldier43 (D)Precise <P>25Melee0/0/0/2Dark Phalanx: Soldiers take -1 <DMG> (min. 1) from multi target attacks, if at least 2 Soldiers are alive.
+Priest of Oblivion33 (A)Arcane <A>23Ranged0/0/1/1Power of Death: Priests deal +1 <DMG> for each dead Priest in this combat.
+Priest of Oblivion33 (B)Arcane <A>23Ranged0/0/1/1Power of Death: Priests deal +1 <DMG> for each dead Priest in this combat.
+Corrupted Dryad53 (C)Brutal <B>24Melee0/0/1/1Cursed Thorns: Unused <ARMOR> at end of Exchange cause hero to lose that amount of <HP>.
+Corrupted Dryad53 (D)Brutal <B>24Melee0/0/1/1Cursed Thorns: Unused <ARMOR> at end of Exchange cause hero to lose that amount of <HP>.
+
+Dark Minotaur52 (A)Precise <P>43Melee0/0/1/3Cleaving and Stomping: Minotaurs deals <DMG> to each hero in battle.
+Dark Minotaur52 (B)Precise <P>43Melee0/0/1/3Cleaving and Stomping: Minotaurs deals <DMG> to each hero in battle.
+Dark Wizard42 (C)Brutal <B>23Ranged0/1/1/3Curse of Torment: Hero takes 1 <DMG> whenever it rolls a 1 or 2 (after rerolls).
+Dark Wizard42 (D)Brutal <B>23Ranged0/1/1/3Curse of Torment: Hero takes 1 <DMG> whenever it rolls a 1 or 2 (after rerolls).
+Shadow Banshee42 (A)Divine <D>35Melee0/0/1/2Ghostly: Start of 4th Exchange, end combat without resolution. MOVE Banshees to the next letter Location in this tile.
+Shadow Banshee42 (B)Divine <D>35Melee0/0/1/2Ghostly: Start of 4th Exchange, end combat without resolution. MOVE Banshees to the next letter Location in this tile.
+
+Void Gryphon51 (C)Spiritual <S>45Melee0/1/3/4Aerial Combat: Melee Attacks have -1 to <Hit> the Gryphon.
+Void Gryphon51 (D)Spiritual <S>45Melee0/1/3/4Aerial Combat: Melee Attacks have -1 to <Hit> the Gryphon.
+Void Treant61 (A)Divine <D>76Melee0/1/1/4Power Sap: End of each Exchange, end 1 Combat effect. If it does, HEAL 1 the Treant.
+Void Treant61 (B)Divine <D>76Melee0/1/1/4Power Sap: End of each Exchange, end 1 Combat effect. If it does, HEAL 1 the Treant.
+Corrupted Angel51 (C)Arcane <A>55Melee0/1/2/5Corrupted Destiny: Start of each Exchange, the hero loses 2 <Fate>.
+Corrupted Angel51 (D)Arcane <A>55Melee0/1/2/5Corrupted Destiny: Start of each Exchange, the hero loses 2 <Fate>.
+
+ELITE ENEMIESSpawnVulnerabilityHPDefenseDamageAbility
+Shadow Spinner63 (A)Spiritual <S>25Melee0/0/1/4Sticky Web: Heroes DRAW -1 card on each Exchange draws.
+Shadow Spinner63 (B)Spiritual <S>25Melee0/0/1/4Sticky Web: Heroes DRAW -1 card on each Exchange draws.
+Void Soldier63 (C)Precise <P>36Melee0/0/1/3Spiked Armor: Whenever a single attack deals 3+ <DMG> against a Soldier, the hero loses 1 <HP>.
+Void Soldier63 (D)Precise <P>36Melee0/0/1/3Spiked Armor: Whenever a single attack deals 3+ <DMG> against a Soldier, the hero loses 1 <HP>.
+Priest of Oblivion53 (A)Arcane <A>34Ranged0/0/1/2Silence: No Combat or Exchange cards apply their effects.
+Priest of Oblivion53 (B)Arcane <A>34Ranged0/0/1/2Silence: No Combat or Exchange cards apply their effects.
+Corrupted Dryad73 (C)Brutal <B>25Melee0/1/1/2Disturbed Flow: Dice can't be rerolled in this combat.
+Corrupted Dryad73 (D)Brutal <B>25Melee0/1/1/2Disturbed Flow: Dice can't be rerolled in this combat.
+
+Dark Minotaur72 (A)Precise <P>53Melee0/0/2/4Enrage: When at 3 <HP> or less, the Minotaur attacks twice.
+Dark Minotaur72 (B)Precise <P>53Melee0/0/2/4Enrage: When at 3 <HP> or less, the Minotaur attacks twice.
+Dark Wizard62 (C)Brutal <B>24Ranged0/2/2/3Void Barrier: Gain 1 <Armor> for each different type of Element <DMG> applied against it. (<B>, <P>, etc...)
+Dark Wizard62 (D)Brutal <B>24Ranged0/2/2/3Void Barrier: Gain 1 <Armor> for each different type of Element <DMG> applied against it. (<B>, <P>, etc...)
+Shadow Banshee62 (A)Divine <D>45Melee0/0/1/3Banshee Wail: Deal 1 <DMG> to all heroes in this Combat for each 3 dice rolled against this Banshee in the Exchange (rounded down).
+Shadow Banshee62 (B)Divine <D>45Melee0/0/1/3Banshee Wail: Deal 1 <DMG> to all heroes in this Combat for each 3 dice rolled against this Banshee in the Exchange (rounded down).
+
+Void Gryphon71 (C)Spiritual <S>55Melee0/2/4/6Ephemeral Wings: After you deal <DMG> to the Gryphon, your next card in the Exchange deals no <DMG> to it.
+Void Gryphon71 (D)Spiritual <S>55Melee0/2/4/6Ephemeral Wings: After you deal <DMG> to the Gryphon, your next card in the Exchange deals no <DMG> to it.
+Void Treant81 (A)Divine <D>87Melee0/1/3/5Roots of Despair: Whenever a hero miss all dice on an attack card, it loses 1 <HP>.
+Void Treant81 (B)Divine <D>87Melee0/1/3/5Roots of Despair: Whenever a hero miss all dice on an attack card, it loses 1 <HP>.
+Corrupted Angel71 (C)Arcane <A>76Melee0/3/3/6Denied Heaven: Reroll all dice whose face is 8 (as many times as necessary).
+Corrupted Angel71 (D)Arcane <A>76Melee0/3/3/6Denied Heaven: Reroll all dice whose face is 8 (as many times as necessary).
+
+=======
 Enemies appear in waves with specific HP, defense, vulnerabilities and abilities (e.g. Web Slinger converting ranged to melee, Disturbed Flow preventing rerolls). Elite versions add stronger effects like Sticky Web or Spiked Armor. Full enemy tables are part of the design assets.
+
 
 ## Outstanding Features
 The current simulator only implements a handful of placeholder cards. Major gaps include:

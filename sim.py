@@ -1900,7 +1900,7 @@ cross_river = atk(
 )
 heaven_earth = atk(
     "Heaven-and-Earth Slash", CardType.MELEE, 2, Element.BRUTAL,
-    effect=auto_element(Element.BRUTAL, Element.DIVINE), pre=True
+    effect=choose_element(), pre=True
 )
 flowing_water = atk(
     "Flowing Water Parry", CardType.MELEE, 1, Element.SPIRITUAL,

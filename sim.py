@@ -557,13 +557,40 @@ herc_rare_upg = [
 herc_pool = weighted_pool(herc_common_upg, herc_uncommon_upg, herc_rare_upg)
 hercules = Hero("Hercules", 25, herc_base, herc_pool)
 
+# Brynhild cards --------------------------------------------------------------
+valkyrie_descent = atk(
+    "Valkyrie's Descent", CardType.MELEE, 1, Element.SPIRITUAL,
+    dmg_per_hymn=1,
+)
+
+hymn_shields = atk("Hymn of Shields", CardType.UTIL, 0, hymn=True)
+
+def _hymn_shields_end(hero: Hero, ctx: Dict[str, object], _enemy: Optional[Enemy]) -> None:
+    if hero.armor_pool < 3:
+        hero.armor_pool += 1
+
+def _hymn_shields_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    ctx.setdefault("end_hooks", []).append((_hymn_shields_end, None))
+    def per_exchange(h: Hero, c: Dict[str, object]) -> None:
+        c.setdefault("end_hooks", []).append((_hymn_shields_end, None))
+    if (per_exchange, hymn_shields) not in hero.combat_effects:
+        hero.combat_effects.append((per_exchange, hymn_shields))
+
+hymn_shields.effect = _hymn_shields_fx
+
+hymn_storms = atk("Hymn of Storms", CardType.UTIL, 0, effect=end_hymns_fx)
+
+gleaming_spear = atk("Gleaming Spear", CardType.RANGED, 2, Element.DIVINE)
+rally = atk("Rally", CardType.UTIL, 0, effect=draw_cards(1))
+aria = atk("Aria", CardType.UTIL, 0, hymn=True, persistent="combat", effect=hymn_damage(1))
+
 bryn_base = [
-    atk("Descent", CardType.MELEE, 1, Element.SPIRITUAL),
-    atk("Shields", CardType.UTIL, 0, hymn=True, persistent="combat", effect=hymn_armor(1)),
-    atk("Storms", CardType.UTIL, 0, effect=end_hymns_fx),
-    atk("Gleaming Spear", CardType.RANGED, 2, Element.DIVINE),
-    atk("Rally", CardType.UTIL, 0, effect=draw_cards(1)),
-    atk("Aria", CardType.UTIL, 0, hymn=True, persistent="combat", effect=hymn_damage(1)),
+    valkyrie_descent, valkyrie_descent,
+    hymn_shields, hymn_shields,
+    hymn_storms, hymn_storms,
+    gleaming_spear, gleaming_spear,
+    rally, rally,
+    aria, aria,
 ]
 _b_c = [
     atk("Song", CardType.MELEE, 1, Element.SPIRITUAL, effect=gain_fate_fx(1)),
@@ -576,10 +603,12 @@ _b_u = [
     atk("Valkyrie Lance", CardType.RANGED, 3, Element.DIVINE),
     atk("Ballad", CardType.UTIL, 0, hymn=True, persistent="exchange", effect=hymn_damage(1)),
 ]
+thrust_of_destiny = atk("Thrust of Destiny", CardType.MELEE, 2, Element.DIVINE, dmg_per_hymn=1)
 _b_r = [
     atk("Valhalla", CardType.MELEE, 3, Element.DIVINE, effect=temp_vuln(Element.DIVINE)),
     atk("Heaven's Blessing", CardType.UTIL, 0, effect=gain_fate_fx(2), persistent="combat"),
     atk("Requiem", CardType.UTIL, 0, hymn=True, persistent="combat", effect=hymn_damage(2)),
+    thrust_of_destiny,
 ]
 b_pool = weighted_pool(_b_c, _b_u, _b_r)
 brynhild = Hero("Brynhild", 18, bryn_base, b_pool)

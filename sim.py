@@ -416,14 +416,22 @@ def discard_for_area_damage(mult: int) -> Callable[[Hero, Dict[str, object]], No
     return _fx
 
 def discard_bonus_damage(mult: int) -> Callable[[Hero, Dict[str, object]], None]:
-    """Discard all cards to gain ``mult`` damage per card this attack."""
+    """Discard any number of cards for ``mult`` bonus damage per card."""
+
     def _fx(h: Hero, ctx: Dict[str, object]) -> None:
-        count = len(h.deck.hand)
-        for _ in range(count):
+        if not h.deck.hand:
+            return
+        try:
+            prompt = f"Discard how many cards (0-{len(h.deck.hand)}): "
+            choice = int(input(prompt).strip())
+        except Exception:
+            choice = len(h.deck.hand)
+        n = max(0, min(choice, len(h.deck.hand)))
+        for _ in range(n):
             i = RNG.randrange(len(h.deck.hand))
             h.deck.disc.append(h.deck.hand.pop(i))
-        if count:
-            bonus = mult * count
+        if n:
+            bonus = mult * n
             ctx['bonus_damage'] = ctx.get('bonus_damage', 0) + bonus
             enemy = ctx.get('last_target')
             if isinstance(enemy, Enemy):

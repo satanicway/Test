@@ -51,6 +51,8 @@ class Card:
     multi: bool = False
     max_targets: Optional[int] = None
     dmg_per_hymn: int = 0
+    pre: bool = False
+    before_ranged: bool = False
 
 @dataclass
 class Deck:
@@ -424,6 +426,37 @@ def combine_effects(*fxs: Callable[[Hero, Dict[str, object]], None]) -> Callable
             f(h, ctx)
     return _fx
 
+def vulnerability_bonus(elem: Element, bonus: int) -> Callable[[Hero, Dict[str, object]], None]:
+    """Add ``bonus`` damage when target vulnerability matches ``elem``."""
+    def hook(hero: Hero, card: Card, ctx2: Dict[str, object], dmg: int) -> int:
+        check = elem if elem != Element.NONE else card.element
+        enemies = ctx2.get('enemies', [])
+        if enemies and enemies[0].vulnerability == check:
+            return dmg + bonus
+        return dmg
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        ctx.setdefault('attack_hooks', []).append(hook)
+    return _fx
+
+def change_element(elem: Element) -> Callable[[Hero, Dict[str, object]], None]:
+    """Force the next attack to use ``elem`` as its element."""
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        ctx['next_element'] = elem
+    return _fx
+
+def auto_element(*elems: Element) -> Callable[[Hero, Dict[str, object]], None]:
+    """Pick the first element in ``elems`` matching enemy vulnerability."""
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        if not ctx.get('enemies'):
+            return
+        vuln = ctx['enemies'][0].vulnerability
+        for e in elems:
+            if e == vuln:
+                ctx['next_element'] = e
+                return
+        ctx['next_element'] = elems[0]
+    return _fx
+
 def bonus_if_vulnerable(elem: Element, bonus: int) -> Callable[[Hero, Dict[str, object]], None]:
     """Deal extra damage when the target's vulnerability matches ``elem``."""
     def _fx(h: Hero, ctx: Dict[str, object]) -> None:
@@ -576,9 +609,11 @@ def atk(name: str, ctype: CardType, dice: int, element: Element = Element.NONE,
         armor: int = 0, effect: Optional[Callable[[Hero, Dict], None]] = None,
         persistent: Optional[str] = None, hymn: bool = False,
         multi: bool = False, max_targets: Optional[int] = None,
-        dmg_per_hymn: int = 0) -> Card:
+        dmg_per_hymn: int = 0, *, pre: bool = False,
+        before_ranged: bool = False) -> Card:
     return Card(name, ctype, dice, element, armor, effect,
-                persistent, hymn, multi, max_targets, dmg_per_hymn)
+                persistent, hymn, multi, max_targets, dmg_per_hymn,
+                pre, before_ranged)
 
 def weighted_pool(common: List[Card], uncommon: List[Card], rare: List[Card]) -> List[Card]:
     pool: List[Card] = []
@@ -623,9 +658,9 @@ herc_common_upg = [
     atk("Fortune's Throw", CardType.RANGED, 2, Element.SPIRITUAL, effect=gain_armor(2)),
 ]
 pain_strike = atk("Pain Strike", CardType.MELEE, 4, Element.BRUTAL,
-                   effect=hp_for_damage_scaled(6))
+                   effect=hp_for_damage_scaled(6), pre=True)
 ares_will = atk("Ares' Will", CardType.MELEE, 1, Element.BRUTAL,
-                effect=per_attack_hp_loss(2), persistent="combat")
+                effect=per_attack_hp_loss(2), persistent="combat", pre=True)
 herc_uncommon_upg = [
     pain_strike,
     atk("Fortifying Attack", CardType.MELEE, 1, Element.BRUTAL),
@@ -752,75 +787,130 @@ merlin_pool = weighted_pool(_mer_common, _mer_uncommon, _mer_rare)
 merlin = Hero("Merlin", 15, merlin_base, merlin_pool)
 
 # --- Musashi ---------------------------------------------------------------
-swallow_cut = atk("Swallow-Cut", CardType.MELEE, 1, Element.PRECISE)
-swallow_cut.effect = double_attack(swallow_cut)
-cross_river = atk("Cross-River", CardType.MELEE, 2, Element.PRECISE)
-heaven_earth = atk("Heaven-Earth", CardType.MELEE, 2, Element.PRECISE,
-                   effect=bonus_if_vulnerable(Element.PRECISE, 1))
-water_parry = atk("Water Parry", CardType.MELEE, 1, Element.PRECISE, armor=1,
-                   effect=combine_effects(gain_armor(1), armor_damage_bonus(1)))
-dual_moon_guard = atk("Dual-Moon Guard", CardType.UTIL, 0, armor=1,
-                      effect=combine_effects(gain_armor(1), armor_damage_bonus(1)))
-wind_read = atk("Wind-Read", CardType.MELEE, 1, Element.PRECISE,
-                effect=modify_enemy_defense(-1))
+swallow_cut = atk(
+    "Swallow-Cut", CardType.MELEE, 1, Element.PRECISE,
+    effect=vulnerability_bonus(Element.PRECISE, 2), pre=True
+)
+cross_river = atk(
+    "Cross-River Strike", CardType.MELEE, 2, Element.PRECISE,
+    multi=True, max_targets=2
+)
+heaven_earth = atk(
+    "Heaven-and-Earth Slash", CardType.MELEE, 2, Element.BRUTAL,
+    effect=auto_element(Element.BRUTAL, Element.DIVINE), pre=True
+)
+flowing_water = atk(
+    "Flowing Water Parry", CardType.MELEE, 1, Element.SPIRITUAL,
+    armor=1, effect=gain_armor(1), before_ranged=True
+)
+dual_moon_guard = atk(
+    "Dual-Moon Guard", CardType.MELEE, 1, Element.DIVINE,
+    effect=gain_armor(1)
+)
+wind_read = atk(
+    "Wind-Reading Focus", CardType.MELEE, 1, Element.ARCANE,
+    effect=change_element(Element.BRUTAL)
+)
 
 musashi_base = [
     swallow_cut, swallow_cut,
     cross_river, cross_river,
     heaven_earth, heaven_earth,
-    water_parry, water_parry,
-    dual_moon_guard, dual_moon_guard,
-    wind_read, wind_read,
+    flowing_water, flowing_water,
+    dual_moon_guard,
+    wind_read,
 ]
 
+battojutsu_strike = atk(
+    "Battojutsu Strike", CardType.MELEE, 2, Element.PRECISE,
+    armor=2, effect=gain_armor(2), before_ranged=True
+)
+scroll_cut_slash = atk(
+    "Scroll-Cut Slash", CardType.MELEE, 3, Element.PRECISE,
+    multi=True, max_targets=2
+)
+chance_seizing = atk("Chance-Seizing Blade", CardType.MELEE, 1, Element.BRUTAL)
+susanoo_cut = atk("Susanoo-Descent Cut", CardType.MELEE, 3, Element.BRUTAL)
+water_mirror_split = atk("Water-Mirror Split", CardType.MELEE, 0)
+spirit_cleaver = atk(
+    "Spirit-Cleaver", CardType.MELEE, 2, Element.SPIRITUAL,
+    effect=change_element(Element.BRUTAL)
+)
+iron_will_guard = atk("Iron-Will Guard", CardType.RANGED, 0, armor=3)
+ghost_step_slash = atk("Ghost-Step Slash", CardType.MELEE, 3, Element.DIVINE)
+heavenly_dragon = atk("Heavenly-Dragon Stance", CardType.MELEE, 2, Element.ARCANE)
+
 _m_common = [
-    atk("Gate-Breaker", CardType.MELEE, 2, Element.PRECISE),
-    atk("Battojutsu", CardType.MELEE, 2, Element.PRECISE, armor=2,
-        effect=combine_effects(gain_armor(2), armor_damage_bonus(1))),
-    atk("Scroll-Cut", CardType.MELEE, 3, Element.PRECISE),
-    atk("Chance-Blade", CardType.MELEE, 0, Element.PRECISE,
-        effect=gain_fate_fx(1)),
-    atk("Susanoo", CardType.MELEE, 3, Element.PRECISE),
-    atk("Water-Mirror", CardType.UTIL, 0, effect=modify_enemy_defense(-1)),
-    atk("Spirit-Cleaver", CardType.MELEE, 2, Element.SPIRITUAL,
-        effect=bonus_if_vulnerable(Element.SPIRITUAL, 1)),
-    atk("Iron-Will", CardType.MELEE, 3, Element.PRECISE,
-        effect=fate_for_bonus(1, armor=1)),
-    atk("Ghost-Step", CardType.MELEE, 3, Element.PRECISE, effect=double_attack(atk("Ghost-Step", CardType.MELEE, 3, Element.PRECISE))),
-    atk("Heaven-Dragon", CardType.MELEE, 2, Element.DIVINE),
+    battojutsu_strike,
+    scroll_cut_slash,
+    chance_seizing,
+    susanoo_cut,
+    water_mirror_split,
+    spirit_cleaver,
+    iron_will_guard,
+    ghost_step_slash,
+    heavenly_dragon,
 ]
+
+seizing_dragon = atk(
+    "Seizing-Dragon Slice", CardType.MELEE, 3, Element.PRECISE,
+    effect=vulnerability_bonus(Element.PRECISE, 4), pre=True
+)
+two_heaven_blitz = atk(
+    "Two-Heaven Blitz", CardType.MELEE, 4, Element.PRECISE,
+    multi=True, max_targets=2
+)
+crescent_guard = atk("Crescent-Moon Guard", CardType.RANGED, 0)
+mountain_stance = atk("Mountain-Strike Stance", CardType.MELEE, 0)
+mirror_flow = atk("Mirror-Flow Style", CardType.MELEE, 0)
+heaven_defying = atk("Heaven-Defying Blade", CardType.MELEE, 0)
+ascending_veng = atk("Ascending Vengeance", CardType.MELEE, 0)
+menacing_step = atk("Menacing Step", CardType.MELEE, 0)
+iron_shell = atk("Iron-Shell Posture", CardType.MELEE, 0)
+
 _m_uncommon = [
-    atk("Dragon Slice", CardType.MELEE, 3, Element.PRECISE,
-        effect=double_attack(atk("Dragon Slice", CardType.MELEE, 3, Element.PRECISE))),
-    atk("River Reflex", CardType.UTIL, 0,
-        effect=combine_effects(gain_armor(1), armor_damage_bonus(1))),
-    atk("Two-Heaven", CardType.MELEE, 4, Element.PRECISE),
-    atk("Crescent Guard", CardType.UTIL, 0, effect=gain_armor(1)),
-    atk("Mountain Stance", CardType.UTIL, 0, effect=modify_enemy_defense(-1)),
-    atk("Mirror-Flow", CardType.UTIL, 0, effect=gain_fate_fx(1)),
-    atk("Heaven Blade", CardType.MELEE, 0, Element.DIVINE,
-        effect=temp_vuln(Element.DIVINE)),
-    atk("Ascending Venge", CardType.MELEE, 0, Element.PRECISE,
-        effect=armor_damage_bonus(1)),
-    atk("Menacing Step", CardType.UTIL, 0, effect=modify_enemy_defense(-1)),
-    atk("Iron-Shell", CardType.UTIL, 0, armor=1, effect=gain_armor(1)),
+    seizing_dragon,
+    two_heaven_blitz,
+    crescent_guard,
+    mountain_stance,
+    mirror_flow,
+    heaven_defying,
+    ascending_veng,
+    menacing_step,
+    iron_shell,
 ]
+
+final_dragon = atk(
+    "Final-Dragon Slash", CardType.MELEE, 2, Element.PRECISE,
+    effect=vulnerability_bonus(Element.PRECISE, 7), pre=True
+)
+five_ring = atk("Five-Ring Convergence", CardType.MELEE, 2, Element.PRECISE)
+wanderer_blade = atk("The Wanderer's Blade", CardType.MELEE, 2, Element.BRUTAL)
+formless = atk("Formless Principle", CardType.MELEE, 0)
+stone_lotus = atk("Stone-Lotus Slash", CardType.MELEE, 4, Element.SPIRITUAL)
+twin_dragon = atk("Twin-Dragon Descent", CardType.MELEE, 0, multi=True)
+edge_harmony = atk("Edge of Harmony", CardType.MELEE, 4, Element.DIVINE)
+two_strikes = atk(
+    "Two-Strikes as One", CardType.MELEE, 3, Element.DIVINE,
+    multi=True, max_targets=2
+)
+moment_perf = atk("Moment of Perfection", CardType.RANGED, 0, armor=4)
+
 _m_rare = [
-    atk("Final-Dragon", CardType.MELEE, 2, Element.DIVINE, effect=double_attack(atk("Final-Dragon", CardType.MELEE, 2, Element.DIVINE))),
-    atk("Five-Ring", CardType.MELEE, 2, Element.PRECISE, effect=gain_fate_fx(2)),
-    atk("Flash 2 Moons", CardType.MELEE, 5, Element.PRECISE, effect=double_attack(atk("Flash 2 Moons", CardType.MELEE, 5, Element.PRECISE))),
-    atk("Wanderer", CardType.MELEE, 6, Element.PRECISE),
-    atk("Formless", CardType.UTIL, 0, effect=modify_enemy_defense(-2)),
-    atk("Stone Lotus", CardType.MELEE, 4, Element.PRECISE, armor=1,
-        effect=combine_effects(gain_armor(1), armor_damage_bonus(1))),
-    atk("Twin-Descent", CardType.MELEE, 0, multi=True, effect=multi_bonus(1)),
-    atk("Edge Harmony", CardType.MELEE, 4, Element.PRECISE),
-    atk("Two-as-One", CardType.MELEE, 4, Element.PRECISE,
-        effect=double_attack(atk("Two-as-One", CardType.MELEE, 4, Element.PRECISE))),
-    atk("Perfection", CardType.UTIL, 0, armor=4, effect=gain_armor(4)),
+    final_dragon,
+    five_ring,
+    wanderer_blade,
+    formless,
+    stone_lotus,
+    twin_dragon,
+    edge_harmony,
+    two_strikes,
+    moment_perf,
 ]
+
 musashi_pool = weighted_pool(_m_common, _m_uncommon, _m_rare)
 musashi = Hero("Musashi", 20, musashi_base, musashi_pool)
+
 
 HEROES = [hercules, brynhild, merlin, musashi]
 
@@ -941,6 +1031,13 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
         return
 
     blocks = ctx.setdefault("ephemeral_block", set())
+    if card.effect and not ctx.get("silenced") and card.pre:
+        card.effect(hero, ctx)
+        if card.persistent:
+            if card.persistent == "combat":
+                hero.combat_effects.append((card.effect, card))
+            elif card.persistent == "exchange":
+                hero.exchange_effects.append((card.effect, card))
     if card.multi:
         if card.max_targets is None:
             targets = enemies[:]
@@ -962,12 +1059,13 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
         if e.ability == "banshee-wail":
             e.rolled_dice += card.dice
         vuln = ctx.pop("temp_vuln", e.vulnerability)
+        elem = ctx.pop('next_element', card.element)
         hits = roll_hits(
             card.dice,
             e.defense + ctx.get("enemy_defense_mod", 0),
             mod,
             hero=hero,
-            element=card.element,
+            element=elem,
             vulnerability=vuln,
             enemy=e,
             free_rerolls=rer_bonus,
@@ -996,7 +1094,7 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
         dmg -= soak
         e.hp -= dmg
         if e.ability == "void-barrier":
-            void_barrier(e, card.element)
+            void_barrier(e, elem)
         if e.ability == "spiked-armor":
             spiked_armor(hero, dmg)
         if e.ability == "ephemeral-wings":
@@ -1007,7 +1105,7 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
             if e.ability == "power-of-death" or e.ability is power_of_death:
                 ctx["dead_priests"] = ctx.get("dead_priests", 0) + 1
                 ctx["priest_bonus"] = ctx["dead_priests"]
-    if card.effect and not ctx.get("silenced"):
+    if card.effect and not ctx.get("silenced") and not card.pre:
         card.effect(hero, ctx)
         if card.persistent:
             if card.persistent == "combat":
@@ -1102,6 +1200,19 @@ def fight_one(hero: Hero) -> bool:
             c = hero.deck.pop_first(CardType.UTIL)
             if c:
                 resolve_attack(hero, c, ctx)
+                if hero.hp <= 0 or not ctx["enemies"]:
+                    break
+
+            # melee cards that resolve before ranged
+            while ctx["enemies"]:
+                pre_card = None
+                for i, card in enumerate(hero.deck.hand):
+                    if card.ctype == CardType.MELEE and card.before_ranged:
+                        pre_card = hero.deck.hand.pop(i)
+                        break
+                if not pre_card:
+                    break
+                resolve_attack(hero, pre_card, ctx)
                 if hero.hp <= 0 or not ctx["enemies"]:
                     break
 

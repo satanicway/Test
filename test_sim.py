@@ -467,22 +467,32 @@ class TestMusashiCards(unittest.TestCase):
     def test_vulnerability_bonus(self):
         sim.RNG.seed(5)
         hero = sim.Hero("Musashi", 20, [])
-        card = sim.heaven_earth
-        enemy = sim.Enemy("Dummy", 2, 5, sim.Element.PRECISE, [0, 0, 0, 0])
+        card = sim.swallow_cut
+        enemy = sim.Enemy("Dummy", 3, 5, sim.Element.PRECISE, [0, 0, 0, 0])
         ctx = {"enemies": [enemy]}
         sim.resolve_attack(hero, card, ctx)
         self.assertFalse(ctx["enemies"])  # enemy defeated by bonus
 
     def test_util_before_ranged(self):
-        sim.RNG.seed(7)
+        sim.RNG.seed(0)
         hero = sim.Hero("Musashi", 20, [])
-        util = sim.dual_moon_guard
+        parry = sim.flowing_water
         attack = sim.atk("Arrow", sim.CardType.RANGED, 1)
         enemy = sim.Enemy("Dummy", 2, 5, sim.Element.NONE, [0, 0, 0, 0])
         ctx = {"enemies": [enemy]}
-        sim.resolve_attack(hero, util, ctx)
-        sim.resolve_attack(hero, attack, ctx)
-        self.assertFalse(ctx["enemies"])  # bonus damage from armor hook applied
+        # emulate fight ordering: parry before ranged
+        hero.deck.hand = [parry, attack]
+        while True:
+            pre = None
+            for i, c in enumerate(hero.deck.hand):
+                if c.ctype == sim.CardType.MELEE and c.before_ranged:
+                    pre = hero.deck.hand.pop(i)
+                    break
+            if not pre:
+                break
+            sim.resolve_attack(hero, pre, ctx)
+        sim.resolve_attack(hero, hero.deck.hand.pop(), ctx)
+        self.assertFalse(ctx["enemies"])  # parry resolved before ranged
 
 
 class TestMerlinCards(unittest.TestCase):

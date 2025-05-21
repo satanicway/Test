@@ -1747,9 +1747,6 @@ _b_c = [
         effect=piercer_of_fates_fx),
 ]
 _b_u = [
-    atk("Choir", CardType.UTIL, 0, hymn=True, persistent="exchange", effect=draw_cards(1)),
-    atk("Valkyrie Lance", CardType.RANGED, 3, Element.DIVINE),
-    atk("Ballad", CardType.UTIL, 0, hymn=True, persistent="exchange", effect=hymn_damage(1)),
     atk("Hymn of Fate", CardType.MELEE, 0, hymn=True, persistent="combat", effect=hymn_of_fate_fx),
     atk("Echoes of Gungnir", CardType.MELEE, 0, effect=echoes_of_gungnir_fx, persistent="combat"),
     atk("Overflowing Grace", CardType.MELEE, 0, effect=overflowing_grace_fx, persistent="combat"),

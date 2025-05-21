@@ -53,6 +53,7 @@ class Card:
     dmg_per_hymn: int = 0
     pre: bool = False
     before_ranged: bool = False
+    hit_mod: int = 0
 
 @dataclass
 class Deck:
@@ -185,6 +186,7 @@ def roll_hits(num_dice: int, defense: int, mod: int = 0, *,
               free_rerolls: int = 0,
               ctx: Optional[Dict[str, object]] = None) -> int:
     dmg = 0
+    misses = 0
     for _ in range(num_dice):
         # initial roll without automatic rerolls
         r = roll_die(defense, mod, hero=hero, allow_reroll=False)
@@ -211,6 +213,10 @@ def roll_hits(num_dice: int, defense: int, mod: int = 0, *,
             if element != Element.NONE and element == vulnerability:
                 hit *= 2
             dmg += hit
+        else:
+            misses += 1
+    if ctx is not None:
+        ctx['last_misses'] = misses
     return dmg
 
 # persistent effect application
@@ -565,6 +571,54 @@ def fate_for_damage_scaled(max_amt: int) -> Callable[[Hero, Dict[str, object]], 
         ctx.setdefault('attack_hooks', []).append(hook)
     return _fx
 
+def fate_for_damage_mult(mult: int) -> Callable[[Hero, Dict[str, object]], None]:
+    """Spend all Fate for ``mult`` times that much bonus damage."""
+    def hook(hero: Hero, card: Card, ctx: Dict[str, object], dmg: int) -> int:
+        spend = hero.fate
+        if spend:
+            hero.fate = 0
+            return dmg + spend * mult
+        return dmg
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        ctx.setdefault('attack_hooks', []).append(hook)
+    return _fx
+
+def armor_from_miss_pairs() -> Callable[[Hero, Dict[str, object]], None]:
+    """Gain 1 Armor for each two dice that miss while in combat."""
+    def hook(hero: Hero, card: Card, ctx: Dict[str, object], dmg: int) -> int:
+        misses = ctx.get('last_misses', 0)
+        hero.armor_pool += misses // 2
+        return dmg
+    def per_exchange(h: Hero, c: Dict[str, object]) -> None:
+        c.setdefault('attack_hooks', []).append(hook)
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        ctx.setdefault('attack_hooks', []).append(hook)
+        if (per_exchange, hook) not in h.combat_effects:
+            h.combat_effects.append((per_exchange, hook))
+    return _fx
+
+def hymn_of_blood_end(hero: Hero, ctx: Dict[str, object], _enemy: Optional[Enemy]) -> None:
+    if not ctx.get('enemies'):
+        hero.hp = min(hero.max_hp, hero.hp + hymn_count(hero))
+
+def hymn_of_blood_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    ctx.setdefault('end_hooks', []).append((hymn_of_blood_end, None))
+    def per_exchange(h: Hero, c: Dict[str, object]) -> None:
+        c.setdefault('end_hooks', []).append((hymn_of_blood_end, None))
+    if (per_exchange, hymn_of_blood_fx) not in hero.combat_effects:
+        hero.combat_effects.append((per_exchange, hymn_of_blood_fx))
+
+def tempestuous_finale_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    bonus = damage_from_hymns(hero, 2)
+    ctx['bonus_damage'] = ctx.get('bonus_damage', 0) + bonus
+    end_hymns_fx(hero, ctx)
+
+def piercer_of_fates_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    if hero.fate <= 3:
+        ctx['hit_mod'] = ctx.get('hit_mod', 0) - 1
+    elif hero.fate >= 8:
+        ctx['hit_mod'] = ctx.get('hit_mod', 0) + 1
+
 def armor_on_high_roll() -> Callable[[Hero, Dict[str, object]], None]:
     """[Combat] Gain 1 Armor whenever you roll a 7 or 8."""
     def make_hook(hero: Hero):
@@ -682,10 +736,10 @@ def atk(name: str, ctype: CardType, dice: int, element: Element = Element.NONE,
         persistent: Optional[str] = None, hymn: bool = False,
         multi: bool = False, max_targets: Optional[int] = None,
         dmg_per_hymn: int = 0, *, pre: bool = False,
-        before_ranged: bool = False) -> Card:
+        before_ranged: bool = False, hit_mod: int = 0) -> Card:
     return Card(name, ctype, dice, element, armor, effect,
                 persistent, hymn, multi, max_targets, dmg_per_hymn,
-                pre, before_ranged)
+                pre, before_ranged, hit_mod)
 
 def weighted_pool(common: List[Card], uncommon: List[Card], rare: List[Card]) -> List[Card]:
     pool: List[Card] = []
@@ -799,10 +853,23 @@ bryn_base = [
     aria, aria,
 ]
 _b_c = [
-    atk("Song", CardType.MELEE, 1, Element.SPIRITUAL, effect=gain_fate_fx(1)),
-    atk("Guard", CardType.UTIL, 0, armor=1, persistent="exchange"),
-    atk("Strike", CardType.MELEE, 2),
-    atk("Prayer", CardType.UTIL, 0, hymn=True, persistent="combat", effect=hymn_armor(1)),
+    atk("Lightning Crash", CardType.MELEE, 7, Element.SPIRITUAL, hit_mod=-2),
+    atk("Hymn of Blades", CardType.MELEE, 0, hymn=True, persistent="combat",
+        effect=exchange_damage_bonus(2)),
+    atk("Favorable Winds", CardType.MELEE, 1, Element.DIVINE,
+        effect=global_reroll_fx(), persistent="exchange"),
+    atk("Skald's Favor", CardType.MELEE, 0,
+        effect=combine_effects(gain_fate_fx(2), gain_armor(2))),
+    atk("Hymn of Blood", CardType.MELEE, 0, hymn=True, persistent="combat",
+        effect=hymn_of_blood_fx),
+    atk("Ward of the Fallen", CardType.MELEE, 3, Element.PRECISE,
+        effect=armor_from_miss_pairs(), persistent="combat"),
+    atk("Spear Dive", CardType.MELEE, 2, Element.PRECISE,
+        effect=fate_for_damage_mult(2)),
+    atk("Tempestuous Finale", CardType.MELEE, 3, Element.BRUTAL,
+        effect=tempestuous_finale_fx),
+    atk("Piercer of Fates", CardType.MELEE, 4, Element.BRUTAL,
+        effect=piercer_of_fates_fx),
 ]
 _b_u = [
     atk("Choir", CardType.UTIL, 0, hymn=True, persistent="exchange", effect=draw_cards(1)),
@@ -1167,6 +1234,8 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
     for e in targets[:]:
         actual_type = CardType.MELEE if ctx.get("ranged_to_melee") and card.ctype == CardType.RANGED else card.ctype
         mod = -1 if (actual_type == CardType.MELEE and e.ability == "aerial-combat") else 0
+        mod += ctx.pop('hit_mod', 0)
+        mod += card.hit_mod
         if e.ability == "banshee-wail":
             e.rolled_dice += card.dice
         vuln = ctx.pop("temp_vuln", e.vulnerability)

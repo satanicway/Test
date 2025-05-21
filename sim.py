@@ -1880,7 +1880,7 @@ heaven_earth = atk(
 )
 flowing_water = atk(
     "Flowing Water Parry", CardType.MELEE, 1, Element.SPIRITUAL,
-    armor=1, effect=gain_armor(1), before_ranged=True
+    armor=1, before_ranged=True
 )
 dual_moon_guard = atk(
     "Dual-Moon Guard", CardType.MELEE, 1, Element.DIVINE,

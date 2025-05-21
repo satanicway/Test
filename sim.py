@@ -298,6 +298,14 @@ def gain_armor(n: int) -> Callable[[Hero, Dict[str, object]], None]:
         h.armor_pool += n
     return _fx
 
+def gain_armor_self_or_ally(n: int) -> Callable[[Hero, Dict[str, object]], None]:
+    """Grant ``n`` Armor to the hero or the first ally in ``ctx``."""
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        allies = [x for x in ctx.get('heroes', [h]) if x is not h]
+        target = allies[0] if allies else h
+        target.armor_pool += n
+    return _fx
+
 def draw_cards(n: int) -> Callable[[Hero, Dict[str, object]], None]:
     def _fx(h: Hero, ctx: Dict[str, object]) -> None:
         h.deck.draw(n)
@@ -1824,7 +1832,10 @@ brynhild = Hero("Brynhild", 18, bryn_base, b_pool)
 
 # --- Merlin ---------------------------------------------------------------
 arcane_volley = atk("Arcane Volley", CardType.RANGED, 1, Element.ARCANE, multi=True)
-ladys_warden = atk("Lady's Warden", CardType.MELEE, 1, Element.ARCANE, effect=gain_armor(2))
+ladys_warden = atk(
+    "Lady's Warden", CardType.MELEE, 1, Element.ARCANE,
+    effect=gain_armor_self_or_ally(2)
+)
 weaver_of_fate = atk("Weaver of Fate", CardType.RANGED, 1, Element.DIVINE, effect=add_rerolls(2))
 crystal_staff = atk("Crystal Cave's Staff", CardType.MELEE, 1, Element.PRECISE,
                     effect=armor_on_high_roll(), persistent="combat")

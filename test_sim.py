@@ -799,5 +799,31 @@ class TestHerculesCards(unittest.TestCase):
         # first attack hits for 1, second for 5 with no bonus => total 6
         self.assertEqual(enemy.hp, 14)
 
+
+class TestRepeatedAttackGuard(unittest.TestCase):
+    def test_once_isnt_enough_triggers_repeat(self):
+        hero = sim.Hero("Hero", 10, [])
+        buff = sim.atk("Once", sim.CardType.UTIL, 0, effect=sim.once_isnt_enough_fx)
+        attack = sim.atk("Jab", sim.CardType.MELEE, 0)
+        enemy = sim.Enemy("Dummy", 5, 1, sim.Element.NONE, [0, 0, 0, 0])
+        ctx = {"enemies": [enemy]}
+        sim.resolve_attack(hero, buff, ctx)
+        ctx["attacks_used"] = 0
+        sim.resolve_attack(hero, attack, ctx)
+        self.assertEqual(ctx["attacks_used"], 2)
+
+    def test_hermes_delivery_depth_guard(self):
+        hero = sim.Hero("Hero", 10, [])
+        hermes = sim.atk("Hermes", sim.CardType.MELEE, 0,
+                         effect=sim.hermes_delivery_fx)
+        total = sim.ATTACK_DEPTH_LIMIT + 5
+        hero.deck.cards = [hermes for _ in range(total)]
+        enemy = sim.Enemy("Dummy", 20, 5, sim.Element.NONE, [0, 0, 0, 0])
+        ctx = {"enemies": [enemy]}
+        card = hero.deck.cards.pop()
+        sim.resolve_attack(hero, card, ctx)
+        self.assertEqual(len(hero.deck.disc), sim.ATTACK_DEPTH_LIMIT)
+        self.assertEqual(len(hero.deck.cards), 5)
+
 if __name__ == "__main__":
     unittest.main()

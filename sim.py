@@ -6,6 +6,7 @@ implementation that still demonstrates the same mechanics."""
 
 from __future__ import annotations
 import random
+import math
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from enum import Enum, auto
@@ -448,23 +449,23 @@ def discard_bonus_damage(mult: int) -> Callable[[Hero, Dict[str, object]], None]
     def _fx(h: Hero, ctx: Dict[str, object]) -> None:
         if not h.deck.hand:
             return
-        try:
-            prompt = f"Discard how many cards (0-{len(h.deck.hand)}): "
-            choice = int(get_input(prompt).strip() or len(h.deck.hand))
-        except Exception:
-            choice = len(h.deck.hand)
-        n = max(0, min(choice, len(h.deck.hand)))
+        enemy = ctx.get('last_target')
+        if not isinstance(enemy, Enemy):
+            enemies = ctx.get('enemies', [])
+            enemy = enemies[0] if enemies else None
+        if not isinstance(enemy, Enemy):
+            return
+        need = math.ceil(enemy.hp / mult)
+        n = min(len(h.deck.hand), need)
         for _ in range(n):
             i = RNG.randrange(len(h.deck.hand))
             h.deck.disc.append(h.deck.hand.pop(i))
         if n:
             bonus = mult * n
             ctx['bonus_damage'] = ctx.get('bonus_damage', 0) + bonus
-            enemy = ctx.get('last_target')
-            if isinstance(enemy, Enemy):
-                enemy.hp -= bonus
-                if enemy.hp <= 0 and enemy in ctx.get('enemies', []):
-                    remove_enemy(ctx, enemy)
+            enemy.hp -= bonus
+            if enemy.hp <= 0 and enemy in ctx.get('enemies', []):
+                remove_enemy(ctx, enemy)
     return _fx
 
 def heal_self_or_ally(self_amt: int, ally_amt: int) -> Callable[[Hero, Dict[str, object]], None]:

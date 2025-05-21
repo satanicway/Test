@@ -711,8 +711,7 @@ class TestHerculesCards(unittest.TestCase):
                        effect=sim.discard_bonus_damage(3))
         enemy = sim.Enemy("Dummy", 6, 1, sim.Element.NONE, [0, 0, 0, 0])
         ctx = {"enemies": [enemy]}
-        with unittest.mock.patch("builtins.input", return_value="2"):
-            sim.resolve_attack(hero, card, ctx)
+        sim.resolve_attack(hero, card, ctx)
         self.assertEqual(enemy.hp, 0)
         self.assertEqual(len(hero.deck.hand), 0)
 
@@ -724,8 +723,7 @@ class TestHerculesCards(unittest.TestCase):
                        effect=sim.discard_bonus_damage(3))
         enemy = sim.Enemy("Dummy", 3, 1, sim.Element.NONE, [0, 0, 0, 0])
         ctx = {"enemies": [enemy]}
-        with unittest.mock.patch("builtins.input", return_value="1"):
-            sim.resolve_attack(hero, card, ctx)
+        sim.resolve_attack(hero, card, ctx)
         self.assertEqual(enemy.hp, 0)
         self.assertEqual(len(hero.deck.hand), 2)
 

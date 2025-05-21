@@ -2376,6 +2376,9 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
                 hero.combat_effects.append((card.effect, card))
             elif card.persistent == "exchange":
                 hero.exchange_effects.append((card.effect, card))
+        enemies = ctx["enemies"]
+        if not enemies:
+            return
     if card.multi:
         if card.max_targets is None:
             targets = enemies[:]

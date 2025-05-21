@@ -727,6 +727,18 @@ class TestHerculesCards(unittest.TestCase):
         self.assertEqual(enemy.hp, 0)
         self.assertEqual(len(hero.deck.hand), 2)
 
+    def test_pre_effect_kills_enemy(self):
+        """Pre effects that kill should end the attack without errors."""
+        sim.RNG.seed(0)
+        hero = sim.Hero("Hero", 10, [])
+        hero.deck.hand = [sim.atk("a", sim.CardType.UTIL, 0)]
+        card = sim.atk("Prep", sim.CardType.MELEE, 1,
+                       effect=sim.discard_bonus_damage(3), pre=True)
+        enemy = sim.Enemy("Dummy", 3, 1, sim.Element.NONE, [0, 0, 0, 0])
+        ctx = {"enemies": [enemy]}
+        sim.resolve_attack(hero, card, ctx)
+        self.assertFalse(ctx["enemies"])  # enemy defeated by pre effect
+
     def test_horde_breaker_death_trigger(self):
         sim.RNG.seed(0)
         hero = sim.Hero("Hero", 10, [])

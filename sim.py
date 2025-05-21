@@ -2582,8 +2582,17 @@ def monster_attack(heroes: List[Hero], ctx: Dict[str, object]) -> None:
 
 # very small fight simulation -------------------------------------------------
 
-def fight_one(hero: Hero) -> bool:
-    """Run one full gauntlet for ``hero``."""
+def fight_one(hero: Hero, hp_log: list[int] | None = None) -> bool:
+    """Run one full gauntlet for ``hero``.
+
+    Parameters
+    ----------
+    hero:
+        The :class:`Hero` to run through the gauntlet.
+    hp_log:
+        Optional list that, if provided, receives the hero's remaining hit
+        points after each completed wave.
+    """
 
     MONSTER_DAMAGE.clear()
     hero.reset()
@@ -2709,6 +2718,9 @@ def fight_one(hero: Hero) -> bool:
             _record_run_result(hero, False)
             _record_enemy_run(hero.name, run_waves, False)
             return False
+
+        if hp_log is not None:
+            hp_log.append(hero.hp)
 
         hero.gain_upgrades(1)
         hero.gain_fate(1)

@@ -645,6 +645,12 @@ def armor_per_enemy(base: int = 0) -> Callable[[Hero, Dict[str, object]], None]:
         h.armor_pool += base + len(ctx.get('enemies', []))
     return _fx
 
+def armor_per_fate(divisor: int) -> Callable[[Hero, Dict[str, object]], None]:
+    """Gain 1 Armor for every ``divisor`` Fate the hero has."""
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        h.armor_pool += h.fate // divisor
+    return _fx
+
 def armor_per_hit(mult: int = 1) -> Callable[[Hero, Dict[str, object]], None]:
     """Gain ``mult`` armor for each hit you deal on this attack."""
     def hook(hero: Hero, card: Card, ctx: Dict[str, object], dmg: int) -> int:
@@ -1666,7 +1672,10 @@ sky_piercer = atk(
     "Sky-Piercer", CardType.RANGED, 1, Element.SPIRITUAL,
     effect=sky_piercer_fx,
 )
-rally = atk("Rally", CardType.UTIL, 0, effect=draw_cards(1))
+thrust_of_destiny = atk(
+    "Thrust of Destiny", CardType.MELEE, 1, Element.PRECISE,
+    effect=armor_per_fate(4),
+)
 aria = atk("Aria", CardType.UTIL, 0, hymn=True, persistent="combat", effect=hymn_damage(1))
 
 bryn_base = [
@@ -1674,7 +1683,7 @@ bryn_base = [
     hymn_shields, hymn_shields,
     hymn_storms, hymn_storms,
     sky_piercer, sky_piercer,
-    rally, rally,
+    thrust_of_destiny, thrust_of_destiny,
     aria, aria,
 ]
 _b_c = [
@@ -1710,7 +1719,6 @@ _b_u = [
     atk("Hymn of Thunder", CardType.MELEE, 0, hymn=True, persistent="combat", effect=hymn_hit_bonus(1)),
     atk("Triumphant Blow", CardType.MELEE, 4, Element.BRUTAL, effect=triumphant_blow_fx),
 ]
-thrust_of_destiny = atk("Thrust of Destiny", CardType.MELEE, 2, Element.DIVINE, dmg_per_hymn=1)
 _b_r = [
     atk("Hymn of the All-Father", CardType.MELEE, 0, hymn=True,
         persistent="combat", effect=hymn_all_father_fx),

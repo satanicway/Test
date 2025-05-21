@@ -2185,6 +2185,9 @@ musashi = Hero("Musashi", 20, musashi_base, musashi_pool)
 
 HEROES = [hercules, brynhild, merlin, musashi]
 
+# track total damage each enemy inflicts on heroes across simulations
+MONSTER_DAMAGE: Dict[Tuple[str, str], int] = defaultdict(int)
+
 # accumulate win/loss stats for card usage
 CARD_CORRELATIONS: Dict[str, Dict[str, Dict[str, Dict[str, int]]]] = defaultdict(
     lambda: {
@@ -2209,6 +2212,11 @@ def _record_run_result(hero: Hero, won: bool) -> None:
 def get_card_correlations() -> Dict[str, Dict[str, Dict[str, Dict[str, int]]]]:
     """Return aggregated card win/loss counts for each hero."""
     return CARD_CORRELATIONS
+
+
+def get_monster_damage() -> Dict[Tuple[str, str], int]:
+    """Return total damage dealt by each enemy to each hero."""
+    return MONSTER_DAMAGE
 
 # ---------------------------------------------------------------------------
 # Enemy abilities and catalog
@@ -2479,7 +2487,10 @@ def monster_attack(heroes: List[Hero], ctx: Dict[str, object]) -> None:
     def apply(hero: Hero, enemy: Optional[Enemy], dmg: int) -> None:
         soak = min(hero.armor_pool, dmg)
         hero.armor_pool -= soak
-        hero.hp -= max(0, dmg - soak)
+        taken = max(0, dmg - soak)
+        hero.hp -= taken
+        if enemy:
+            MONSTER_DAMAGE[(hero.name, enemy.name)] += taken
         if enemy:
             if ctx.get('iron_shell') and soak >= dmg:
                 enemy.hp -= 2
@@ -2509,6 +2520,7 @@ def monster_attack(heroes: List[Hero], ctx: Dict[str, object]) -> None:
 def fight_one(hero: Hero) -> bool:
     """Run one full gauntlet for ``hero``."""
 
+    MONSTER_DAMAGE.clear()
     hero.reset()
     hero.deck.start_combat()
 

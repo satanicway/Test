@@ -251,6 +251,26 @@ class TestMinotaurAbilities(unittest.TestCase):
         self.assertEqual(hero.hp, 2)
 
 
+class TestMonsterDamageTracking(unittest.TestCase):
+    def test_damage_logged(self):
+        sim.MONSTER_DAMAGE.clear()
+        hero = sim.Hero("Hero", 10, [])
+        enemy = sim.Enemy("Goblin", 1, 1, sim.Element.NONE, [1, 1, 1, 1])
+        ctx = {"enemies": [enemy]}
+        sim.monster_attack([hero], ctx)
+        self.assertEqual(sim.MONSTER_DAMAGE[(hero.name, enemy.name)], 1)
+
+    def test_counters_reset_between_runs(self):
+        sim.MONSTER_DAMAGE.clear()
+        hero = sim.Hero("Hero", 10, [])
+        enemy = sim.Enemy("Dummy", 1, 1, sim.Element.NONE, [1, 1, 1, 1])
+        ctx = {"enemies": [enemy]}
+        sim.monster_attack([hero], ctx)
+        self.assertIn((hero.name, enemy.name), sim.MONSTER_DAMAGE)
+        sim.fight_one(sim.Hero("Hero", 10, []))
+        self.assertNotIn((hero.name, enemy.name), sim.MONSTER_DAMAGE)
+
+
 class TestBansheeAbilities(unittest.TestCase):
     def test_ghostly_clears_on_fourth_exchange(self):
         enemy = sim.Enemy(

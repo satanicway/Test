@@ -1662,12 +1662,32 @@ def sky_piercer_fx(hero: Hero, ctx: Dict[str, object]) -> None:
     else:
         hero.gain_fate(1)
 
+
+def spear_aesir_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """Grant Armor and Fate equal to missed dice for this exchange."""
+    misses = ctx.get("last_misses", 0)
+    if misses:
+        hero.armor_pool += misses
+        hero.gain_fate(misses)
+
+    def hook(h: Hero, _card: Card, c: Dict[str, object], dmg: int) -> int:
+        m = c.get("last_misses", 0)
+        if m:
+            h.armor_pool += m
+            h.gain_fate(m)
+        return dmg
+
+    ctx.setdefault("attack_hooks", []).append(hook)
+
 sky_piercer = atk(
     "Sky-Piercer", CardType.RANGED, 1, Element.SPIRITUAL,
     effect=sky_piercer_fx,
 )
 rally = atk("Rally", CardType.UTIL, 0, effect=draw_cards(1))
-aria = atk("Aria", CardType.UTIL, 0, hymn=True, persistent="combat", effect=hymn_damage(1))
+spear_aesir = atk(
+    "Spear of the \u00C6sir", CardType.MELEE, 1, Element.BRUTAL,
+    effect=spear_aesir_fx,
+)
 
 bryn_base = [
     valkyrie_descent, valkyrie_descent,
@@ -1675,7 +1695,7 @@ bryn_base = [
     hymn_storms, hymn_storms,
     sky_piercer, sky_piercer,
     rally, rally,
-    aria, aria,
+    spear_aesir, spear_aesir,
 ]
 _b_c = [
     atk("Lightning Crash", CardType.MELEE, 7, Element.SPIRITUAL, hit_mod=-2),

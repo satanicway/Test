@@ -52,7 +52,7 @@ class TestMechanics(unittest.TestCase):
 
     def test_multi_target_limit(self):
         """Cards may hit only a subset of enemies."""
-        sim.RNG.seed(0)
+        sim.RNG.seed(9)
         hero = sim.Hero("Hero", 10, [])
         card = sim.atk("Sweep", sim.CardType.MELEE, 2, multi=True, max_targets=2)
         enemies = [
@@ -65,7 +65,7 @@ class TestMechanics(unittest.TestCase):
         self.assertEqual(ctx["enemies"][0].hp, 1)
 
     def test_fight_one_runs(self):
-        sim.RNG.seed(0)
+        sim.RNG.seed(9)
         hero = sim.Hero("Hercules", 25, sim.herc_base, sim.herc_pool)
         result = sim.fight_one(hero)
         self.assertIn(result, [True, False])
@@ -535,6 +535,28 @@ class TestMerlinCards(unittest.TestCase):
         self.assertEqual(hero.fate, 0)
         sim.resolve_attack(hero, attack, ctx)
         self.assertEqual(enemy.hp, 0)
+
+    def test_area_damage_spell(self):
+        sim.RNG.seed(9)
+        hero = sim.Hero("Hero", 10, [])
+        card = sim.arcane_volley
+        enemies = [
+            sim.Enemy("Dummy", 1, 5, sim.Element.NONE, [0, 0, 0, 0])
+            for _ in range(3)
+        ]
+        ctx = {"enemies": enemies}
+        sim.resolve_attack(hero, card, ctx)
+        self.assertEqual(len(ctx["enemies"]), 0)
+
+    def test_ally_armor_support(self):
+        hero1 = sim.Hero("H1", 10, [])
+        hero2 = sim.Hero("H2", 10, [])
+        card = sim.atk("Ward", sim.CardType.UTIL, 0, effect=sim.armor_allies(2))
+        enemy = sim.Enemy("Dummy", 1, 5, sim.Element.NONE, [0, 0, 0, 0])
+        ctx = {"enemies": [enemy], "heroes": [hero1, hero2]}
+        sim.resolve_attack(hero1, card, ctx)
+        self.assertEqual(hero1.armor_pool, 2)
+        self.assertEqual(hero2.armor_pool, 2)
 
 
 class TestBrynhildCards(unittest.TestCase):

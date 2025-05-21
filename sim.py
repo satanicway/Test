@@ -182,7 +182,8 @@ def roll_hits(num_dice: int, defense: int, mod: int = 0, *,
               vulnerability: Element = Element.NONE,
               allow_reroll: bool = True,
               enemy: Optional[Enemy] = None,
-              free_rerolls: int = 0) -> int:
+              free_rerolls: int = 0,
+              ctx: Optional[Dict[str, object]] = None) -> int:
     dmg = 0
     for _ in range(num_dice):
         # initial roll without automatic rerolls
@@ -200,6 +201,11 @@ def roll_hits(num_dice: int, defense: int, mod: int = 0, *,
             r = denied_heaven(r, mod)
         if enemy and enemy.ability == "curse-of-torment" and hero:
             curse_of_torment(hero, r)
+        if ctx and ctx.get('die_hooks'):
+            for hook in ctx['die_hooks']:
+                new = hook(hero, r)
+                if isinstance(new, int):
+                    r = new
         if r >= defense:
             hit = 2 if r == 8 else 1
             if element != Element.NONE and element == vulnerability:
@@ -532,6 +538,72 @@ def armor_per_enemy(base: int = 0) -> Callable[[Hero, Dict[str, object]], None]:
         h.armor_pool += base + len(ctx.get('enemies', []))
     return _fx
 
+def armor_per_hit(mult: int = 1) -> Callable[[Hero, Dict[str, object]], None]:
+    """Gain ``mult`` armor for each hit you deal on this attack."""
+    def hook(hero: Hero, card: Card, ctx: Dict[str, object], dmg: int) -> int:
+        hero.armor_pool += dmg * mult
+        return dmg
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        ctx.setdefault('attack_hooks', []).append(hook)
+    return _fx
+
+def gain_fate_from_attacks() -> Callable[[Hero, Dict[str, object]], None]:
+    """Gain Fate equal to the number of previous attacks this exchange."""
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        h.gain_fate(ctx.get('attacks_used', 0))
+    return _fx
+
+def fate_for_damage_scaled(max_amt: int) -> Callable[[Hero, Dict[str, object]], None]:
+    """Spend up to ``max_amt`` Fate for equal bonus damage on this attack."""
+    def hook(hero: Hero, card: Card, ctx: Dict[str, object], dmg: int) -> int:
+        spend = min(max_amt, hero.fate)
+        if spend:
+            hero.fate -= spend
+            return dmg + spend
+        return dmg
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        ctx.setdefault('attack_hooks', []).append(hook)
+    return _fx
+
+def armor_on_high_roll() -> Callable[[Hero, Dict[str, object]], None]:
+    """[Combat] Gain 1 Armor whenever you roll a 7 or 8."""
+    def make_hook(hero: Hero):
+        def hook(_h: Hero, roll: int) -> Optional[int]:
+            if roll >= 7:
+                hero.armor_pool += 1
+            return roll
+        return hook
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        hook = make_hook(h)
+        ctx.setdefault('die_hooks', []).append(hook)
+        def per_exchange(hero: Hero, c: Dict[str, object]) -> None:
+            c.setdefault('die_hooks', []).append(hook)
+        if (per_exchange, hook) not in h.combat_effects:
+            h.combat_effects.append((per_exchange, hook))
+    return _fx
+
+def ones_are_eights() -> Callable[[Hero, Dict[str, object]], None]:
+    """Treat rolls of 1 as 8 for the rest of combat."""
+    def hook(_h: Hero, roll: int) -> int:
+        return 8 if roll == 1 else roll
+    def per_exchange(hero: Hero, ctx: Dict[str, object]) -> None:
+        ctx.setdefault('die_hooks', []).append(hook)
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        ctx.setdefault('die_hooks', []).append(hook)
+        if (per_exchange, None) not in h.combat_effects:
+            h.combat_effects.append((per_exchange, None))
+    return _fx
+
+def armor_each_exchange_per_enemy() -> Callable[[Hero, Dict[str, object]], None]:
+    """Gain armor equal to number of enemies once each exchange."""
+    def per_exchange(hero: Hero, c: Dict[str, object]) -> None:
+        hero.armor_pool += len(c.get('enemies', []))
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        h.armor_pool += len(ctx.get('enemies', []))
+        if (per_exchange, None) not in h.combat_effects:
+            h.combat_effects.append((per_exchange, None))
+    return _fx
+
 def exchange_damage_bonus(n: int) -> Callable[[Hero, Dict[str, object]], None]:
     """Increase damage of future attacks this exchange by ``n``."""
     def per_exchange(h: Hero, c: Dict[str, object]) -> None:
@@ -748,39 +820,78 @@ b_pool = weighted_pool(_b_c, _b_u, _b_r)
 brynhild = Hero("Brynhild", 18, bryn_base, b_pool)
 
 # --- Merlin ---------------------------------------------------------------
+arcane_volley = atk("Arcane Volley", CardType.RANGED, 1, Element.ARCANE, multi=True)
+ladys_warden = atk("Lady's Warden", CardType.MELEE, 1, Element.ARCANE, effect=gain_armor(2))
+weaver_of_fate = atk("Weaver of Fate", CardType.RANGED, 1, Element.DIVINE, effect=add_rerolls(2))
+crystal_staff = atk("Crystal Cave's Staff", CardType.MELEE, 1, Element.PRECISE,
+                    effect=armor_on_high_roll(), persistent="combat")
+mists_of_time = atk("Mists of Time", CardType.RANGED, 1, Element.SPIRITUAL,
+                    effect=modify_enemy_defense(-1), persistent="exchange")
+circle_of_avalon = atk(
+    "Circle of Avalon", CardType.RANGED, 1, Element.SPIRITUAL,
+    effect=reroll_per_attack_fx(1), persistent="combat")
+
 merlin_base = [
-    atk("Volley", CardType.RANGED, 1, Element.ARCANE),
-    atk("Volley", CardType.RANGED, 1, Element.ARCANE),
-    atk("Volley", CardType.RANGED, 1, Element.ARCANE),
-    atk("Warden", CardType.MELEE, 2, armor=1, effect=gain_armor(1)),
-    atk("Weaver", CardType.RANGED, 1, effect=add_rerolls(2)),
-    atk("Weaver", CardType.RANGED, 1, effect=add_rerolls(2)),
-    atk("Staff", CardType.MELEE, 1),
-    atk("Staff", CardType.MELEE, 1),
-    atk("Mists", CardType.RANGED, 1, effect=gain_fate_fx(1)),
-    atk("Mists", CardType.RANGED, 1, effect=gain_fate_fx(1)),
-    atk("Mists", CardType.RANGED, 1, effect=gain_fate_fx(1)),
-    atk("Circle", CardType.UTIL, 0, effect=global_reroll_fx(), persistent="combat"),
+    arcane_volley, arcane_volley,
+    ladys_warden, ladys_warden,
+    weaver_of_fate, weaver_of_fate,
+    crystal_staff,
+    mists_of_time, mists_of_time,
+    circle_of_avalon,
 ]
 
 _mer_common = [
-    atk("Magic Bolt", CardType.RANGED, 2, Element.ARCANE),
-    atk("Minor Ward", CardType.UTIL, 0, armor=1, effect=armor_allies(1)),
-    atk("Focus", CardType.UTIL, 0, effect=add_rerolls(1)),
-    atk("Minor Heal", CardType.UTIL, 0, effect=heal(1)),
-    atk("Arcane Burst", CardType.RANGED, 1, Element.ARCANE, multi=True),
-    atk("Meditate", CardType.UTIL, 0, effect=gain_fate_fx(1)),
+    atk("Runic Ray", CardType.RANGED, 2, Element.ARCANE, multi=True),
+    atk("Crystal-Shot Volley", CardType.RANGED, 3, Element.ARCANE),
+    atk("Glyph-Marking Bolt", CardType.RANGED, 1, Element.ARCANE,
+        effect=modify_enemy_defense(-1), persistent="combat"),
+    atk("Voice of Destiny", CardType.RANGED, 3, Element.DIVINE,
+        effect=add_rerolls(2)),
+    atk("Druidic Ways", CardType.RANGED, 2, Element.DIVINE, effect=heal(1)),
+    atk("Protective Mists", CardType.RANGED, 0, effect=armor_per_enemy(1)),
+    atk("Mark of Fated Fall", CardType.MELEE, 1, Element.ARCANE,
+        effect=modify_enemy_defense(-2), persistent="combat"),
+    atk("Veil-Rain of Chaos", CardType.RANGED, 1, Element.SPIRITUAL,
+        multi=True, effect=damage_bonus_per_enemy(1)),
+    atk("Oracle of Avalon", CardType.RANGED, 0, effect=gain_fate_fx(3)),
 ]
 
 _mer_uncommon = [
-    atk("Arcane Lance", CardType.RANGED, 3, Element.ARCANE),
-    atk("Greater Heal", CardType.UTIL, 0, effect=heal(2)),
+    atk("Waves of Destiny", CardType.RANGED, 3, Element.ARCANE, multi=True,
+        effect=gain_fate_per_enemy(1), persistent="exchange"),
+    atk("Ancestral Echoes", CardType.RANGED, 3, Element.ARCANE, multi=True,
+        effect=add_rerolls(1)),
+    atk("Whispers of the Wyrd", CardType.RANGED, 0,
+        persistent="combat", effect=exchange_damage_bonus(2)),
+    atk("Nature's Rebuke", CardType.RANGED, 2, Element.DIVINE, multi=True,
+        effect=heal(1)),
+    atk("Guard from Beyond", CardType.RANGED, 0, effect=armor_allies(5)),
+    atk("Sage's Alacrity", CardType.RANGED, 2, Element.PRECISE,
+        effect=reroll_per_attack_fx(2), persistent="combat"),
+    atk("Charged Spirits", CardType.RANGED, 2, Element.SPIRITUAL, multi=True,
+        effect=fate_for_damage_scaled(5)),
+    atk("Avalon's Light", CardType.RANGED, 3, Element.SPIRITUAL),
+    atk("Spiritual Gifts", CardType.RANGED, 4, Element.SPIRITUAL,
+        effect=combine_effects(discard_random(1), gain_fate_fx(2), draw_cards(1))),
 ]
 
 _mer_rare = [
-    atk("Meteor Swarm", CardType.RANGED, 2, Element.ARCANE, multi=True, effect=area_damage(1)),
-    atk("Protective Aura", CardType.UTIL, 0, armor=2, persistent="combat",
-        effect=combine_effects(armor_allies(1), global_reroll_fx())),
+    atk("Rune Shatter", CardType.RANGED, 3, Element.ARCANE, multi=True,
+        effect=modify_enemy_defense(-1), persistent="exchange"),
+    atk("Sigil of Final Fate", CardType.RANGED, 0,
+        persistent="combat", effect=ones_are_eights()),
+    atk("Conflux Lance", CardType.RANGED, 5, Element.ARCANE),
+    atk("Echoes of Guidance", CardType.RANGED, 0),
+    atk("Mercury Guard", CardType.RANGED, 0, persistent="combat",
+        effect=armor_each_exchange_per_enemy()),
+    atk("Old-Ways Shillelagh", CardType.MELEE, 3, Element.PRECISE,
+        effect=armor_per_hit(1)),
+    atk("Favor of the Druids", CardType.RANGED, 1, Element.SPIRITUAL,
+        effect=draw_cards(1)),
+    atk("Chains of Morrígan", CardType.RANGED, 0,
+        effect=modify_enemy_defense(-1), persistent="exchange"),
+    atk("Spirits of the Lands", CardType.RANGED, 4, Element.SPIRITUAL,
+        effect=gain_fate_from_attacks()),
 ]
 
 merlin_pool = weighted_pool(_mer_common, _mer_uncommon, _mer_rare)
@@ -1069,6 +1180,7 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
             vulnerability=vuln,
             enemy=e,
             free_rerolls=rer_bonus,
+            ctx=ctx,
         )
         if e.ability == "roots-of-despair":
             roots_of_despair(hero, card.dice > 0 and hits == 0)

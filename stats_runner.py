@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from typing import Dict
+import argparse
 
 import sim
 
@@ -151,6 +152,18 @@ def generate_report(num_runs: int = 100) -> str:
     return format_report(wins, card_data, damage, enemy_data, num_runs)
 
 if __name__ == "__main__":
-    wins = run_stats()
-    for name, count in wins.items():
-        print(f"{name}: {count}")
+    parser = argparse.ArgumentParser(description="Run gauntlet statistics")
+    parser.add_argument(
+        "--report", action="store_true",
+        help="Print a formatted report instead of win counts")
+    parser.add_argument(
+        "--runs", type=int, default=50000,
+        help="Number of gauntlet runs to simulate")
+    args = parser.parse_args()
+
+    if args.report:
+        print(generate_report(num_runs=args.runs))
+    else:
+        wins = run_stats(num_runs=args.runs)
+        for name, count in wins.items():
+            print(f"{name}: {count}")

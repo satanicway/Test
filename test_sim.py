@@ -526,5 +526,42 @@ class TestMerlinCards(unittest.TestCase):
         sim.resolve_attack(hero, attack, ctx)
         self.assertEqual(enemy.hp, 0)
 
+
+class TestBrynhildCards(unittest.TestCase):
+    def test_hymn_shields_armor_cap(self):
+        hero = sim.Hero("Hero", 10, [])
+        card = sim.hymn_shields
+        enemy = sim.Enemy("Dummy", 1, 5, sim.Element.NONE, [0, 0, 0, 0])
+        ctx = {"enemies": [enemy]}
+        sim.resolve_attack(hero, card, ctx)
+        for fx, e in ctx.get("end_hooks", []):
+            fx(hero, ctx, e)
+        self.assertEqual(hero.armor_pool, 1)
+        for _ in range(4):
+            ctx["end_hooks"] = []
+            sim.apply_persistent(hero, ctx)
+            for fx, e in ctx.get("end_hooks", []):
+                fx(hero, ctx, e)
+        self.assertEqual(hero.armor_pool, 3)
+
+    def test_valkyries_descent_hymn_bonus(self):
+        hero = sim.Hero("Hero", 10, [])
+        hymn = sim.atk("Prayer", sim.CardType.UTIL, 0, hymn=True, persistent="combat")
+        enemy = sim.Enemy("Dummy", 3, 8, sim.Element.NONE, [0, 0, 0, 0])
+        ctx = {"enemies": [enemy]}
+        sim.resolve_attack(hero, hymn, ctx)
+        sim.resolve_attack(hero, sim.valkyrie_descent, ctx)
+        self.assertEqual(enemy.hp, 2)
+
+    def test_thrust_of_destiny_bonus(self):
+        hero = sim.Hero("Hero", 10, [])
+        hymns = [sim.atk("Prayer", sim.CardType.UTIL, 0, hymn=True, persistent="combat") for _ in range(3)]
+        enemy = sim.Enemy("Dummy", 5, 8, sim.Element.NONE, [0, 0, 0, 0])
+        ctx = {"enemies": [enemy]}
+        for h in hymns:
+            sim.resolve_attack(hero, h, ctx)
+        sim.resolve_attack(hero, sim.thrust_of_destiny, ctx)
+        self.assertEqual(enemy.hp, 2)
+
 if __name__ == "__main__":
     unittest.main()

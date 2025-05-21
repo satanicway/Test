@@ -952,6 +952,81 @@ def iron_shell_fx(hero: Hero, ctx: Dict[str, object]) -> None:
         hero.combat_effects.append((per_exchange, None))
 
 
+def five_ring_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """[Combat] Future attacks use the element of a played attack."""
+    elem = ctx.get('last_element', Element.NONE)
+    for c in reversed(hero.deck.disc):
+        if c.element != Element.NONE:
+            elem = c.element
+            break
+    if elem == Element.NONE:
+        return
+
+    def per_exchange(_h: Hero, c: Dict[str, object]) -> None:
+        c['next_element'] = elem
+
+    ctx['next_element'] = elem
+    if (per_exchange, elem) not in hero.combat_effects:
+        hero.combat_effects.append((per_exchange, elem))
+
+
+def wanderer_blade_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """[Combat] Future attacks use the element of a played attack."""
+    five_ring_fx(hero, ctx)
+
+
+def formless_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """[Combat] +1 hit and +1 damage on all attacks."""
+
+    def hook(_h: Hero, _c: Card, _ctx: Dict[str, object], dmg: int) -> int:
+        return dmg + 1
+
+    def per_exchange(_h: Hero, c: Dict[str, object]) -> None:
+        c.setdefault('attack_hooks', []).append(hook)
+        c['hit_mod'] = c.get('hit_mod', 0) + 1
+
+    ctx.setdefault('attack_hooks', []).append(hook)
+    ctx['hit_mod'] = ctx.get('hit_mod', 0) + 1
+    if (per_exchange, hook) not in hero.combat_effects:
+        hero.combat_effects.append((per_exchange, hook))
+
+
+def stone_lotus_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """Add damage equal to current armor."""
+
+    def hook(h: Hero, _c: Card, _ctx: Dict[str, object], dmg: int) -> int:
+        return dmg + h.armor_pool
+
+    ctx.setdefault('attack_hooks', []).append(hook)
+
+
+def twin_dragon_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """Next single-target attack hits two enemies."""
+    ctx['split_next'] = True
+
+
+def edge_harmony_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """Gain 3 Armor."""
+    hero.armor_pool += 3
+
+
+def two_strikes_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """If one targeted enemy dies, the other does too."""
+    if ctx.get('killed') and ctx.get('enemies'):
+        enemy = ctx['enemies'][0]
+        enemy.hp = 0
+        ctx['enemies'].pop(0)
+
+
+def moment_perf_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """Gain 4 Armor or pay 2 Fate to double current armor."""
+    if hero.fate >= 2:
+        hero.fate -= 2
+        hero.armor_pool *= 2
+    else:
+        hero.armor_pool += 4
+
+
 # ---------------------------------------------------------------------------
 # Enemy ability helpers
 # ---------------------------------------------------------------------------
@@ -1380,17 +1455,38 @@ final_dragon = atk(
     "Final-Dragon Slash", CardType.MELEE, 2, Element.PRECISE,
     effect=vulnerability_bonus(Element.PRECISE, 7), pre=True
 )
-five_ring = atk("Five-Ring Convergence", CardType.MELEE, 2, Element.PRECISE)
-wanderer_blade = atk("The Wanderer's Blade", CardType.MELEE, 2, Element.BRUTAL)
-formless = atk("Formless Principle", CardType.MELEE, 0)
-stone_lotus = atk("Stone-Lotus Slash", CardType.MELEE, 4, Element.SPIRITUAL)
-twin_dragon = atk("Twin-Dragon Descent", CardType.MELEE, 0, multi=True)
-edge_harmony = atk("Edge of Harmony", CardType.MELEE, 4, Element.DIVINE)
+five_ring = atk(
+    "Five-Ring Convergence", CardType.MELEE, 2, Element.PRECISE,
+    effect=five_ring_fx, persistent="combat"
+)
+wanderer_blade = atk(
+    "The Wanderer's Blade", CardType.MELEE, 2, Element.BRUTAL,
+    effect=wanderer_blade_fx, persistent="combat"
+)
+formless = atk(
+    "Formless Principle", CardType.MELEE, 0,
+    effect=formless_fx, persistent="combat"
+)
+stone_lotus = atk(
+    "Stone-Lotus Slash", CardType.MELEE, 4, Element.SPIRITUAL,
+    effect=stone_lotus_fx
+)
+twin_dragon = atk(
+    "Twin-Dragon Descent", CardType.MELEE, 0, multi=True,
+    effect=twin_dragon_fx, persistent="exchange"
+)
+edge_harmony = atk(
+    "Edge of Harmony", CardType.MELEE, 4, Element.DIVINE,
+    effect=edge_harmony_fx
+)
 two_strikes = atk(
     "Two-Strikes as One", CardType.MELEE, 3, Element.DIVINE,
-    multi=True, max_targets=2
+    multi=True, max_targets=2, effect=two_strikes_fx
 )
-moment_perf = atk("Moment of Perfection", CardType.RANGED, 0, armor=4)
+moment_perf = atk(
+    "Moment of Perfection", CardType.RANGED, 0,
+    effect=moment_perf_fx
+)
 
 _m_rare = [
     final_dragon,

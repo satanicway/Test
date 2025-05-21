@@ -1642,8 +1642,10 @@ valkyrie_descent = atk(
 hymn_shields = atk("Hymn of Shields", CardType.UTIL, 0, hymn=True)
 
 def _hymn_shields_end(hero: Hero, ctx: Dict[str, object], _enemy: Optional[Enemy]) -> None:
-    if hero.armor_pool < 3:
-        hero.armor_pool += 1
+    """Grant all heroes armor equal to active Hymns (capped at 3)."""
+    gain = min(3, hymn_count(hero))
+    for h in ctx.get("heroes", [hero]):
+        h.armor_pool += gain
 
 def _hymn_shields_fx(hero: Hero, ctx: Dict[str, object]) -> None:
     ctx.setdefault("end_hooks", []).append((_hymn_shields_end, None))

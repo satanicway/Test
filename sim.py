@@ -874,6 +874,84 @@ def heavenly_dragon_fx(hero: Hero, ctx: Dict[str, object]) -> None:
         hero.exchange_effects.append((per_exchange, elem))
 
 
+def crescent_guard_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """Pay 1 Fate to gain 2 Armor per previous card this exchange."""
+    if hero.fate >= 1:
+        hero.fate -= 1
+        hero.armor_pool += 2 * ctx.get('attacks_used', 0)
+
+
+def mountain_stance_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """[Combat] -1 enemy DEF when attacking their vulnerability."""
+    def hook(_h: Hero, _c: Card, c: Dict[str, object], enemy: Enemy,
+             elem: Element, _vuln: Element) -> int:
+        return -1 if elem != Element.NONE and elem == enemy.vulnerability else 0
+
+    def per_exchange(h: Hero, c: Dict[str, object]) -> None:
+        c.setdefault('pre_attack_hooks', []).append(hook)
+
+    ctx.setdefault('pre_attack_hooks', []).append(hook)
+    if (per_exchange, hook) not in hero.combat_effects:
+        hero.combat_effects.append((per_exchange, hook))
+
+
+def mirror_flow_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """[Combat] +3 damage when exactly two enemies are present."""
+    def hook(_h: Hero, _c: Card, c: Dict[str, object], dmg: int) -> int:
+        return dmg + 3 if len(c.get('enemies', [])) == 2 else dmg
+
+    def per_exchange(h: Hero, c: Dict[str, object]) -> None:
+        c.setdefault('attack_hooks', []).append(hook)
+
+    ctx.setdefault('attack_hooks', []).append(hook)
+    if (per_exchange, hook) not in hero.combat_effects:
+        hero.combat_effects.append((per_exchange, hook))
+
+
+def heaven_defying_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """[Combat] Gain 1 Fate when using the enemy's vulnerability."""
+    def hook(h: Hero, _c: Card, c: Dict[str, object], dmg: int) -> int:
+        elem = c.get('last_element', Element.NONE)
+        for e in c.get('enemies', []):
+            if elem != Element.NONE and elem == e.vulnerability:
+                h.gain_fate(1)
+                break
+        return dmg
+
+    def per_exchange(h: Hero, c: Dict[str, object]) -> None:
+        c.setdefault('attack_hooks', []).append(hook)
+
+    ctx.setdefault('attack_hooks', []).append(hook)
+    if (per_exchange, hook) not in hero.combat_effects:
+        hero.combat_effects.append((per_exchange, hook))
+
+
+def ascending_veng_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """[Combat] Enemies lose HP when your armor absorbs damage."""
+    def per_exchange(h: Hero, c: Dict[str, object]) -> None:
+        c['ascending_veng'] = True
+
+    ctx['ascending_veng'] = True
+    if (per_exchange, None) not in hero.combat_effects:
+        hero.combat_effects.append((per_exchange, None))
+
+
+def menacing_step_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """Remove the first enemy from combat."""
+    if ctx.get('enemies'):
+        ctx['enemies'].pop(0)
+
+
+def iron_shell_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """[Combat] If armor fully blocks damage, attacker loses 2 HP."""
+    def per_exchange(h: Hero, c: Dict[str, object]) -> None:
+        c['iron_shell'] = True
+
+    ctx['iron_shell'] = True
+    if (per_exchange, None) not in hero.combat_effects:
+        hero.combat_effects.append((per_exchange, None))
+
+
 # ---------------------------------------------------------------------------
 # Enemy ability helpers
 # ---------------------------------------------------------------------------
@@ -1271,13 +1349,20 @@ two_heaven_blitz = atk(
     "Two-Heaven Blitz", CardType.MELEE, 4, Element.PRECISE,
     multi=True, max_targets=2
 )
-crescent_guard = atk("Crescent-Moon Guard", CardType.RANGED, 0)
-mountain_stance = atk("Mountain-Strike Stance", CardType.MELEE, 0)
-mirror_flow = atk("Mirror-Flow Style", CardType.MELEE, 0)
-heaven_defying = atk("Heaven-Defying Blade", CardType.MELEE, 0)
-ascending_veng = atk("Ascending Vengeance", CardType.MELEE, 0)
-menacing_step = atk("Menacing Step", CardType.MELEE, 0)
-iron_shell = atk("Iron-Shell Posture", CardType.MELEE, 0)
+crescent_guard = atk("Crescent-Moon Guard", CardType.RANGED, 0,
+    effect=crescent_guard_fx)
+mountain_stance = atk("Mountain-Strike Stance", CardType.MELEE, 0,
+    persistent="combat", effect=mountain_stance_fx)
+mirror_flow = atk("Mirror-Flow Style", CardType.MELEE, 0,
+    persistent="combat", effect=mirror_flow_fx)
+heaven_defying = atk("Heaven-Defying Blade", CardType.MELEE, 0,
+    persistent="combat", effect=heaven_defying_fx)
+ascending_veng = atk("Ascending Vengeance", CardType.MELEE, 0,
+    persistent="combat", effect=ascending_veng_fx)
+menacing_step = atk("Menacing Step", CardType.MELEE, 0,
+    effect=menacing_step_fx)
+iron_shell = atk("Iron-Shell Posture", CardType.MELEE, 0,
+    persistent="combat", effect=iron_shell_fx)
 
 _m_uncommon = [
     seizing_dragon,
@@ -1482,9 +1567,14 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
         vuln = ctx.pop("temp_vuln", e.vulnerability)
         elem = ctx.pop('next_element', card.element)
         ctx['last_element'] = elem
+        def_mod = 0
+        for hook in ctx.get('pre_attack_hooks', []):
+            new = hook(hero, card, ctx, e, elem, vuln)
+            if isinstance(new, int):
+                def_mod += new
         hits = roll_hits(
             card.dice,
-            e.defense + ctx.get("enemy_defense_mod", 0),
+            e.defense + ctx.get("enemy_defense_mod", 0) + def_mod,
             mod,
             hero=hero,
             element=elem,
@@ -1547,13 +1637,20 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
 def monster_attack(heroes: List[Hero], ctx: Dict[str, object]) -> None:
     """Resolve monster attacks for the current wave."""
 
-    def apply(hero: Hero, dmg: int) -> None:
+    def apply(hero: Hero, enemy: Optional[Enemy], dmg: int) -> None:
         soak = min(hero.armor_pool, dmg)
         hero.armor_pool -= soak
         hero.hp -= max(0, dmg - soak)
+        if enemy:
+            if ctx.get('iron_shell') and soak >= dmg:
+                enemy.hp -= 2
+            if ctx.get('ascending_veng') and soak > 0:
+                enemy.hp -= soak // 2
+            if enemy.hp <= 0:
+                ctx['enemies'].remove(enemy)
 
     bonus = ctx.get("priest_bonus", 0)
-    for e in ctx["enemies"]:
+    for e in ctx["enemies"][:]:
         attacks = 2 if e.ability == "enrage" and enrage(e) else 1
         for _ in range(attacks):
             band = e.damage_band
@@ -1561,10 +1658,10 @@ def monster_attack(heroes: List[Hero], ctx: Dict[str, object]) -> None:
             if e.ability == "cleave_all":
                 cleave_all(heroes, dmg)
             else:
-                apply(heroes[0], dmg)
+                apply(heroes[0], e, dmg)
 
     if bonus:
-        apply(heroes[0], bonus)
+        apply(heroes[0], None, bonus)
 
 # very small fight simulation -------------------------------------------------
 

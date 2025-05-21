@@ -74,7 +74,10 @@ def run_stats(num_runs: int = 50000) -> Dict[str, int]:
 
 
 def run_stats_with_damage(num_runs: int = 50000) -> tuple[Dict[str, int], dict, dict]:
-    """Run gauntlets collecting win counts, damage and HP progression."""
+    """Run gauntlets collecting win counts, damage and HP progression.
+
+    When aggregating HP values, uncompleted waves are counted as 0 HP.
+    """
     from collections import defaultdict
 
     results: Dict[str, int] = {h.name: 0 for h in sim.HEROES}
@@ -95,7 +98,8 @@ def run_stats_with_damage(num_runs: int = 50000) -> tuple[Dict[str, int], dict, 
                 hp_log: list[int] = []
                 if run_gauntlet(hero, hp_log):
                     results[proto.name] += 1
-                for idx, hp in enumerate(hp_log):
+                for idx in range(8):
+                    hp = hp_log[idx] if idx < len(hp_log) else 0
                     hp_totals[proto.name][idx] += hp
                     hp_counts[proto.name][idx] += 1
                 for key, val in sim.get_monster_damage().items():

@@ -185,10 +185,15 @@ def roll_hits(num_dice: int, defense: int, mod: int = 0, *,
               enemy: Optional[Enemy] = None,
               free_rerolls: int = 0,
               ctx: Optional[Dict[str, object]] = None) -> int:
+    bonus = 0
+    if ctx:
+        bonus = ctx.pop('bonus_dice', 0)
+    total_dice = num_dice + bonus
     dmg = 0
     misses = 0
     reroll_hits = 0
-    for _ in range(num_dice):
+    i = 0
+    while i < total_dice:
         # initial roll without automatic rerolls
         r = roll_die(defense, mod, hero=hero, allow_reroll=False)
         rerolled = False
@@ -221,6 +226,10 @@ def roll_hits(num_dice: int, defense: int, mod: int = 0, *,
             dmg += hit
         else:
             misses += 1
+        if ctx:
+            extra = ctx.pop('bonus_dice', 0)
+            total_dice += extra
+        i += 1
     if ctx is not None:
         ctx['last_misses'] = misses
         ctx['reroll_hits'] = ctx.get('reroll_hits', 0) + reroll_hits
@@ -354,6 +363,66 @@ def discard_for_fate(discard_n: int, gain: int) -> Callable[[Hero, Dict[str, obj
             h.deck.disc.append(h.deck.hand.pop(i))
         h.gain_fate(gain)
     return _fx
+
+def discard_for_area_damage(mult: int) -> Callable[[Hero, Dict[str, object]], None]:
+    """Discard all cards to add ``mult`` damage per card to all enemies."""
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        count = len(h.deck.hand)
+        for _ in range(count):
+            i = RNG.randrange(len(h.deck.hand))
+            h.deck.disc.append(h.deck.hand.pop(i))
+        if count:
+            ctx['area_damage'] = ctx.get('area_damage', 0) + mult * count
+    return _fx
+
+def heal_self_or_ally(self_amt: int, ally_amt: int) -> Callable[[Hero, Dict[str, object]], None]:
+    """Heal hero or an ally if present."""
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        allies = [x for x in ctx.get('heroes', [h]) if x is not h]
+        if allies:
+            target = allies[0]
+            target.hp = min(target.max_hp, target.hp + ally_amt)
+        else:
+            h.hp = min(h.max_hp, h.hp + self_amt)
+    return _fx
+
+def extra_die_on_eight() -> Callable[[Hero, Dict[str, object]], None]:
+    """Roll an additional die whenever an 8 appears."""
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        def hook(_h: Hero, roll: int) -> int:
+            if roll == 8:
+                ctx['bonus_dice'] = ctx.get('bonus_dice', 0) + 1
+            return roll
+        def cleanup(_h: Hero, _c: Card, c: Dict[str, object], dmg: int) -> int:
+            if 'die_hooks' in c and hook in c['die_hooks']:
+                c['die_hooks'].remove(hook)
+            return dmg
+        ctx.setdefault('die_hooks', []).append(hook)
+        ctx.setdefault('attack_hooks', []).append(cleanup)
+    return _fx
+
+def mark_target_plus_die(enemy: Enemy) -> Callable[[Hero, Dict[str, object]], None]:
+    """Give +1 die against ``enemy`` for the rest of combat."""
+    def hook(_h: Hero, _c: Card, c: Dict[str, object], tgt: Enemy, _e: Element, _v: Element) -> int:
+        if tgt is enemy:
+            c['bonus_dice'] = c.get('bonus_dice', 0) + 1
+        return 0
+    def per_exchange(h: Hero, c: Dict[str, object]) -> None:
+        c.setdefault('pre_attack_hooks', []).append(hook)
+    def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        ctx.setdefault('pre_attack_hooks', []).append(hook)
+        if (per_exchange, hook) not in h.combat_effects:
+            h.combat_effects.append((per_exchange, hook))
+    return _fx
+
+def glyph_mark_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    enemy = ctx.get('last_target')
+    if isinstance(enemy, Enemy):
+        mark_target_plus_die(enemy)(hero, ctx)
+
+def veil_rain_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    n = len(ctx.get('enemies', []))
+    ctx['area_damage'] = ctx.get('area_damage', 0) + n
 
 def modify_enemy_defense(amount: int) -> Callable[[Hero, Dict[str, object]], None]:
     """Adjust enemy defense for the rest of the exchange."""
@@ -1288,18 +1357,21 @@ merlin_base = [
 ]
 
 _mer_common = [
-    atk("Runic Ray", CardType.RANGED, 2, Element.ARCANE, multi=True),
-    atk("Crystal-Shot Volley", CardType.RANGED, 3, Element.ARCANE),
+    atk("Runic Ray", CardType.RANGED, 2, Element.ARCANE, multi=True,
+        effect=discard_for_area_damage(2), pre=True),
+    atk("Crystal-Shot Volley", CardType.RANGED, 3, Element.ARCANE,
+        effect=extra_die_on_eight(), pre=True),
     atk("Glyph-Marking Bolt", CardType.RANGED, 1, Element.ARCANE,
-        effect=modify_enemy_defense(-1), persistent="combat"),
+        effect=glyph_mark_fx, persistent="combat"),
     atk("Voice of Destiny", CardType.RANGED, 3, Element.DIVINE,
         effect=add_rerolls(2)),
-    atk("Druidic Ways", CardType.RANGED, 2, Element.DIVINE, effect=heal(1)),
+    atk("Druidic Ways", CardType.RANGED, 2, Element.DIVINE,
+        effect=heal_self_or_ally(1, 2)),
     atk("Protective Mists", CardType.RANGED, 0, effect=armor_per_enemy(1)),
     atk("Mark of Fated Fall", CardType.MELEE, 1, Element.ARCANE,
         effect=modify_enemy_defense(-2), persistent="combat"),
     atk("Veil-Rain of Chaos", CardType.RANGED, 1, Element.SPIRITUAL,
-        multi=True, effect=damage_bonus_per_enemy(1)),
+        multi=True, effect=veil_rain_fx, pre=True),
     atk("Oracle of Avalon", CardType.RANGED, 0, effect=gain_fate_fx(3)),
 ]
 
@@ -1644,6 +1716,8 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
             targets = enemies[:card.max_targets]
     else:
         targets = [enemies[0]]
+    if targets:
+        ctx['last_target'] = targets[0]
     allow_reroll = not ctx.get("no_reroll", False)
     rer_bonus = ctx.pop('extra_rerolls', 0)
     g_reroll = ctx.get('global_reroll')

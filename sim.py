@@ -529,8 +529,16 @@ def enrage(enemy: Enemy) -> bool:
 
 def end_hymns_fx(hero: Hero, ctx: Dict[str, object]) -> None:
     hero.active_hymns.clear()
-    hero.combat_effects = [p for p in hero.combat_effects if not p[1].hymn]
-    hero.exchange_effects = [p for p in hero.exchange_effects if not p[1].hymn]
+    hero.combat_effects = [
+        p
+        for p in hero.combat_effects
+        if not (isinstance(p[1], Card) and p[1].hymn)
+    ]
+    hero.exchange_effects = [
+        p
+        for p in hero.exchange_effects
+        if not (isinstance(p[1], Card) and p[1].hymn)
+    ]
 
 def hymn_count(hero: Hero) -> int:
     """Return the number of active hymns on ``hero``."""

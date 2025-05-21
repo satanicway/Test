@@ -248,6 +248,12 @@ def apply_persistent(hero: Hero, ctx: Dict[str, object]) -> None:
     for fx, _ in hero.exchange_effects:
         fx(hero, ctx)
 
+def remove_enemy(ctx: Dict[str, object], enemy: Enemy) -> None:
+    """Remove ``enemy`` from combat and store it for later placement."""
+    if enemy in ctx.get('enemies', []):
+        ctx['enemies'].remove(enemy)
+    ctx.setdefault('adjacent_enemies', []).append(enemy)
+
 # ---------------------------------------------------------------------------
 # Enemy ability helpers
 # ---------------------------------------------------------------------------
@@ -400,7 +406,7 @@ def discard_bonus_damage(mult: int) -> Callable[[Hero, Dict[str, object]], None]
             if isinstance(enemy, Enemy):
                 enemy.hp -= bonus
                 if enemy.hp <= 0 and enemy in ctx.get('enemies', []):
-                    ctx['enemies'].remove(enemy)
+                    remove_enemy(ctx, enemy)
     return _fx
 
 def heal_self_or_ally(self_amt: int, ally_amt: int) -> Callable[[Hero, Dict[str, object]], None]:
@@ -590,7 +596,7 @@ def bonus_if_vulnerable(elem: Element, bonus: int) -> Callable[[Hero, Dict[str, 
             enemy = ctx['enemies'][0]
             enemy.hp -= bonus
             if enemy.hp <= 0:
-                ctx['enemies'].pop(0)
+                remove_enemy(ctx, enemy)
     return _fx
 
 def armor_damage_bonus(mult: int) -> Callable[[Hero, Dict[str, object]], None]:
@@ -1258,9 +1264,10 @@ def ascending_veng_fx(hero: Hero, ctx: Dict[str, object]) -> None:
 
 
 def menacing_step_fx(hero: Hero, ctx: Dict[str, object]) -> None:
-    """Remove the first enemy from combat."""
+    """Remove the first enemy from combat and store it for later placement."""
     if ctx.get('enemies'):
-        ctx['enemies'].pop(0)
+        enemy = ctx['enemies'].pop(0)
+        ctx.setdefault('adjacent_enemies', []).append(enemy)
 
 
 def iron_shell_fx(hero: Hero, ctx: Dict[str, object]) -> None:
@@ -1336,7 +1343,7 @@ def two_strikes_fx(hero: Hero, ctx: Dict[str, object]) -> None:
     if ctx.get('killed') and ctx.get('enemies'):
         enemy = ctx['enemies'][0]
         enemy.hp = 0
-        ctx['enemies'].pop(0)
+        remove_enemy(ctx, enemy)
 
 
 def moment_perf_fx(hero: Hero, ctx: Dict[str, object]) -> None:
@@ -1713,7 +1720,7 @@ def _hymn_storms_end(hero: Hero, ctx: Dict[str, object],
     target = ctx["enemies"][0]
     target.hp -= dmg
     if target.hp <= 0:
-        ctx["enemies"].pop(0)
+        remove_enemy(ctx, target)
 
 def _hymn_storms_fx(hero: Hero, ctx: Dict[str, object]) -> None:
     ctx['hit_mod'] = ctx.get('hit_mod', 0) - 1
@@ -2272,7 +2279,7 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
             blocks.add(id(e))
 
         if e.hp <= 0:
-            enemies.remove(e)
+            remove_enemy(ctx, e)
             if e.ability == "power-of-death" or e.ability is power_of_death:
                 ctx["dead_priests"] = ctx.get("dead_priests", 0) + 1
                 ctx["priest_bonus"] = ctx["dead_priests"]
@@ -2336,7 +2343,7 @@ def monster_attack(heroes: List[Hero], ctx: Dict[str, object]) -> None:
             if ctx.get('ascending_veng') and soak > 0:
                 enemy.hp -= soak // 2
             if enemy.hp <= 0:
-                ctx['enemies'].remove(enemy)
+                remove_enemy(ctx, enemy)
 
     bonus = ctx.get("priest_bonus", 0)
     for e in ctx["enemies"][:]:

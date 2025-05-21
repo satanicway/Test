@@ -404,6 +404,14 @@ class TestNewCardEffects(unittest.TestCase):
         sim.resolve_attack(hero, attack, ctx)
         self.assertFalse(ctx["enemies"])  # vulnerability damage
 
+    def test_menacing_step_moves_enemy(self):
+        hero = sim.Hero("Hero", 10, [])
+        enemy = sim.Enemy("Dummy", 3, 5, sim.Element.NONE, [0, 0, 0, 0])
+        ctx = {"enemies": [enemy]}
+        sim.menacing_step_fx(hero, ctx)
+        self.assertNotIn(enemy, ctx["enemies"])
+        self.assertIn(enemy, ctx.get("adjacent_enemies", []))
+
 class TestHymnMechanics(unittest.TestCase):
     def test_hymn_armor_scaling(self):
         hero = sim.Hero("Hero", 10, [])

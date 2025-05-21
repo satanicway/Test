@@ -31,5 +31,13 @@ class TestSimulationCounters(unittest.TestCase):
         # total damage inflicted by a specific enemy is tracked
         self.assertEqual(damage[("Hercules", "Elite Minotaur")], 9)
 
+    def test_damage_reset_between_runs(self):
+        """MONSTER_DAMAGE should be empty when a new stats run begins."""
+        sim.RNG.seed(1)
+        stats_runner.run_stats_with_damage(num_runs=1)
+        self.assertEqual(sim.MONSTER_DAMAGE, {})
+        stats_runner.run_stats_with_damage(num_runs=1)
+        self.assertEqual(sim.MONSTER_DAMAGE, {})
+
 if __name__ == "__main__":
     unittest.main()

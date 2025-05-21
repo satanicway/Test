@@ -87,6 +87,7 @@ def run_stats_with_damage(num_runs: int = 50000) -> tuple[Dict[str, int], dict]:
                     damage[key] += val
     finally:
         sim.AUTO_MODE = False
+    sim.MONSTER_DAMAGE.clear()
     return results, damage
 
 

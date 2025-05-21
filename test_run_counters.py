@@ -20,8 +20,12 @@ class TestSimulationCounters(unittest.TestCase):
         # enemy appearance/run counts updated
         enemy_stats = sim.get_enemy_run_counts()
         self.assertEqual(
-            enemy_stats["Treant"],
-            {"common": {"win": 0, "loss": 2}, "elite": {"win": 0, "loss": 3}},
+            enemy_stats["Hercules"]["Treant"],
+            {"common": {"win": 0, "loss": 2}, "elite": {"win": 0, "loss": 1}},
+        )
+        self.assertEqual(
+            enemy_stats["Brynhild"]["Treant"],
+            {"common": {"win": 0, "loss": 0}, "elite": {"win": 0, "loss": 2}},
         )
 
         # total damage inflicted by a specific enemy is tracked

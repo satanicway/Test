@@ -124,14 +124,16 @@ def format_report(wins: Dict[str, int], card_data: dict, damage: dict,
             lines.append(f"  {enemy}: {val}")
 
     lines.append("\n=== Enemy Appearance Outcomes ===")
-    for enemy in sorted(enemy_data):
-        lines.append(f"{enemy}:")
-        for variant in ("common", "elite"):
-            stats = enemy_data[enemy][variant]
-            total = stats["win"] + stats["loss"]
-            pct = (stats["win"] / total * 100) if total else 0.0
-            lines.append(
-                f"  {variant}: {pct:.1f}% win ({stats['win']}/{total})")
+    for hero in sorted(enemy_data):
+        lines.append(f"{hero}:")
+        for enemy in sorted(enemy_data[hero]):
+            lines.append(f"  {enemy}:")
+            for variant in ("common", "elite"):
+                stats = enemy_data[hero][enemy][variant]
+                total = stats["win"] + stats["loss"]
+                pct = (stats["win"] / total * 100) if total else 0.0
+                lines.append(
+                    f"    {variant}: {pct:.1f}% win ({stats['win']}/{total})")
 
     return "\n".join(lines)
 

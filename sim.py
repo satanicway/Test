@@ -2189,11 +2189,12 @@ HEROES = [hercules, brynhild, merlin, musashi]
 MONSTER_DAMAGE: Dict[Tuple[str, str], int] = defaultdict(int)
 
 # track how often each enemy type appears in a run and whether that run wins
-ENEMY_RUN_COUNTS: Dict[str, Dict[str, Dict[str, int]]] = defaultdict(
-    lambda: {
+# the mapping is hero -> enemy base name -> variant -> win/loss counts
+ENEMY_RUN_COUNTS: Dict[str, Dict[str, Dict[str, Dict[str, int]]]] = defaultdict(
+    lambda: defaultdict(lambda: {
         "common": {"win": 0, "loss": 0},
         "elite": {"win": 0, "loss": 0},
-    }
+    })
 )
 
 # accumulate win/loss stats for card usage
@@ -2222,16 +2223,16 @@ def get_card_correlations() -> Dict[str, Dict[str, Dict[str, Dict[str, int]]]]:
     return CARD_CORRELATIONS
 
 
-def _record_enemy_run(names: List[str], won: bool) -> None:
+def _record_enemy_run(hero_name: str, names: List[str], won: bool) -> None:
     """Update enemy appearance counts for a completed run."""
     result_key = "win" if won else "loss"
     for name in set(names):
         variant = "elite" if name.startswith("Elite ") else "common"
         base = name[6:] if variant == "elite" else name
-        ENEMY_RUN_COUNTS[base][variant][result_key] += 1
+        ENEMY_RUN_COUNTS[hero_name][base][variant][result_key] += 1
 
 
-def get_enemy_run_counts() -> Dict[str, Dict[str, Dict[str, int]]]:
+def get_enemy_run_counts() -> Dict[str, Dict[str, Dict[str, Dict[str, int]]]]:
     """Return aggregated win/loss counts for enemy appearances."""
     return ENEMY_RUN_COUNTS
 
@@ -2664,7 +2665,7 @@ def fight_one(hero: Hero) -> bool:
 
         if ctx["enemies"] or hero.hp <= 0:
             _record_run_result(hero, False)
-            _record_enemy_run(run_waves, False)
+            _record_enemy_run(hero.name, run_waves, False)
             return False
 
         hero.gain_upgrades(1)
@@ -2676,7 +2677,7 @@ def fight_one(hero: Hero) -> bool:
 
     win = hero.hp > 0
     _record_run_result(hero, win)
-    _record_enemy_run(run_waves, win)
+    _record_enemy_run(hero.name, run_waves, win)
     return win
 
 # ---------------------------------------------------------------------------

@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Command line interface for stats_runner.generate_report."""
+"""Run the full statistics report for the card game simulator.
+
+Running this module executes :func:`stats_runner.generate_report` with a
+default of 50,000 simulated runs.  The number of runs may be overridden via
+the ``--runs`` command line argument.
+"""
 
 import argparse
 import stats_runner

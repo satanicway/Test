@@ -47,6 +47,9 @@ def run_gauntlet(hero: sim.Hero) -> bool:
 
 def run_stats(num_runs: int = 50000) -> Dict[str, int]:
     """Run ``num_runs`` gauntlets for each hero and return win counts."""
+    sim.CARD_CORRELATIONS.clear()
+    sim.ENEMY_RUN_COUNTS.clear()
+    sim.MONSTER_DAMAGE.clear()
     results: Dict[str, int] = {h.name: 0 for h in sim.HEROES}
     sim.AUTO_MODE = True
     try:
@@ -70,6 +73,7 @@ def run_stats_with_damage(num_runs: int = 50000) -> tuple[Dict[str, int], dict]:
 
     sim.CARD_CORRELATIONS.clear()
     sim.ENEMY_RUN_COUNTS.clear()
+    sim.MONSTER_DAMAGE.clear()
 
     sim.AUTO_MODE = True
     try:

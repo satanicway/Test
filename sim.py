@@ -100,6 +100,7 @@ class Deck:
 # Hero and Enemy definitions
 # ---------------------------------------------------------------------------
 FATE_MAX = 10
+ATTACK_DEPTH_LIMIT = 10
 
 @dataclass
 class Hero:
@@ -1253,7 +1254,9 @@ def dual_moon_guard_fx(hero: Hero, ctx: Dict[str, object]) -> None:
 
 def ghost_step_slash_fx(hero: Hero, ctx: Dict[str, object]) -> None:
     """Repeat attack on another enemy if one was killed."""
-    if ctx.get('killed') and ctx.get('enemies') and not ctx.get('ghost_step'):        
+    if ctx.get('attack_depth', 0) >= ATTACK_DEPTH_LIMIT:
+        return
+    if ctx.get('killed') and ctx.get('enemies') and not ctx.get('ghost_step'):
         ctx['ghost_step'] = True
         temp = Card('Ghost-Step Slash', CardType.MELEE, 3, Element.DIVINE)
         resolve_attack(hero, temp, ctx)
@@ -1533,6 +1536,8 @@ def nike_desire_fx(hero: Hero, ctx: Dict[str, object]) -> None:
 
 def hermes_delivery_fx(hero: Hero, ctx: Dict[str, object]) -> None:
     """Draw a card and immediately play it as an attack."""
+    if ctx.get('attack_depth', 0) >= ATTACK_DEPTH_LIMIT:
+        return
     hero.deck.draw(1)
     if hero.deck.hand:
         card = hero.deck.hand.pop()
@@ -2345,9 +2350,17 @@ ENEMY_WAVES = [
 # ---------------------------------------------------------------------------
 def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
     """Resolve ``card`` against current enemies in ``ctx``."""
+    depth = ctx.get('attack_depth', 0)
+    if depth >= ATTACK_DEPTH_LIMIT:
+        return
+    ctx['attack_depth'] = depth + 1
 
     enemies: List[Enemy] = ctx["enemies"]
     if not enemies:
+        if depth == 0:
+            ctx.pop('attack_depth', None)
+        else:
+            ctx['attack_depth'] = depth
         return
     if hasattr(hero, "combat_record"):
         hero.combat_record["played"][card.name] += 1
@@ -2370,6 +2383,10 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
                 hero.exchange_effects.append((card.effect, card))
         enemies = ctx["enemies"]
         if not enemies:
+            if depth == 0:
+                ctx.pop('attack_depth', None)
+            else:
+                ctx['attack_depth'] = depth
             return
     if card.multi:
         if card.max_targets is None:
@@ -2498,6 +2515,11 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
             card.hit_mod,
         )
         resolve_attack(hero, temp, ctx)
+
+    if depth == 0:
+        ctx.pop('attack_depth', None)
+    else:
+        ctx['attack_depth'] = depth
 
 
 def monster_attack(heroes: List[Hero], ctx: Dict[str, object]) -> None:

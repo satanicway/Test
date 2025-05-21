@@ -729,9 +729,21 @@ class TestHerculesCards(unittest.TestCase):
                        effect=sim.fortunes_throw_fx)
         enemy = sim.Enemy("Dummy", 1, 1, sim.Element.NONE, [0, 0, 0, 0])
         ctx = {"enemies": [enemy]}
-        sim.resolve_attack(hero, card, ctx)
+        with unittest.mock.patch("builtins.input", return_value="F"):
+            sim.resolve_attack(hero, card, ctx)
         self.assertEqual(hero.fate, 2)
         self.assertEqual(hero.armor_pool, 0)
+
+    def test_fortunes_throw_armor_choice(self):
+        hero = sim.Hero("Hero", 10, [])
+        card = sim.atk("Fortune", sim.CardType.RANGED, 0,
+                       effect=sim.fortunes_throw_fx)
+        enemy = sim.Enemy("Dummy", 1, 1, sim.Element.NONE, [0, 0, 0, 0])
+        ctx = {"enemies": [enemy]}
+        with unittest.mock.patch("builtins.input", return_value="A"):
+            sim.resolve_attack(hero, card, ctx)
+        self.assertEqual(hero.fate, 0)
+        self.assertEqual(hero.armor_pool, 2)
 
     def test_true_might_first_dice_attack_bonus(self):
         """True Might deals 8 bonus damage when played before any dice cards."""

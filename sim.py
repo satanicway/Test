@@ -1062,17 +1062,26 @@ def misfortunes_muse_fx(hero: Hero, ctx: Dict[str, object]) -> None:
 
 
 def tyrs_choice_fx(hero: Hero, ctx: Dict[str, object]) -> None:
-    if hero.fate <= FATE_MAX - 2:
-        hero.gain_fate(2)
-    else:
+    """Let the player choose to gain 2 Fate or 2 Armor."""
+    try:
+        choice = input("Gain 2 Fate or 2 Armor? (F/A): ").strip().upper()
+    except Exception:
+        choice = ""
+    if choice.startswith("A"):
         hero.armor_pool += 2
+    else:
+        hero.gain_fate(2)
 
 def fortunes_throw_fx(hero: Hero, ctx: Dict[str, object]) -> None:
-    """Gain 2 Fate if not near max, otherwise gain 2 Armor."""
-    if hero.fate <= FATE_MAX - 2:
-        hero.gain_fate(2)
-    else:
+    """Gain 2 Fate or 2 Armor based on player choice."""
+    try:
+        choice = input("Gain 2 Fate or 2 Armor? (F/A): ").strip().upper()
+    except Exception:
+        choice = ""
+    if choice.startswith("A"):
         hero.armor_pool += 2
+    else:
+        hero.gain_fate(2)
 
 
 def norns_gambit_fx(hero: Hero, ctx: Dict[str, object]) -> None:

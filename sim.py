@@ -892,6 +892,21 @@ def ones_are_eights() -> Callable[[Hero, Dict[str, object]], None]:
             h.combat_effects.append((per_exchange, None))
     return _fx
 
+def dice_plus_one_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """[Exchange] Treat all of ``hero``'s dice results as 1 higher (max 8)."""
+
+    def hook(h: Hero, roll: int) -> int:
+        if h is hero:
+            return 8 if roll >= 8 else roll + 1
+        return roll
+
+    def per_exchange(_h: Hero, c: Dict[str, object]) -> None:
+        c.setdefault('die_hooks', []).append(hook)
+
+    ctx.setdefault('die_hooks', []).append(hook)
+    if (per_exchange, hook) not in hero.exchange_effects:
+        hero.exchange_effects.append((per_exchange, hook))
+
 def armor_each_exchange_per_enemy() -> Callable[[Hero, Dict[str, object]], None]:
     """Gain armor equal to number of enemies once each exchange."""
     def per_exchange(hero: Hero, c: Dict[str, object]) -> None:
@@ -1837,10 +1852,12 @@ ladys_warden = atk(
     effect=gain_armor_self_or_ally(2)
 )
 weaver_of_fate = atk("Weaver of Fate", CardType.RANGED, 1, Element.DIVINE, effect=add_rerolls(2))
-crystal_staff = atk("Crystal Cave's Staff", CardType.MELEE, 1, Element.PRECISE,
-                    effect=armor_on_high_roll(), persistent="combat")
-mists_of_time = atk("Mists of Time", CardType.RANGED, 1, Element.SPIRITUAL,
-                    effect=modify_enemy_defense(-1), persistent="exchange")
+crystal_staff = atk(
+    "Crystal Cave's Staff", CardType.MELEE, 1, Element.PRECISE,
+    effect=armor_on_high_roll(), persistent="combat")
+mists_of_time = atk(
+    "Mists of Time", CardType.RANGED, 1, Element.SPIRITUAL,
+    effect=dice_plus_one_fx, persistent="exchange")
 circle_of_avalon = atk(
     "Circle of Avalon", CardType.RANGED, 1, Element.SPIRITUAL,
     effect=reroll_per_attack_fx(1), persistent="combat")

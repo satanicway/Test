@@ -2188,6 +2188,14 @@ HEROES = [hercules, brynhild, merlin, musashi]
 # track total damage each enemy inflicts on heroes across simulations
 MONSTER_DAMAGE: Dict[Tuple[str, str], int] = defaultdict(int)
 
+# track how often each enemy type appears in a run and whether that run wins
+ENEMY_RUN_COUNTS: Dict[str, Dict[str, Dict[str, int]]] = defaultdict(
+    lambda: {
+        "common": {"win": 0, "loss": 0},
+        "elite": {"win": 0, "loss": 0},
+    }
+)
+
 # accumulate win/loss stats for card usage
 CARD_CORRELATIONS: Dict[str, Dict[str, Dict[str, Dict[str, int]]]] = defaultdict(
     lambda: {
@@ -2212,6 +2220,20 @@ def _record_run_result(hero: Hero, won: bool) -> None:
 def get_card_correlations() -> Dict[str, Dict[str, Dict[str, Dict[str, int]]]]:
     """Return aggregated card win/loss counts for each hero."""
     return CARD_CORRELATIONS
+
+
+def _record_enemy_run(names: List[str], won: bool) -> None:
+    """Update enemy appearance counts for a completed run."""
+    result_key = "win" if won else "loss"
+    for name in set(names):
+        variant = "elite" if name.startswith("Elite ") else "common"
+        base = name[6:] if variant == "elite" else name
+        ENEMY_RUN_COUNTS[base][variant][result_key] += 1
+
+
+def get_enemy_run_counts() -> Dict[str, Dict[str, Dict[str, int]]]:
+    """Return aggregated win/loss counts for enemy appearances."""
+    return ENEMY_RUN_COUNTS
 
 
 def get_monster_damage() -> Dict[Tuple[str, str], int]:
@@ -2523,6 +2545,7 @@ def fight_one(hero: Hero) -> bool:
     MONSTER_DAMAGE.clear()
     hero.reset()
     hero.deck.start_combat()
+    run_waves = [name for name, _ in ENEMY_WAVES]
 
     for name, count in ENEMY_WAVES:
         ctx = make_wave(name, count)
@@ -2641,6 +2664,7 @@ def fight_one(hero: Hero) -> bool:
 
         if ctx["enemies"] or hero.hp <= 0:
             _record_run_result(hero, False)
+            _record_enemy_run(run_waves, False)
             return False
 
         hero.gain_upgrades(1)
@@ -2652,6 +2676,7 @@ def fight_one(hero: Hero) -> bool:
 
     win = hero.hp > 0
     _record_run_result(hero, win)
+    _record_enemy_run(run_waves, win)
     return win
 
 # ---------------------------------------------------------------------------

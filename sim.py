@@ -391,7 +391,13 @@ def discard_bonus_damage(mult: int) -> Callable[[Hero, Dict[str, object]], None]
             i = RNG.randrange(len(h.deck.hand))
             h.deck.disc.append(h.deck.hand.pop(i))
         if count:
-            ctx['bonus_damage'] = ctx.get('bonus_damage', 0) + mult * count
+            bonus = mult * count
+            ctx['bonus_damage'] = ctx.get('bonus_damage', 0) + bonus
+            enemy = ctx.get('last_target')
+            if isinstance(enemy, Enemy):
+                enemy.hp -= bonus
+                if enemy.hp <= 0 and enemy in ctx.get('enemies', []):
+                    ctx['enemies'].remove(enemy)
     return _fx
 
 def heal_self_or_ally(self_amt: int, ally_amt: int) -> Callable[[Hero, Dict[str, object]], None]:
@@ -613,7 +619,7 @@ def per_attack_hp_loss(amount: int) -> Callable[[Hero, Dict[str, object]], None]
             enemies[0].hp -= amount
         return dmg
     def per_exchange(h: Hero, c: Dict[str, object]) -> None:
-        c.setdefault('attack_hooks', []).append(hook)
+        c.setdefault('post_attack_hooks', []).append(hook)
     def _fx(h: Hero, ctx: Dict[str, object]) -> None:
         ctx.setdefault('attack_hooks', []).append(hook)
         if (per_exchange, hook) not in h.combat_effects:
@@ -686,18 +692,23 @@ def heal_on_kill(amount: int) -> Callable[[Hero, Dict[str, object]], None]:
 
 def horde_breaker_fx(hero: Hero, ctx: Dict[str, object]) -> None:
     """[Combat] When an enemy dies, others lose 2 HP."""
-    def apply(_h: Hero, c: Dict[str, object]) -> None:
-        count = c.get('killed_count', 0)
-        if count:
+    def hook(h: Hero, c: Dict[str, object]) -> None:
+        prev = c.get('_hb_prev', len(c.get('enemies', [])))
+        curr = len(c.get('enemies', []))
+        diff = prev - curr
+        if diff > 0:
             enemies = c.get('enemies', [])
             for e in enemies[:]:
-                e.hp -= 2 * count
+                e.hp -= 2 * diff
             c['enemies'] = [e for e in enemies if e.hp > 0]
+        c['_hb_prev'] = len(c.get('enemies', []))
 
     def per_exchange(h: Hero, c: Dict[str, object]) -> None:
-        apply(h, c)
+        c['_hb_prev'] = len(c.get('enemies', []))
+        c.setdefault('post_attack_hooks', []).append(hook)
 
-    apply(hero, ctx)
+    ctx['_hb_prev'] = len(ctx.get('enemies', []))
+    ctx.setdefault('post_attack_hooks', []).append(hook)
     if (per_exchange, None) not in hero.combat_effects:
         hero.combat_effects.append((per_exchange, None))
 
@@ -1294,6 +1305,62 @@ def moment_perf_fx(hero: Hero, ctx: Dict[str, object]) -> None:
         hero.armor_pool += 4
 
 
+def fortifying_attack_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """Gain Armor equal to half damage dealt to the chosen enemy this exchange."""
+    if not ctx.get('enemies'):
+        return
+    target = ctx['enemies'][0]
+    ctx['fortify_dmg'] = 0
+
+    def hook(h: Hero, _c: Card, c: Dict[str, object], dmg: int) -> int:
+        if c.get('last_target') is target:
+            c['fortify_dmg'] = c.get('fortify_dmg', 0) + dmg
+        return dmg
+
+    def end_fx(h: Hero, c: Dict[str, object], _e: Optional[Enemy]) -> None:
+        gain = c.pop('fortify_dmg', 0) // 2
+        if gain:
+            h.armor_pool += gain
+
+    ctx.setdefault('attack_hooks', []).append(hook)
+    ctx.setdefault('end_hooks', []).append((end_fx, None))
+
+
+def chiron_training_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """[Combat] Gain 1 Armor each time an attack resolves."""
+    hero.armor_pool += 1
+
+    def hook(h: Hero, _c: Card, _ct: Dict[str, object], dmg: int) -> int:
+        h.armor_pool += 1
+        return dmg
+
+    def per_exchange(h: Hero, c: Dict[str, object]) -> None:
+        c.setdefault('attack_hooks', []).append(hook)
+
+    ctx.setdefault('attack_hooks', []).append(hook)
+    if (per_exchange, hook) not in hero.combat_effects:
+        hero.combat_effects.append((per_exchange, hook))
+
+
+def once_isnt_enough_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """The next attack card is executed twice."""
+    ctx['double_next'] = True
+
+
+def strength_from_anger_fx(hero: Hero, ctx: Dict[str, object]) -> None:
+    """[Combat] All attacks deal +1 damage."""
+
+    def hook(_h: Hero, _c: Card, _ctx: Dict[str, object], dmg: int) -> int:
+        return dmg + 1
+
+    def per_exchange(h: Hero, c: Dict[str, object]) -> None:
+        c.setdefault('attack_hooks', []).append(hook)
+
+    ctx.setdefault('attack_hooks', []).append(hook)
+    if (per_exchange, hook) not in hero.combat_effects:
+        hero.combat_effects.append((per_exchange, hook))
+
+
 # ---------------------------------------------------------------------------
 # Enemy ability helpers
 # ---------------------------------------------------------------------------
@@ -1393,8 +1460,14 @@ herc_base = [
     atk("Atlas Guard", CardType.RANGED, 0, effect=gain_armor(3)),
 ]
 herc_common_upg = [
-    atk("Bondless Effort", CardType.MELEE, 3, Element.BRUTAL,
-        effect=discard_bonus_damage(3)),
+    atk(
+        "Bondless Effort",
+        CardType.MELEE,
+        3,
+        Element.BRUTAL,
+        effect=discard_bonus_damage(3),
+        pre=True,
+    ),
     atk("Colossus Smash", CardType.MELEE, 3, Element.BRUTAL, armor=1, effect=gain_armor(1)),
     atk("Olympian Call", CardType.MELEE, 1, Element.DIVINE,
         effect=reroll_per_attack_fx(1), persistent="combat"),
@@ -1417,16 +1490,42 @@ ares_will = atk("Ares' Will", CardType.MELEE, 1, Element.BRUTAL,
                 effect=per_attack_hp_loss(2), persistent="combat", pre=True)
 herc_uncommon_upg = [
     pain_strike,
-    atk("Fortifying Attack", CardType.MELEE, 1, Element.BRUTAL),
+    atk(
+        "Fortifying Attack",
+        CardType.MELEE,
+        1,
+        Element.BRUTAL,
+        effect=fortifying_attack_fx,
+        pre=True,
+    ),
     atk("Bone-Splinter Whirl", CardType.MELEE, 3, Element.BRUTAL, multi=True,
         effect=defense_down(1), persistent="combat"),
     atk("Glorious Uproar", CardType.MELEE, 1, Element.DIVINE, multi=True,
         effect=damage_bonus_per_enemy(1)),
     atk("Guided By The Gods", CardType.MELEE, 1, Element.DIVINE,
         effect=reroll_per_attack_fx(1), persistent="combat"),
-    atk("Chiron's Training", CardType.MELEE, 1, Element.PRECISE),
-    atk("Once Isn't Enough", CardType.MELEE, 0),
-    atk("Strength from Anger", CardType.MELEE, 1, Element.SPIRITUAL),
+    atk(
+        "Chiron's Training",
+        CardType.MELEE,
+        1,
+        Element.PRECISE,
+        effect=chiron_training_fx,
+        persistent="combat",
+    ),
+    atk(
+        "Once Isn't Enough",
+        CardType.MELEE,
+        0,
+        effect=once_isnt_enough_fx,
+    ),
+    atk(
+        "Strength from Anger",
+        CardType.MELEE,
+        1,
+        Element.SPIRITUAL,
+        effect=strength_from_anger_fx,
+        persistent="combat",
+    ),
     atk("Enduring Wave", CardType.MELEE, 2, Element.SPIRITUAL, multi=True,
         armor=2, effect=gain_armor(2)),
 ]
@@ -1899,6 +1998,7 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
     if not enemies:
         return
 
+    repeat = ctx.pop('double_next', False)
     orig_card = card
     if ctx.pop('split_next', False) and not card.multi:
         card = Card(card.name, card.ctype, card.dice, card.element,
@@ -2002,6 +2102,8 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
         ctx['killed'] = killed_any
         ctx['killed_count'] = killed_count
         card.effect(hero, ctx)
+        for fx in ctx.get('post_attack_hooks', []):
+            fx(hero, ctx)
         ctx.pop('killed', None)
         ctx.pop('killed_count', None)
         if card.persistent:
@@ -2009,11 +2111,33 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
                 hero.combat_effects.append((card.effect, card))
             elif card.persistent == "exchange":
                 hero.exchange_effects.append((card.effect, card))
+    if not card.effect or card.pre:
+        for fx in ctx.get('post_attack_hooks', []):
+            fx(hero, ctx)
     if card.hymn:
         hero.active_hymns.append(card)
     hero.deck.disc.append(orig_card)
     ctx['attacks_used'] = ctx.get('attacks_used', 0) + 1
     ctx.pop('double_rerolls', None)
+
+    if repeat and ctx.get('enemies') and hero.hp > 0:
+        temp = Card(
+            card.name,
+            card.ctype,
+            card.dice,
+            card.element,
+            card.armor,
+            card.effect,
+            card.persistent,
+            card.hymn,
+            card.multi,
+            card.max_targets,
+            card.dmg_per_hymn,
+            card.pre,
+            card.before_ranged,
+            card.hit_mod,
+        )
+        resolve_attack(hero, temp, ctx)
 
 
 def monster_attack(heroes: List[Hero], ctx: Dict[str, object]) -> None:
@@ -2089,6 +2213,7 @@ def fight_one(hero: Hero) -> bool:
             ctx["attack_hooks"] = []
             ctx["start_hooks"] = []
             ctx["end_hooks"] = []
+            ctx["post_attack_hooks"] = []
             for e in ctx["enemies"]:
                 if e.start_fx:
                     ctx["start_hooks"].append((e.start_fx, e))

@@ -621,13 +621,27 @@ def choose_element() -> Callable[[Hero, Dict[str, object]], None]:
     """Automatically choose an element for the next attack."""
 
     def _fx(h: Hero, ctx: Dict[str, object]) -> None:
+        elem = None
+        vuln = None
         if ctx.get('enemies'):
             vuln = ctx['enemies'][0].vulnerability
-            if vuln is not Element.NONE:
-                ctx['next_element'] = vuln
-                return
-        choices = [e for e in Element if e is not Element.NONE]
-        ctx['next_element'] = RNG.choice(choices)
+
+        options = ctx.get('played_attacks', [])
+        if options:
+            elems = [e for _n, e in options]
+            if vuln is not None:
+                for e in elems:
+                    if e == vuln:
+                        elem = e
+                        break
+            if elem is None:
+                elem = RNG.choice(elems)
+        elif vuln is not None and vuln is not Element.NONE:
+            elem = vuln
+        if elem is None:
+            choices = [e for e in Element if e is not Element.NONE]
+            elem = RNG.choice(choices)
+        ctx['next_element'] = elem
 
     return _fx
 

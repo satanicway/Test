@@ -585,15 +585,15 @@ class TestBrynhildCards(unittest.TestCase):
         sim.resolve_attack(hero, sim.valkyrie_descent, ctx)
         self.assertEqual(enemy.hp, 2)
 
-    def test_thrust_of_destiny_bonus(self):
+    def test_thrust_of_destiny_armor(self):
+        sim.RNG.seed(0)
         hero = sim.Hero("Hero", 10, [])
-        hymns = [sim.atk("Prayer", sim.CardType.UTIL, 0, hymn=True, persistent="combat") for _ in range(3)]
-        enemy = sim.Enemy("Dummy", 5, 8, sim.Element.NONE, [0, 0, 0, 0])
+        hero.fate = 9
+        enemy = sim.Enemy("Dummy", 2, 1, sim.Element.NONE, [0, 0, 0, 0])
         ctx = {"enemies": [enemy]}
-        for h in hymns:
-            sim.resolve_attack(hero, h, ctx)
         sim.resolve_attack(hero, sim.thrust_of_destiny, ctx)
-        self.assertEqual(enemy.hp, 2)
+        self.assertEqual(hero.armor_pool, 2)
+        self.assertEqual(enemy.hp, 1)
 
 
 class TestHerculesCards(unittest.TestCase):

@@ -91,8 +91,23 @@ def _format_eta(seconds: float) -> str:
 
 
 def run_stats(num_runs: int = 50000, *, progress: bool = False,
-              timeout: float = 60.0) -> Dict[str, int]:
-    """Run ``num_runs`` gauntlets for each hero and return win counts."""
+              timeout: float = 60.0, max_retries: int = 5,
+              max_exchanges: int | None = 1000) -> Dict[str, int]:
+    """Run ``num_runs`` gauntlets for each hero and return win counts.
+
+    Parameters
+    ----------
+    num_runs:
+        Number of gauntlets to simulate per hero.
+    progress:
+        Print progress information during simulation.
+    timeout:
+        Maximum seconds allowed per gauntlet.
+    max_retries:
+        Number of consecutive timeouts to tolerate before aborting.
+    max_exchanges:
+        Passed through to :func:`sim.fight_one` to cap exchanges per wave.
+    """
     sim.CARD_CORRELATIONS.clear()
     sim.ENEMY_RUN_COUNTS.clear()
     sim.MONSTER_DAMAGE.clear()
@@ -107,7 +122,8 @@ def run_stats(num_runs: int = 50000, *, progress: bool = False,
             for _ in range(num_runs):
                 hero = sim.Hero(proto.name, proto.max_hp, proto.base_cards[:],
                                 proto._orig_pool[:])
-                if run_gauntlet(hero, timeout=timeout):
+                if run_gauntlet(hero, timeout=timeout, max_retries=max_retries,
+                                max_exchanges=max_exchanges):
                     results[proto.name] += 1
                 count += 1
                 if progress and (count % step == 0 or count == total):
@@ -120,8 +136,22 @@ def run_stats(num_runs: int = 50000, *, progress: bool = False,
 
 
 def run_stats_with_damage(num_runs: int = 50000, *, progress: bool = False,
-                          timeout: float = 60.0) -> tuple[Dict[str, int], dict, dict]:
+                          timeout: float = 60.0, max_retries: int = 5,
+                          max_exchanges: int | None = 1000) -> tuple[Dict[str, int], dict, dict]:
     """Run gauntlets collecting win counts, damage and HP progression.
+
+    Parameters
+    ----------
+    num_runs:
+        Number of gauntlets to simulate per hero.
+    progress:
+        Print progress information during simulation.
+    timeout:
+        Maximum seconds allowed per gauntlet.
+    max_retries:
+        Number of consecutive timeouts to tolerate before aborting.
+    max_exchanges:
+        Passed through to :func:`sim.fight_one` to cap exchanges per wave.
 
     When aggregating HP values, uncompleted waves are counted as 0 HP.
     """
@@ -147,7 +177,9 @@ def run_stats_with_damage(num_runs: int = 50000, *, progress: bool = False,
                 hero = sim.Hero(proto.name, proto.max_hp, proto.base_cards[:],
                                 proto._orig_pool[:])
                 hp_log: list[int] = []
-                if run_gauntlet(hero, hp_log, timeout=timeout):
+                if run_gauntlet(hero, hp_log, timeout=timeout,
+                                max_retries=max_retries,
+                                max_exchanges=max_exchanges):
                     results[proto.name] += 1
                 for idx in range(8):
                     hp = hp_log[idx] if idx < len(hp_log) else 0

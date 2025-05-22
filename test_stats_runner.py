@@ -93,5 +93,43 @@ class TestStatsRunner(unittest.TestCase):
         self.assertIn("failed", str(ctx.exception))
         self.assertEqual(calls["n"], 3)
 
+    def test_run_stats_passes_options(self):
+        calls = []
+
+        def fake_run(hero, hp_log=None, *, timeout=None, max_retries=None,
+                     max_exchanges=None):
+            calls.append((timeout, max_retries, max_exchanges))
+            return True
+
+        with unittest.mock.patch("stats_runner.run_gauntlet",
+                                 side_effect=fake_run):
+            stats_runner.run_stats(num_runs=1, timeout=1.5,
+                                   max_retries=7, max_exchanges=44)
+
+        self.assertEqual(len(calls), len(sim.HEROES))
+        for t, r, e in calls:
+            self.assertEqual(t, 1.5)
+            self.assertEqual(r, 7)
+            self.assertEqual(e, 44)
+
+    def test_run_stats_with_damage_passes_options(self):
+        calls = []
+
+        def fake_run(hero, hp_log=None, *, timeout=None, max_retries=None,
+                     max_exchanges=None):
+            calls.append((timeout, max_retries, max_exchanges))
+            return True
+
+        with unittest.mock.patch("stats_runner.run_gauntlet",
+                                 side_effect=fake_run):
+            stats_runner.run_stats_with_damage(num_runs=1, timeout=2.5,
+                                              max_retries=8, max_exchanges=55)
+
+        self.assertEqual(len(calls), len(sim.HEROES))
+        for t, r, e in calls:
+            self.assertEqual(t, 2.5)
+            self.assertEqual(r, 8)
+            self.assertEqual(e, 55)
+
 if __name__ == "__main__":
     unittest.main()

@@ -24,7 +24,13 @@ def _select_waves() -> list[tuple[str, int]]:
 
 # single run ------------------------------------------------------------------
 
-def run_gauntlet(hero: sim.Hero, hp_log: list[int] | None = None, *, timeout: float = 60.0) -> bool:
+def run_gauntlet(
+        hero: sim.Hero,
+        hp_log: list[int] | None = None,
+        *,
+        timeout: float = 60.0,
+        max_retries: int = 5,
+        max_exchanges: int | None = 1000) -> bool:
     """Run one gauntlet for ``hero`` using random waves and upgrade schedule.
 
     Parameters
@@ -33,6 +39,10 @@ def run_gauntlet(hero: sim.Hero, hp_log: list[int] | None = None, *, timeout: fl
         The hero instance to run through the gauntlet.
     hp_log:
         Optional list that receives the hero's hit points after each fight.
+    max_retries:
+        Number of consecutive timeouts to tolerate before giving up.
+    max_exchanges:
+        Passed through to :func:`sim.fight_one` to cap exchanges per wave.
     """
     original_waves = sim.ENEMY_WAVES[:]
 
@@ -45,15 +55,22 @@ def run_gauntlet(hero: sim.Hero, hp_log: list[int] | None = None, *, timeout: fl
         extra = 1 if counter["idx"] in (3, 6) else 0
         orig_gain(n + extra)
 
+    retries = 0
     while True:
         sim.ENEMY_WAVES = _select_waves()
         hero.gain_upgrades = patched
         try:
-            return sim.fight_one(hero, hp_log, timeout=timeout)
+            return sim.fight_one(hero, hp_log, timeout=timeout,
+                                max_exchanges=max_exchanges)
         except TimeoutError as exc:
             waves = [w for w, _ in sim.ENEMY_WAVES]
             print(f"Timeout after {timeout}s: {hero.name} vs {waves} - {exc}")
-            hero = sim.Hero(hero.name, hero.max_hp, hero.base_cards[:], hero._orig_pool[:])
+            retries += 1
+            if retries > max_retries:
+                raise TimeoutError(
+                    f"{hero.name} gauntlet failed repeatedly") from exc
+            hero = sim.Hero(hero.name, hero.max_hp, hero.base_cards[:],
+                            hero._orig_pool[:])
             if hp_log is not None:
                 hp_log.clear()
         finally:

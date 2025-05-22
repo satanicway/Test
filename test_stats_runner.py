@@ -93,6 +93,19 @@ class TestStatsRunner(unittest.TestCase):
         self.assertIn("failed", str(ctx.exception))
         self.assertEqual(calls["n"], 3)
 
+    def test_run_gauntlet_timeout_after_max_retries(self):
+        hero = sim.Hero("Hercules", 25, sim.herc_base, sim.herc_pool)
+        calls = {"n": 0}
+
+        def always_timeout(h, hp_log=None, *, timeout=None, max_exchanges=None):
+            calls["n"] += 1
+            raise TimeoutError("boom")
+
+        with unittest.mock.patch("sim.fight_one", side_effect=always_timeout):
+            with self.assertRaises(TimeoutError):
+                stats_runner.run_gauntlet(hero, timeout=1, max_retries=1)
+        self.assertEqual(calls["n"], 2)
+
     def test_run_stats_passes_options(self):
         calls = []
 

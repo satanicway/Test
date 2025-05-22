@@ -276,8 +276,8 @@ def apply_persistent(hero: Hero, ctx: Dict[str, object]) -> None:
     """Invoke all persistent effects registered on ``hero``.
 
     Entries in ``hero.combat_effects`` or ``hero.exchange_effects`` are tuples
-    ``(fx, source)`` where ``source`` may be any object, not necessarily a
-    :class:`Card`.
+    ``(fx, marker)``. ``marker`` identifies the originating card or other
+    source and is not used when calling the effect.
     """
     if ctx.get("silenced"):
         return
@@ -285,6 +285,15 @@ def apply_persistent(hero: Hero, ctx: Dict[str, object]) -> None:
         fx(hero, ctx)
     for fx, _ in hero.exchange_effects:
         fx(hero, ctx)
+
+def _add_persistent(
+    effects: List[Tuple[Callable[["Hero", Dict[str, object]], None], object]],
+    fx: Callable[["Hero", Dict[str, object]], None],
+    marker: object,
+) -> None:
+    """Append ``(fx, marker)`` to ``effects`` if ``marker`` isn't already present."""
+    if marker not in [m for _, m in effects]:
+        effects.append((fx, marker))
 
 def remove_enemy(ctx: Dict[str, object], enemy: Enemy) -> None:
     """Remove ``enemy`` from combat and store it for later placement."""
@@ -514,8 +523,8 @@ def mark_target_plus_die(enemy: Enemy) -> Callable[[Hero, Dict[str, object]], No
         c.setdefault('pre_attack_hooks', []).append(hook)
     def _fx(h: Hero, ctx: Dict[str, object]) -> None:
         ctx.setdefault('pre_attack_hooks', []).append(hook)
-        if (per_exchange, hook) not in h.combat_effects:
-            h.combat_effects.append((per_exchange, hook))
+        marker = ctx.get('_src_card', hook)
+        _add_persistent(h.combat_effects, per_exchange, marker)
     return _fx
 
 def glyph_mark_fx(hero: Hero, ctx: Dict[str, object]) -> None:
@@ -736,8 +745,8 @@ def per_attack_hp_loss(amount: int) -> Callable[[Hero, Dict[str, object]], None]
         c.setdefault('post_attack_hooks', []).append(hook)
     def _fx(h: Hero, ctx: Dict[str, object]) -> None:
         ctx.setdefault('attack_hooks', []).append(hook)
-        if (per_exchange, hook) not in h.combat_effects:
-            h.combat_effects.append((per_exchange, hook))
+        marker = ctx.get('_src_card', hook)
+        _add_persistent(h.combat_effects, per_exchange, marker)
     return _fx
 
 def damage_bonus_per_enemy(amount: int) -> Callable[[Hero, Dict[str, object]], None]:
@@ -924,8 +933,8 @@ def armor_from_miss_pairs() -> Callable[[Hero, Dict[str, object]], None]:
         c.setdefault('attack_hooks', []).append(hook)
     def _fx(h: Hero, ctx: Dict[str, object]) -> None:
         ctx.setdefault('attack_hooks', []).append(hook)
-        if (per_exchange, hook) not in h.combat_effects:
-            h.combat_effects.append((per_exchange, hook))
+        marker = ctx.get('_src_card', hook)
+        _add_persistent(h.combat_effects, per_exchange, marker)
     return _fx
 
 def hymn_of_blood_end(hero: Hero, ctx: Dict[str, object], _enemy: Optional[Enemy]) -> None:
@@ -963,8 +972,8 @@ def armor_on_high_roll() -> Callable[[Hero, Dict[str, object]], None]:
         ctx.setdefault('die_hooks', []).append(hook)
         def per_exchange(hero: Hero, c: Dict[str, object]) -> None:
             c.setdefault('die_hooks', []).append(hook)
-        if (per_exchange, hook) not in h.combat_effects:
-            h.combat_effects.append((per_exchange, hook))
+        marker = ctx.get('_src_card', hook)
+        _add_persistent(h.combat_effects, per_exchange, marker)
     return _fx
 
 def ones_are_eights() -> Callable[[Hero, Dict[str, object]], None]:
@@ -991,8 +1000,8 @@ def dice_plus_one_fx(hero: Hero, ctx: Dict[str, object]) -> None:
         c.setdefault('die_hooks', []).append(hook)
 
     ctx.setdefault('die_hooks', []).append(hook)
-    if (per_exchange, hook) not in hero.exchange_effects:
-        hero.exchange_effects.append((per_exchange, hook))
+    marker = ctx.get('_src_card', hook)
+    _add_persistent(hero.exchange_effects, per_exchange, marker)
 
 def armor_each_exchange_per_enemy() -> Callable[[Hero, Dict[str, object]], None]:
     """Gain armor equal to number of enemies once each exchange."""
@@ -1096,8 +1105,8 @@ def echoes_of_gungnir_fx(hero: Hero, ctx: Dict[str, object]) -> None:
     def per_exchange(h: Hero, c: Dict[str, object]) -> None:
         c.setdefault('attack_hooks', []).append(hook)
     ctx.setdefault('attack_hooks', []).append(hook)
-    if (per_exchange, hook) not in hero.combat_effects:
-        hero.combat_effects.append((per_exchange, hook))
+    marker = ctx.get('_src_card', hook)
+    _add_persistent(hero.combat_effects, per_exchange, marker)
 
 
 def overflowing_grace_fx(hero: Hero, ctx: Dict[str, object]) -> None:
@@ -1231,8 +1240,8 @@ def chance_seizing_fx(hero: Hero, ctx: Dict[str, object]) -> None:
             c.setdefault('attack_hooks', []).append(hook)
 
         ctx.setdefault('attack_hooks', []).append(hook)
-        if (per_exchange, hook) not in hero.combat_effects:
-            hero.combat_effects.append((per_exchange, hook))
+        marker = ctx.get('_src_card', hook)
+        _add_persistent(hero.combat_effects, per_exchange, marker)
 
 
 def susanoo_cut_fx(hero: Hero, ctx: Dict[str, object]) -> None:
@@ -1321,8 +1330,8 @@ def mountain_stance_fx(hero: Hero, ctx: Dict[str, object]) -> None:
         c.setdefault('pre_attack_hooks', []).append(hook)
 
     ctx.setdefault('pre_attack_hooks', []).append(hook)
-    if (per_exchange, hook) not in hero.combat_effects:
-        hero.combat_effects.append((per_exchange, hook))
+    marker = ctx.get('_src_card', hook)
+    _add_persistent(hero.combat_effects, per_exchange, marker)
 
 
 def mirror_flow_fx(hero: Hero, ctx: Dict[str, object]) -> None:
@@ -1334,8 +1343,8 @@ def mirror_flow_fx(hero: Hero, ctx: Dict[str, object]) -> None:
         c.setdefault('attack_hooks', []).append(hook)
 
     ctx.setdefault('attack_hooks', []).append(hook)
-    if (per_exchange, hook) not in hero.combat_effects:
-        hero.combat_effects.append((per_exchange, hook))
+    marker = ctx.get('_src_card', hook)
+    _add_persistent(hero.combat_effects, per_exchange, marker)
 
 
 def heaven_defying_fx(hero: Hero, ctx: Dict[str, object]) -> None:
@@ -1352,8 +1361,8 @@ def heaven_defying_fx(hero: Hero, ctx: Dict[str, object]) -> None:
         c.setdefault('attack_hooks', []).append(hook)
 
     ctx.setdefault('attack_hooks', []).append(hook)
-    if (per_exchange, hook) not in hero.combat_effects:
-        hero.combat_effects.append((per_exchange, hook))
+    marker = ctx.get('_src_card', hook)
+    _add_persistent(hero.combat_effects, per_exchange, marker)
 
 
 def ascending_veng_fx(hero: Hero, ctx: Dict[str, object]) -> None:
@@ -1418,8 +1427,8 @@ def formless_fx(hero: Hero, ctx: Dict[str, object]) -> None:
 
     ctx.setdefault('attack_hooks', []).append(hook)
     ctx['hit_mod'] = ctx.get('hit_mod', 0) + 1
-    if (per_exchange, hook) not in hero.combat_effects:
-        hero.combat_effects.append((per_exchange, hook))
+    marker = ctx.get('_src_card', hook)
+    _add_persistent(hero.combat_effects, per_exchange, marker)
 
 
 def stone_lotus_fx(hero: Hero, ctx: Dict[str, object]) -> None:
@@ -1491,8 +1500,8 @@ def chiron_training_fx(hero: Hero, ctx: Dict[str, object]) -> None:
         c.setdefault('attack_hooks', []).append(hook)
 
     ctx.setdefault('attack_hooks', []).append(hook)
-    if (per_exchange, hook) not in hero.combat_effects:
-        hero.combat_effects.append((per_exchange, hook))
+    marker = ctx.get('_src_card', hook)
+    _add_persistent(hero.combat_effects, per_exchange, marker)
 
 
 def once_isnt_enough_fx(hero: Hero, ctx: Dict[str, object]) -> None:
@@ -1510,8 +1519,8 @@ def strength_from_anger_fx(hero: Hero, ctx: Dict[str, object]) -> None:
         c.setdefault('attack_hooks', []).append(hook)
 
     ctx.setdefault('attack_hooks', []).append(hook)
-    if (per_exchange, hook) not in hero.combat_effects:
-        hero.combat_effects.append((per_exchange, hook))
+    marker = ctx.get('_src_card', hook)
+    _add_persistent(hero.combat_effects, per_exchange, marker)
 
 
 def true_might_fx(hero: Hero, ctx: Dict[str, object]) -> None:
@@ -1536,8 +1545,8 @@ def athenas_guidance_fx(hero: Hero, ctx: Dict[str, object]) -> None:
         c.setdefault('attack_hooks', []).append(hook)
 
     ctx.setdefault('attack_hooks', []).append(hook)
-    if (per_exchange, hook) not in hero.combat_effects:
-        hero.combat_effects.append((per_exchange, hook))
+    marker = ctx.get('_src_card', hook)
+    _add_persistent(hero.combat_effects, per_exchange, marker)
 
 
 def apollos_sunburst_fx(hero: Hero, ctx: Dict[str, object]) -> None:
@@ -2400,12 +2409,18 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
 
     blocks = ctx.setdefault("ephemeral_block", set())
     if card.effect and not ctx.get("silenced") and card.pre:
+        prev_marker = ctx.get('_src_card')
+        ctx['_src_card'] = orig_card
         card.effect(hero, ctx)
         if card.persistent:
             if card.persistent == "combat":
-                hero.combat_effects.append((card.effect, card))
+                _add_persistent(hero.combat_effects, card.effect, orig_card)
             elif card.persistent == "exchange":
-                hero.exchange_effects.append((card.effect, card))
+                _add_persistent(hero.exchange_effects, card.effect, orig_card)
+        if prev_marker is None:
+            ctx.pop('_src_card', None)
+        else:
+            ctx['_src_card'] = prev_marker
         enemies = ctx["enemies"]
         if not enemies:
             if depth == 0:
@@ -2501,6 +2516,8 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
     if card.effect and not ctx.get("silenced") and not card.pre:
         ctx['killed'] = killed_any
         ctx['killed_count'] = killed_count
+        prev_marker = ctx.get('_src_card')
+        ctx['_src_card'] = orig_card
         card.effect(hero, ctx)
         for fx in ctx.get('post_attack_hooks', []):
             fx(hero, ctx)
@@ -2508,9 +2525,13 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
         ctx.pop('killed_count', None)
         if card.persistent:
             if card.persistent == "combat":
-                hero.combat_effects.append((card.effect, card))
+                _add_persistent(hero.combat_effects, card.effect, orig_card)
             elif card.persistent == "exchange":
-                hero.exchange_effects.append((card.effect, card))
+                _add_persistent(hero.exchange_effects, card.effect, orig_card)
+        if prev_marker is None:
+            ctx.pop('_src_card', None)
+        else:
+            ctx['_src_card'] = prev_marker
     if not card.effect or card.pre:
         for fx in ctx.get('post_attack_hooks', []):
             fx(hero, ctx)

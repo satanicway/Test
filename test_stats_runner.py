@@ -56,7 +56,15 @@ class TestStatsRunner(unittest.TestCase):
         hero = sim.Hero("Hercules", 25, sim.herc_base, sim.herc_pool)
         calls = {"n": 0}
 
-        def fake_fight(h, hp_log=None, *, timeout=None, max_exchanges=None):
+        def fake_fight(
+            h,
+            hp_log=None,
+            *,
+            timeout=None,
+            max_exchanges=None,
+            wave_timeout=None,
+            max_total_exchanges=None,
+        ):
             calls["n"] += 1
             if calls["n"] == 1:
                 raise TimeoutError("boom")
@@ -70,8 +78,18 @@ class TestStatsRunner(unittest.TestCase):
     def test_run_gauntlet_passes_max_exchanges(self):
         hero = sim.Hero("Hercules", 25, sim.herc_base, sim.herc_pool)
 
-        def fake_fight(h, hp_log=None, *, timeout=None, max_exchanges=None):
+        def fake_fight(
+            h,
+            hp_log=None,
+            *,
+            timeout=None,
+            max_exchanges=None,
+            wave_timeout=None,
+            max_total_exchanges=None,
+        ):
             self.assertEqual(max_exchanges, 42)
+            self.assertIsNone(wave_timeout)
+            self.assertIsNone(max_total_exchanges)
             return True
 
         with unittest.mock.patch("sim.fight_one", side_effect=fake_fight) as m:
@@ -83,7 +101,15 @@ class TestStatsRunner(unittest.TestCase):
         hero = sim.Hero("Hercules", 25, sim.herc_base, sim.herc_pool)
         calls = {"n": 0}
 
-        def always_timeout(h, hp_log=None, *, timeout=None, max_exchanges=None):
+        def always_timeout(
+            h,
+            hp_log=None,
+            *,
+            timeout=None,
+            max_exchanges=None,
+            wave_timeout=None,
+            max_total_exchanges=None,
+        ):
             calls["n"] += 1
             raise TimeoutError("boom")
 
@@ -97,7 +123,15 @@ class TestStatsRunner(unittest.TestCase):
         hero = sim.Hero("Hercules", 25, sim.herc_base, sim.herc_pool)
         calls = {"n": 0}
 
-        def always_timeout(h, hp_log=None, *, timeout=None, max_exchanges=None):
+        def always_timeout(
+            h,
+            hp_log=None,
+            *,
+            timeout=None,
+            max_exchanges=None,
+            wave_timeout=None,
+            max_total_exchanges=None,
+        ):
             calls["n"] += 1
             raise TimeoutError("boom")
 
@@ -109,40 +143,76 @@ class TestStatsRunner(unittest.TestCase):
     def test_run_stats_passes_options(self):
         calls = []
 
-        def fake_run(hero, hp_log=None, *, timeout=None, max_retries=None,
-                     max_exchanges=None):
-            calls.append((timeout, max_retries, max_exchanges))
+        def fake_run(
+            hero,
+            hp_log=None,
+            *,
+            timeout=None,
+            max_retries=None,
+            max_exchanges=None,
+            wave_timeout=None,
+            max_total_exchanges=None,
+        ):
+            calls.append(
+                (timeout, max_retries, max_exchanges, wave_timeout, max_total_exchanges)
+            )
             return True
 
         with unittest.mock.patch("stats_runner.run_gauntlet",
                                  side_effect=fake_run):
-            stats_runner.run_stats(num_runs=1, timeout=1.5,
-                                   max_retries=7, max_exchanges=44)
+            stats_runner.run_stats(
+                num_runs=1,
+                timeout=1.5,
+                max_retries=7,
+                max_exchanges=44,
+                wave_timeout=0.5,
+                max_total_exchanges=123,
+            )
 
         self.assertEqual(len(calls), len(sim.HEROES))
-        for t, r, e in calls:
+        for t, r, e, w, m in calls:
             self.assertEqual(t, 1.5)
             self.assertEqual(r, 7)
             self.assertEqual(e, 44)
+            self.assertEqual(w, 0.5)
+            self.assertEqual(m, 123)
 
     def test_run_stats_with_damage_passes_options(self):
         calls = []
 
-        def fake_run(hero, hp_log=None, *, timeout=None, max_retries=None,
-                     max_exchanges=None):
-            calls.append((timeout, max_retries, max_exchanges))
+        def fake_run(
+            hero,
+            hp_log=None,
+            *,
+            timeout=None,
+            max_retries=None,
+            max_exchanges=None,
+            wave_timeout=None,
+            max_total_exchanges=None,
+        ):
+            calls.append(
+                (timeout, max_retries, max_exchanges, wave_timeout, max_total_exchanges)
+            )
             return True
 
         with unittest.mock.patch("stats_runner.run_gauntlet",
                                  side_effect=fake_run):
-            stats_runner.run_stats_with_damage(num_runs=1, timeout=2.5,
-                                              max_retries=8, max_exchanges=55)
+            stats_runner.run_stats_with_damage(
+                num_runs=1,
+                timeout=2.5,
+                max_retries=8,
+                max_exchanges=55,
+                wave_timeout=1.5,
+                max_total_exchanges=321,
+            )
 
         self.assertEqual(len(calls), len(sim.HEROES))
-        for t, r, e in calls:
+        for t, r, e, w, m in calls:
             self.assertEqual(t, 2.5)
             self.assertEqual(r, 8)
             self.assertEqual(e, 55)
+            self.assertEqual(w, 1.5)
+            self.assertEqual(m, 321)
 
 if __name__ == "__main__":
     unittest.main()

@@ -2583,8 +2583,15 @@ def monster_attack(heroes: List[Hero], ctx: Dict[str, object]) -> None:
 
 # very small fight simulation -------------------------------------------------
 
-def fight_one(hero: Hero, hp_log: list[int] | None = None, *, timeout: float | None = None,
-              max_exchanges: int | None = 1000) -> bool:
+def fight_one(
+    hero: Hero,
+    hp_log: list[int] | None = None,
+    *,
+    timeout: float | None = None,
+    max_exchanges: int | None = 1000,
+    wave_timeout: float | None = None,
+    max_total_exchanges: int | None = None,
+) -> bool:
     """Run one full gauntlet for ``hero``.
 
     Parameters
@@ -2598,24 +2605,38 @@ def fight_one(hero: Hero, hp_log: list[int] | None = None, *, timeout: float | N
         Abort a wave with :class:`TimeoutError` if this many exchanges are
         reached. The default of ``1000`` serves as a safeguard against runaway
         loops.
+    wave_timeout:
+        Abort the current wave with :class:`TimeoutError` if it runs longer
+        than this many seconds.
+    max_total_exchanges:
+        Abort the gauntlet with :class:`TimeoutError` once this many exchanges
+        have occurred across all waves.
     """
 
     MONSTER_DAMAGE.clear()
     hero.reset()
     hero.deck.start_combat()
     start = time.time()
+    total_exchanges = 0
     run_waves = [name for name, _ in ENEMY_WAVES]
 
     for name, count in ENEMY_WAVES:
         ctx = make_wave(name, count)
         ctx["heroes"] = [hero]
         exch = 0
+        wave_start = time.time()
         ctx["next_draw"] = 1
         while True:
             if max_exchanges is not None and exch >= max_exchanges:
                 raise TimeoutError(
                     f"{hero.name} timed out on wave {name}")
+            if max_total_exchanges is not None and total_exchanges >= max_total_exchanges:
+                raise TimeoutError(
+                    f"{hero.name} timed out on wave {name}")
             if timeout is not None and time.time() - start > timeout:
+                raise TimeoutError(
+                    f"{hero.name} timed out on wave {name}")
+            if wave_timeout is not None and time.time() - wave_start > wave_timeout:
                 raise TimeoutError(
                     f"{hero.name} timed out on wave {name}")
             if not hero.deck.hand and ctx.get("next_draw", 1) == 0:
@@ -2750,6 +2771,7 @@ def fight_one(hero: Hero, hp_log: list[int] | None = None, *, timeout: float | N
                 hero.deck.draw(draw_amt)
             ctx["next_draw"] = draw_amt
             exch += 1
+            total_exchanges += 1
 
         if ctx["enemies"] or hero.hp <= 0:
             _record_run_result(hero, False)

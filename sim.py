@@ -1553,7 +1553,7 @@ def nike_desire_fx(hero: Hero, ctx: Dict[str, object]) -> None:
     """Draw 1 or pay 1 Fate to draw 2."""
     if hero.fate >= 1:
         hero.fate -= 1
-        hero.deck.draw(2)
+        hero.deck.draw(3)
     else:
         hero.deck.draw(1)
 
@@ -2724,7 +2724,7 @@ def fight_one(hero: Hero, hp_log: list[int] | None = None) -> bool:
 
         hero.gain_upgrades(1)
         hero.gain_fate(1)
-        hero.deck.draw(2)
+        hero.deck.draw(3)
         hero.combat_effects.clear()
         hero.exchange_effects.clear()
         hero.active_hymns.clear()

@@ -6,7 +6,7 @@ This document consolidates all gameplay data, card lists, enemy stats and outsta
 - Heroes play through a series of **waves** of enemies. Each wave lasts up to four exchanges.
 - Cards resolve in the order: **Utility ➜ Ranged ➜ Monster attacks ➜ delayed Ranged ➜ Melee**.
 - After an exchange, end-of-exchange effects trigger and the hero draws a card.
-- After defeating a wave the hero gains 1 Fate, draws 2 cards and chooses one upgrade from their pool.
+- After defeating a wave the hero gains 1 Fate, draws 3 cards and chooses one upgrade from their pool.
 - **Fate** is a resource used for rerolls or to pay card costs (max 10).
 - **Armor** reduces incoming damage on a one-for-one basis.
 - **Hymns** are persistent songs that Brynhild can maintain for an Exchange or entire Combat. Some cards count the number of active Hymns for bonuses.
@@ -228,7 +228,7 @@ This file summarises the intended card sets, enemy stats and gameplay rules for 
 - **Hymns** (Brynhild) provide persistent buffs lasting an exchange or combat.
 - Attacks can be Brutal (B), Precise (P), Divine (D), Arcane (A) or Spiritual (S). Matching the enemy's vulnerability doubles damage.
 - Combat proceeds in waves. Each wave plays up to four exchanges where cards resolve in the order: Utility → Ranged → monster attacks → delayed Ranged → Melee. After each exchange, end‑of‑exchange effects trigger and the hero draws a card.
-- After a wave the hero gains 1 Fate, draws 2 cards and chooses an upgrade from a weighted pool: 3 copies of each common, 2 of each uncommon, 1 of each rare.
+- After a wave the hero gains 1 Fate, draws 3 cards and chooses an upgrade from a weighted pool: 3 copies of each common, 2 of each uncommon, 1 of each rare.
 
 ## Card Catalogues
 The game defines four heroes – **Brynhild**, **Musashi**, **Merlin** and **Hercules** – each with a starting deck of ten cards and thirty upgrades. The tables from the design document list every card with its element, type and effect. They are too long to repeat here but can be found in `docs/full_card_lists.txt` (to be added later).

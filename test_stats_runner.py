@@ -43,6 +43,15 @@ class TestStatsRunner(unittest.TestCase):
         self.assertIn("Hercules", msg)
         self.assertIn(sim.ENEMY_WAVES[0][0], msg)
 
+    def test_fight_one_max_exchanges(self):
+        sim.RNG.seed(0)
+        hero = sim.Hero("Hercules", 25, sim.herc_base, sim.herc_pool)
+        with self.assertRaises(TimeoutError) as ctx:
+            sim.fight_one(hero, max_exchanges=0)
+        msg = str(ctx.exception)
+        self.assertIn("Hercules", msg)
+        self.assertIn(sim.ENEMY_WAVES[0][0], msg)
+
     def test_run_gauntlet_retries_on_timeout(self):
         hero = sim.Hero("Hercules", 25, sim.herc_base, sim.herc_pool)
         calls = {"n": 0}

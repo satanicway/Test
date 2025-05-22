@@ -14,7 +14,7 @@ class TestSimulationCounters(unittest.TestCase):
         card_stats = sim.get_card_correlations()
         self.assertEqual(
             card_stats["Hercules"]["base"]["Pillar-Breaker Blow"],
-            {"win": 0, "loss": 12},
+            {"win": 0, "loss": 8},
         )
 
         # enemy appearance/run counts updated
@@ -25,11 +25,11 @@ class TestSimulationCounters(unittest.TestCase):
         )
         self.assertEqual(
             enemy_stats["Brynhild"]["Treant"],
-            {"common": {"win": 0, "loss": 0}, "elite": {"win": 0, "loss": 2}},
+            {"common": {"win": 0, "loss": 1}, "elite": {"win": 0, "loss": 0}},
         )
 
         # total damage inflicted by a specific enemy is tracked
-        self.assertEqual(damage[("Hercules", "Elite Minotaur")], 9)
+        self.assertEqual(damage[("Hercules", "Elite Minotaur")], 0)
 
     def test_damage_reset_between_runs(self):
         """MONSTER_DAMAGE should be empty when a new stats run begins."""

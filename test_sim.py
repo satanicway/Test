@@ -841,5 +841,72 @@ class TestRepeatedAttackGuard(unittest.TestCase):
         self.assertEqual(len(hero.deck.disc), sim.ATTACK_DEPTH_LIMIT)
         self.assertEqual(len(hero.deck.cards), 5)
 
+
+class TestWaveMechanics(unittest.TestCase):
+    def test_wave_ends_when_out_of_cards(self):
+        """Wave stops once the hero cannot draw further cards."""
+        hero = sim.Hero("Hero", 10, [])
+        weak = sim.atk("Weak", sim.CardType.MELEE, 0)
+        hero.deck.cards = [weak]
+        hero.deck.hand = []
+        hero.deck.draw(1)
+
+        enemy = sim.Enemy("Dummy", 5, 5, sim.Element.NONE, [0, 0, 0, 0])
+        ctx = {"enemies": [enemy], "heroes": [hero], "next_draw": 1, "draw_penalty": 0}
+
+        exch = 0
+        while True:
+            if not hero.deck.hand and ctx.get("next_draw", 1) == 0:
+                break
+            ctx["exchange"] = exch
+            ctx["attacks_used"] = 0
+            if hero.deck.hand:
+                card = hero.deck.hand.pop(0)
+                sim.resolve_attack(hero, card, ctx)
+            draw_amt = max(0, ctx.get("attacks_used", 0) - 1 - ctx.get("draw_penalty", 0))
+            if draw_amt:
+                hero.deck.draw(draw_amt)
+            ctx["next_draw"] = draw_amt
+            exch += 1
+
+        self.assertTrue(ctx["enemies"])
+        self.assertFalse(hero.deck.hand)
+        self.assertEqual(ctx["next_draw"], 0)
+        self.assertEqual(exch, 1)
+
+    def test_hand_grows_after_clearing_wave(self):
+        """Clearing a wave draws three additional cards."""
+        hero = sim.Hero("Hero", 10, [])
+        kill = sim.atk("Hit", sim.CardType.MELEE, 1)
+        fillers = [sim.atk(str(i), sim.CardType.MELEE, 0) for i in range(3)]
+        hero.deck.cards = fillers + [kill]
+        hero.deck.hand = []
+        hero.deck.draw(1)  # draw the kill card
+
+        enemy = sim.Enemy("Dummy", 1, 1, sim.Element.NONE, [0, 0, 0, 0])
+        ctx = {"enemies": [enemy], "heroes": [hero], "next_draw": 1, "draw_penalty": 0}
+
+        exch = 0
+        while ctx["enemies"]:
+            if not hero.deck.hand and ctx.get("next_draw", 1) == 0:
+                break
+            ctx["exchange"] = exch
+            ctx["attacks_used"] = 0
+            card = hero.deck.hand.pop(0)
+            sim.RNG.seed(0)
+            sim.resolve_attack(hero, card, ctx)
+            if not ctx["enemies"]:
+                break
+            draw_amt = max(0, ctx.get("attacks_used", 0) - 1 - ctx.get("draw_penalty", 0))
+            if draw_amt:
+                hero.deck.draw(draw_amt)
+            ctx["next_draw"] = draw_amt
+            exch += 1
+
+        self.assertFalse(ctx["enemies"])
+        before = len(hero.deck.hand)
+        hero.deck.draw(3)
+        self.assertEqual(len(hero.deck.hand), before + 3)
+
 if __name__ == "__main__":
     unittest.main()

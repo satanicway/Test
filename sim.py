@@ -2602,7 +2602,11 @@ def fight_one(hero: Hero, hp_log: list[int] | None = None) -> bool:
     for name, count in ENEMY_WAVES:
         ctx = make_wave(name, count)
         ctx["heroes"] = [hero]
-        for exch in range(4):
+        exch = 0
+        ctx["next_draw"] = 1
+        while True:
+            if not hero.deck.hand and ctx.get("next_draw", 1) == 0:
+                break
             ctx["exchange"] = exch
             # remove any lingering exchange effects and hymns from the previous
             # round before applying persistent buffs
@@ -2710,9 +2714,14 @@ def fight_one(hero: Hero, hp_log: list[int] | None = None) -> bool:
             if not ctx["enemies"]:
                 break
 
-            draw_amt = max(0, 1 - ctx.get("draw_penalty", 0))
+            draw_amt = max(
+                0,
+                ctx.get("attacks_used", 0) - 1 - ctx.get("draw_penalty", 0),
+            )
             if draw_amt:
                 hero.deck.draw(draw_amt)
+            ctx["next_draw"] = draw_amt
+            exch += 1
 
         if ctx["enemies"] or hero.hp <= 0:
             _record_run_result(hero, False)

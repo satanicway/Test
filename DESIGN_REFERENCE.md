@@ -3,7 +3,7 @@
 This document consolidates all gameplay data, card lists, enemy stats and outstanding features for the board game simulator. Use it as a comprehensive reference when implementing or expanding the code.
 
 ## Gameplay Overview
-- Heroes play through a series of **waves** of enemies. Each wave lasts up to four exchanges.
+- Heroes play through a series of **waves** of enemies. Each wave continues until all foes are defeated or the hero can no longer draw cards.
 - Cards resolve in the order: **Utility ➜ Ranged ➜ Monster attacks ➜ delayed Ranged ➜ Melee**.
 - After an exchange, end-of-exchange effects trigger and the hero draws a card.
 - After defeating a wave the hero gains 1 Fate, draws 3 cards and chooses one upgrade from their pool.
@@ -227,7 +227,7 @@ This file summarises the intended card sets, enemy stats and gameplay rules for 
 - **Armor** absorbs damage before HP.
 - **Hymns** (Brynhild) provide persistent buffs lasting an exchange or combat.
 - Attacks can be Brutal (B), Precise (P), Divine (D), Arcane (A) or Spiritual (S). Matching the enemy's vulnerability doubles damage.
-- Combat proceeds in waves. Each wave plays up to four exchanges where cards resolve in the order: Utility → Ranged → monster attacks → delayed Ranged → Melee. After each exchange, end‑of‑exchange effects trigger and the hero draws a card.
+- Combat proceeds in waves. Exchanges repeat in the order: Utility → Ranged → monster attacks → delayed Ranged → Melee. After each exchange, end‑of‑exchange effects trigger and the hero draws based on the number of attacks played. The wave ends when all enemies fall, the hero dies or no further cards can be drawn.
 - After a wave the hero gains 1 Fate, draws 3 cards and chooses an upgrade from a weighted pool: 3 copies of each common, 2 of each uncommon, 1 of each rare.
 
 ## Card Catalogues

@@ -14,9 +14,14 @@ def main() -> None:
     parser.add_argument(
         "--progress", action="store_true",
         help="Display simulation progress")
+    parser.add_argument(
+        "--timeout", type=float, default=60.0,
+        help="Maximum seconds to allow per gauntlet run")
     args = parser.parse_args()
 
-    report = stats_runner.generate_report(num_runs=args.runs, progress=args.progress)
+    report = stats_runner.generate_report(num_runs=args.runs,
+                                          progress=args.progress,
+                                          timeout=args.timeout)
     print(report)
 
 

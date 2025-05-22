@@ -73,7 +73,8 @@ def _format_eta(seconds: float) -> str:
     return f"{s}s"
 
 
-def run_stats(num_runs: int = 50000, *, progress: bool = False) -> Dict[str, int]:
+def run_stats(num_runs: int = 50000, *, progress: bool = False,
+              timeout: float = 60.0) -> Dict[str, int]:
     """Run ``num_runs`` gauntlets for each hero and return win counts."""
     sim.CARD_CORRELATIONS.clear()
     sim.ENEMY_RUN_COUNTS.clear()
@@ -89,7 +90,7 @@ def run_stats(num_runs: int = 50000, *, progress: bool = False) -> Dict[str, int
             for _ in range(num_runs):
                 hero = sim.Hero(proto.name, proto.max_hp, proto.base_cards[:],
                                 proto._orig_pool[:])
-                if run_gauntlet(hero):
+                if run_gauntlet(hero, timeout=timeout):
                     results[proto.name] += 1
                 count += 1
                 if progress and (count % step == 0 or count == total):
@@ -101,7 +102,8 @@ def run_stats(num_runs: int = 50000, *, progress: bool = False) -> Dict[str, int
     return results
 
 
-def run_stats_with_damage(num_runs: int = 50000, *, progress: bool = False) -> tuple[Dict[str, int], dict, dict]:
+def run_stats_with_damage(num_runs: int = 50000, *, progress: bool = False,
+                          timeout: float = 60.0) -> tuple[Dict[str, int], dict, dict]:
     """Run gauntlets collecting win counts, damage and HP progression.
 
     When aggregating HP values, uncompleted waves are counted as 0 HP.
@@ -128,7 +130,7 @@ def run_stats_with_damage(num_runs: int = 50000, *, progress: bool = False) -> t
                 hero = sim.Hero(proto.name, proto.max_hp, proto.base_cards[:],
                                 proto._orig_pool[:])
                 hp_log: list[int] = []
-                if run_gauntlet(hero, hp_log):
+                if run_gauntlet(hero, hp_log, timeout=timeout):
                     results[proto.name] += 1
                 for idx in range(8):
                     hp = hp_log[idx] if idx < len(hp_log) else 0
@@ -230,9 +232,11 @@ def format_report(wins: Dict[str, int], card_data: dict, damage: dict,
     return "\n".join(lines)
 
 
-def generate_report(num_runs: int = 100, *, progress: bool = False) -> str:
+def generate_report(num_runs: int = 100, *, progress: bool = False,
+                    timeout: float = 60.0) -> str:
     """Run gauntlets and return a formatted statistics report."""
-    wins, damage, hp = run_stats_with_damage(num_runs, progress=progress)
+    wins, damage, hp = run_stats_with_damage(num_runs, progress=progress,
+                                             timeout=timeout)
     card_data = sim.get_card_correlations()
     enemy_data = sim.get_enemy_run_counts()
     return format_report(wins, card_data, damage, enemy_data, num_runs, hp)
@@ -248,11 +252,16 @@ if __name__ == "__main__":
     parser.add_argument(
         "--progress", action="store_true",
         help="Display simulation progress")
+    parser.add_argument(
+        "--timeout", type=float, default=60.0,
+        help="Maximum seconds to allow per gauntlet run")
     args = parser.parse_args()
 
     if args.report:
-        print(generate_report(num_runs=args.runs, progress=args.progress))
+        print(generate_report(num_runs=args.runs, progress=args.progress,
+                              timeout=args.timeout))
     else:
-        wins = run_stats(num_runs=args.runs, progress=args.progress)
+        wins = run_stats(num_runs=args.runs, progress=args.progress,
+                         timeout=args.timeout)
         for name, count in wins.items():
             print(f"{name}: {count}")

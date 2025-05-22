@@ -2608,8 +2608,8 @@ def fight_one(hero: Hero, hp_log: list[int] | None = None, *, timeout: float | N
         ctx["next_draw"] = 1
         while True:
             if timeout is not None and time.time() - start > timeout:
-                enemy_names = ", ".join(e.name for e in ctx.get("enemies", []))
-                raise TimeoutError(f"wave {name} with {enemy_names}")
+                raise TimeoutError(
+                    f"{hero.name} timed out on wave {name}")
             if not hero.deck.hand and ctx.get("next_draw", 1) == 0:
                 break
             ctx["exchange"] = exch
@@ -2670,8 +2670,8 @@ def fight_one(hero: Hero, hp_log: list[int] | None = None, *, timeout: float | N
             # melee cards that resolve before ranged
             while ctx["enemies"]:
                 if timeout is not None and time.time() - start > timeout:
-                    enemy_names = ", ".join(e.name for e in ctx.get("enemies", []))
-                    raise TimeoutError(f"wave {name} pre-ranged with {enemy_names}")
+                    raise TimeoutError(
+                        f"{hero.name} timed out on wave {name}")
                 pre_card = None
                 for i, card in enumerate(hero.deck.hand):
                     if card.ctype == CardType.MELEE and card.before_ranged:
@@ -2686,8 +2686,8 @@ def fight_one(hero: Hero, hp_log: list[int] | None = None, *, timeout: float | N
             delayed: List[Card] = []
             while ctx["enemies"]:
                 if timeout is not None and time.time() - start > timeout:
-                    enemy_names = ", ".join(e.name for e in ctx.get("enemies", []))
-                    raise TimeoutError(f"wave {name} ranged with {enemy_names}")
+                    raise TimeoutError(
+                        f"{hero.name} timed out on wave {name}")
                 c = hero.deck.pop_first(CardType.RANGED)
                 if not c:
                     break
@@ -2700,24 +2700,24 @@ def fight_one(hero: Hero, hp_log: list[int] | None = None, *, timeout: float | N
 
             if ctx["enemies"]:
                 if timeout is not None and time.time() - start > timeout:
-                    enemy_names = ", ".join(e.name for e in ctx.get("enemies", []))
-                    raise TimeoutError(f"wave {name} monster attack with {enemy_names}")
+                    raise TimeoutError(
+                        f"{hero.name} timed out on wave {name}")
                 monster_attack([hero], ctx)
                 if hero.hp <= 0:
                     return False
 
             for card in delayed:
                 if timeout is not None and time.time() - start > timeout:
-                    enemy_names = ", ".join(e.name for e in ctx.get("enemies", []))
-                    raise TimeoutError(f"wave {name} delayed attacks with {enemy_names}")
+                    raise TimeoutError(
+                        f"{hero.name} timed out on wave {name}")
                 if not ctx["enemies"]:
                     break
                 resolve_attack(hero, card, ctx)
 
             while ctx["enemies"]:
                 if timeout is not None and time.time() - start > timeout:
-                    enemy_names = ", ".join(e.name for e in ctx.get("enemies", []))
-                    raise TimeoutError(f"wave {name} melee with {enemy_names}")
+                    raise TimeoutError(
+                        f"{hero.name} timed out on wave {name}")
                 c = hero.deck.pop_first(CardType.MELEE)
                 if not c:
                     break

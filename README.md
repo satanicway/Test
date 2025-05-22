@@ -75,6 +75,9 @@ python3 run_stats.py --runs 10000
 Passing `--progress` prints periodic updates with the current hero,
 percentage complete and an estimated time remaining.
 
+Use `--timeout` to set a per-run time limit in seconds. Runs that exceed the
+limit are retried with a fresh hero and new wave selection.
+
 The output begins with a win‑rate summary similar to the following:
 
 ```text

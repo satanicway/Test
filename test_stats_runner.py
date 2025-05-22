@@ -1,4 +1,5 @@
 import unittest
+import unittest.mock
 import sim
 import stats_runner
 
@@ -32,6 +33,30 @@ class TestStatsRunner(unittest.TestCase):
             self.assertTrue(0 <= v <= 100)
         # hero dies early so later waves should be zero
         self.assertTrue(any(v == 0 for v in vals[1:]))
+
+    def test_fight_one_timeout(self):
+        sim.RNG.seed(0)
+        hero = sim.Hero("Hercules", 25, sim.herc_base, sim.herc_pool)
+        with self.assertRaises(TimeoutError) as ctx:
+            sim.fight_one(hero, timeout=0.0)
+        msg = str(ctx.exception)
+        self.assertIn("Hercules", msg)
+        self.assertIn(sim.ENEMY_WAVES[0][0], msg)
+
+    def test_run_gauntlet_retries_on_timeout(self):
+        hero = sim.Hero("Hercules", 25, sim.herc_base, sim.herc_pool)
+        calls = {"n": 0}
+
+        def fake_fight(h, hp_log=None, *, timeout=None):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise TimeoutError("boom")
+            return True
+
+        with unittest.mock.patch("sim.fight_one", side_effect=fake_fight):
+            result = stats_runner.run_gauntlet(hero, timeout=1)
+        self.assertTrue(result)
+        self.assertEqual(calls["n"], 2)
 
 if __name__ == "__main__":
     unittest.main()

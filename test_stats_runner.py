@@ -140,6 +140,50 @@ class TestStatsRunner(unittest.TestCase):
                 stats_runner.run_gauntlet(hero, timeout=1, max_retries=1)
         self.assertEqual(calls["n"], 2)
 
+    def test_run_gauntlet_aborts_on_wave_timeout_limit(self):
+        hero = sim.Hero("Hercules", 25, sim.herc_base, sim.herc_pool)
+        calls = {"n": 0}
+
+        def always_timeout(
+            h,
+            hp_log=None,
+            *,
+            timeout=None,
+            max_exchanges=None,
+            wave_timeout=None,
+            max_total_exchanges=None,
+        ):
+            calls["n"] += 1
+            self.assertEqual(wave_timeout, 0)
+            raise TimeoutError("boom")
+
+        with unittest.mock.patch("sim.fight_one", side_effect=always_timeout):
+            with self.assertRaises(TimeoutError):
+                stats_runner.run_gauntlet(hero, timeout=1, max_retries=2, wave_timeout=0)
+        self.assertEqual(calls["n"], 3)
+
+    def test_run_gauntlet_aborts_on_total_exchange_limit(self):
+        hero = sim.Hero("Hercules", 25, sim.herc_base, sim.herc_pool)
+        calls = {"n": 0}
+
+        def always_timeout(
+            h,
+            hp_log=None,
+            *,
+            timeout=None,
+            max_exchanges=None,
+            wave_timeout=None,
+            max_total_exchanges=None,
+        ):
+            calls["n"] += 1
+            self.assertEqual(max_total_exchanges, 0)
+            raise TimeoutError("boom")
+
+        with unittest.mock.patch("sim.fight_one", side_effect=always_timeout):
+            with self.assertRaises(TimeoutError):
+                stats_runner.run_gauntlet(hero, timeout=1, max_retries=2, max_total_exchanges=0)
+        self.assertEqual(calls["n"], 3)
+
     def test_run_stats_passes_options(self):
         calls = []
 

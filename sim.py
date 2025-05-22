@@ -2583,7 +2583,8 @@ def monster_attack(heroes: List[Hero], ctx: Dict[str, object]) -> None:
 
 # very small fight simulation -------------------------------------------------
 
-def fight_one(hero: Hero, hp_log: list[int] | None = None, *, timeout: float | None = None) -> bool:
+def fight_one(hero: Hero, hp_log: list[int] | None = None, *, timeout: float | None = None,
+              max_exchanges: int | None = 1000) -> bool:
     """Run one full gauntlet for ``hero``.
 
     Parameters
@@ -2593,6 +2594,10 @@ def fight_one(hero: Hero, hp_log: list[int] | None = None, *, timeout: float | N
     hp_log:
         Optional list that, if provided, receives the hero's remaining hit
         points after each completed wave.
+    max_exchanges:
+        Abort a wave with :class:`TimeoutError` if this many exchanges are
+        reached. The default of ``1000`` serves as a safeguard against runaway
+        loops.
     """
 
     MONSTER_DAMAGE.clear()
@@ -2607,6 +2612,9 @@ def fight_one(hero: Hero, hp_log: list[int] | None = None, *, timeout: float | N
         exch = 0
         ctx["next_draw"] = 1
         while True:
+            if max_exchanges is not None and exch >= max_exchanges:
+                raise TimeoutError(
+                    f"{hero.name} timed out on wave {name}")
             if timeout is not None and time.time() - start > timeout:
                 raise TimeoutError(
                     f"{hero.name} timed out on wave {name}")

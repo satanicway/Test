@@ -72,6 +72,9 @@ be adjusted with the `--runs` option:
 python3 run_stats.py --runs 10000
 ```
 
+Passing `--progress` prints periodic updates with the current hero,
+percentage complete and an estimated time remaining.
+
 The output begins with a win‑rate summary similar to the following:
 
 ```text

@@ -24,7 +24,7 @@ def _select_waves() -> list[tuple[str, int]]:
 
 # single run ------------------------------------------------------------------
 
-def run_gauntlet(hero: sim.Hero, hp_log: list[int] | None = None) -> bool:
+def run_gauntlet(hero: sim.Hero, hp_log: list[int] | None = None, *, timeout: float = 60.0) -> bool:
     """Run one gauntlet for ``hero`` using random waves and upgrade schedule.
 
     Parameters
@@ -35,7 +35,6 @@ def run_gauntlet(hero: sim.Hero, hp_log: list[int] | None = None) -> bool:
         Optional list that receives the hero's hit points after each fight.
     """
     original_waves = sim.ENEMY_WAVES[:]
-    sim.ENEMY_WAVES = _select_waves()
 
     # track upgrade calls to add bonuses after 3rd and 6th fights
     orig_gain = hero.gain_upgrades
@@ -46,12 +45,20 @@ def run_gauntlet(hero: sim.Hero, hp_log: list[int] | None = None) -> bool:
         extra = 1 if counter["idx"] in (3, 6) else 0
         orig_gain(n + extra)
 
-    hero.gain_upgrades = patched
-    try:
-        return sim.fight_one(hero, hp_log)
-    finally:
-        hero.gain_upgrades = orig_gain
-        sim.ENEMY_WAVES = original_waves
+    while True:
+        sim.ENEMY_WAVES = _select_waves()
+        hero.gain_upgrades = patched
+        try:
+            return sim.fight_one(hero, hp_log, timeout=timeout)
+        except TimeoutError as exc:
+            waves = [w for w, _ in sim.ENEMY_WAVES]
+            print(f"Timeout after {timeout}s: {hero.name} vs {waves} - {exc}")
+            hero = sim.Hero(hero.name, hero.max_hp, hero.base_cards[:], hero._orig_pool[:])
+            if hp_log is not None:
+                hp_log.clear()
+        finally:
+            hero.gain_upgrades = orig_gain
+            sim.ENEMY_WAVES = original_waves
 
 # bulk stats ------------------------------------------------------------------
 

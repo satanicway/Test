@@ -7,6 +7,7 @@ implementation that still demonstrates the same mechanics."""
 from __future__ import annotations
 import random
 import math
+import time
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from enum import Enum, auto
@@ -2582,7 +2583,7 @@ def monster_attack(heroes: List[Hero], ctx: Dict[str, object]) -> None:
 
 # very small fight simulation -------------------------------------------------
 
-def fight_one(hero: Hero, hp_log: list[int] | None = None) -> bool:
+def fight_one(hero: Hero, hp_log: list[int] | None = None, *, timeout: float | None = None) -> bool:
     """Run one full gauntlet for ``hero``.
 
     Parameters
@@ -2597,6 +2598,7 @@ def fight_one(hero: Hero, hp_log: list[int] | None = None) -> bool:
     MONSTER_DAMAGE.clear()
     hero.reset()
     hero.deck.start_combat()
+    start = time.time()
     run_waves = [name for name, _ in ENEMY_WAVES]
 
     for name, count in ENEMY_WAVES:
@@ -2605,6 +2607,9 @@ def fight_one(hero: Hero, hp_log: list[int] | None = None) -> bool:
         exch = 0
         ctx["next_draw"] = 1
         while True:
+            if timeout is not None and time.time() - start > timeout:
+                enemy_names = ", ".join(e.name for e in ctx.get("enemies", []))
+                raise TimeoutError(f"wave {name} with {enemy_names}")
             if not hero.deck.hand and ctx.get("next_draw", 1) == 0:
                 break
             ctx["exchange"] = exch
@@ -2664,6 +2669,9 @@ def fight_one(hero: Hero, hp_log: list[int] | None = None) -> bool:
 
             # melee cards that resolve before ranged
             while ctx["enemies"]:
+                if timeout is not None and time.time() - start > timeout:
+                    enemy_names = ", ".join(e.name for e in ctx.get("enemies", []))
+                    raise TimeoutError(f"wave {name} pre-ranged with {enemy_names}")
                 pre_card = None
                 for i, card in enumerate(hero.deck.hand):
                     if card.ctype == CardType.MELEE and card.before_ranged:
@@ -2677,6 +2685,9 @@ def fight_one(hero: Hero, hp_log: list[int] | None = None) -> bool:
 
             delayed: List[Card] = []
             while ctx["enemies"]:
+                if timeout is not None and time.time() - start > timeout:
+                    enemy_names = ", ".join(e.name for e in ctx.get("enemies", []))
+                    raise TimeoutError(f"wave {name} ranged with {enemy_names}")
                 c = hero.deck.pop_first(CardType.RANGED)
                 if not c:
                     break
@@ -2688,16 +2699,25 @@ def fight_one(hero: Hero, hp_log: list[int] | None = None) -> bool:
                     break
 
             if ctx["enemies"]:
+                if timeout is not None and time.time() - start > timeout:
+                    enemy_names = ", ".join(e.name for e in ctx.get("enemies", []))
+                    raise TimeoutError(f"wave {name} monster attack with {enemy_names}")
                 monster_attack([hero], ctx)
                 if hero.hp <= 0:
                     return False
 
             for card in delayed:
+                if timeout is not None and time.time() - start > timeout:
+                    enemy_names = ", ".join(e.name for e in ctx.get("enemies", []))
+                    raise TimeoutError(f"wave {name} delayed attacks with {enemy_names}")
                 if not ctx["enemies"]:
                     break
                 resolve_attack(hero, card, ctx)
 
             while ctx["enemies"]:
+                if timeout is not None and time.time() - start > timeout:
+                    enemy_names = ", ".join(e.name for e in ctx.get("enemies", []))
+                    raise TimeoutError(f"wave {name} melee with {enemy_names}")
                 c = hero.deck.pop_first(CardType.MELEE)
                 if not c:
                     break

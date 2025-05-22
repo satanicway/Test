@@ -34,6 +34,8 @@ def run_gauntlet(
     timeout: float = 60.0,
     max_retries: int = 5,
     max_exchanges: int | None = 1000,
+    wave_timeout: float | None = None,
+    max_total_exchanges: int | None = None,
 ) -> bool:
     """Run one gauntlet for ``hero`` using random waves and upgrade schedule.
 
@@ -47,6 +49,10 @@ def run_gauntlet(
         Number of consecutive timeouts to tolerate before giving up.
     max_exchanges:
         Passed through to :func:`sim.fight_one` to cap exchanges per wave.
+    wave_timeout:
+        Abort a wave if it runs longer than this many seconds.
+    max_total_exchanges:
+        Abort the gauntlet once this many exchanges occur across all waves.
     """
     original_waves = sim.ENEMY_WAVES[:]
 
@@ -65,7 +71,12 @@ def run_gauntlet(
         hero.gain_upgrades = patched
         try:
             return sim.fight_one(
-                hero, hp_log, timeout=timeout, max_exchanges=max_exchanges
+                hero,
+                hp_log,
+                timeout=timeout,
+                max_exchanges=max_exchanges,
+                wave_timeout=wave_timeout,
+                max_total_exchanges=max_total_exchanges,
             )
         except TimeoutError as exc:
             waves = [w for w, _ in sim.ENEMY_WAVES]
@@ -104,6 +115,8 @@ def run_stats(
     timeout: float = 60.0,
     max_retries: int = 5,
     max_exchanges: int | None = 1000,
+    wave_timeout: float | None = None,
+    max_total_exchanges: int | None = None,
 ) -> Dict[str, int]:
     """Run ``num_runs`` gauntlets for each hero and return win counts.
 
@@ -119,6 +132,10 @@ def run_stats(
         Number of consecutive timeouts to tolerate before aborting.
     max_exchanges:
         Passed through to :func:`sim.fight_one` to cap exchanges per wave.
+    wave_timeout:
+        Abort a wave if it runs longer than this many seconds.
+    max_total_exchanges:
+        Abort the gauntlet once this many exchanges occur across all waves.
     """
     sim.CARD_CORRELATIONS.clear()
     sim.ENEMY_RUN_COUNTS.clear()
@@ -140,6 +157,8 @@ def run_stats(
                     timeout=timeout,
                     max_retries=max_retries,
                     max_exchanges=max_exchanges,
+                    wave_timeout=wave_timeout,
+                    max_total_exchanges=max_total_exchanges,
                 ):
                     results[proto.name] += 1
                 count += 1
@@ -165,6 +184,8 @@ def run_stats_with_damage(
     timeout: float = 60.0,
     max_retries: int = 5,
     max_exchanges: int | None = 1000,
+    wave_timeout: float | None = None,
+    max_total_exchanges: int | None = None,
 ) -> tuple[Dict[str, int], dict, dict]:
     """Run gauntlets collecting win counts, damage and HP progression.
 
@@ -180,6 +201,10 @@ def run_stats_with_damage(
         Number of consecutive timeouts to tolerate before aborting.
     max_exchanges:
         Passed through to :func:`sim.fight_one` to cap exchanges per wave.
+    wave_timeout:
+        Abort a wave if it runs longer than this many seconds.
+    max_total_exchanges:
+        Abort the gauntlet once this many exchanges occur across all waves.
 
     When aggregating HP values, uncompleted waves are counted as 0 HP.
     """
@@ -212,6 +237,8 @@ def run_stats_with_damage(
                     timeout=timeout,
                     max_retries=max_retries,
                     max_exchanges=max_exchanges,
+                    wave_timeout=wave_timeout,
+                    max_total_exchanges=max_total_exchanges,
                 ):
                     results[proto.name] += 1
                 for idx in range(8):
@@ -334,6 +361,8 @@ def generate_report(
     timeout: float = 60.0,
     max_retries: int = 5,
     max_exchanges: int | None = 1000,
+    wave_timeout: float | None = None,
+    max_total_exchanges: int | None = None,
 ) -> str:
     """Run gauntlets and return a formatted statistics report."""
     wins, damage, hp = run_stats_with_damage(
@@ -342,6 +371,8 @@ def generate_report(
         timeout=timeout,
         max_retries=max_retries,
         max_exchanges=max_exchanges,
+        wave_timeout=wave_timeout,
+        max_total_exchanges=max_total_exchanges,
     )
     card_data = sim.get_card_correlations()
     enemy_data = sim.get_enemy_run_counts()
@@ -379,6 +410,18 @@ if __name__ == "__main__":
         default=1000,
         help="Abort a wave after this many exchanges",
     )
+    parser.add_argument(
+        "--wave-timeout",
+        type=float,
+        default=None,
+        help="Abort a wave if it runs longer than this many seconds",
+    )
+    parser.add_argument(
+        "--max-total-exchanges",
+        type=int,
+        default=None,
+        help="Abort the gauntlet after this many total exchanges",
+    )
     args = parser.parse_args()
 
     if args.report:
@@ -389,6 +432,8 @@ if __name__ == "__main__":
                 timeout=args.timeout,
                 max_retries=args.max_retries,
                 max_exchanges=args.max_exchanges,
+                wave_timeout=args.wave_timeout,
+                max_total_exchanges=args.max_total_exchanges,
             )
         )
     else:
@@ -398,6 +443,8 @@ if __name__ == "__main__":
             timeout=args.timeout,
             max_retries=args.max_retries,
             max_exchanges=args.max_exchanges,
+            wave_timeout=args.wave_timeout,
+            max_total_exchanges=args.max_total_exchanges,
         )
         for name, count in wins.items():
             print(f"{name}: {count}")

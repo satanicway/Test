@@ -4,7 +4,8 @@
 Running this module executes :func:`stats_runner.generate_report` with a
 default of 50,000 simulated runs.  The number of runs may be overridden via
 the ``--runs`` command line argument.  Additional options are available to
-limit retries and exchanges per wave.
+limit retries, exchanges per wave, set per-wave timeouts and cap total
+exchanges across all waves.
 """
 
 import argparse
@@ -38,6 +39,18 @@ def main() -> None:
         default=1000,
         help="Abort a wave after this many exchanges",
     )
+    parser.add_argument(
+        "--wave-timeout",
+        type=float,
+        default=None,
+        help="Abort a wave if it runs longer than this many seconds",
+    )
+    parser.add_argument(
+        "--max-total-exchanges",
+        type=int,
+        default=None,
+        help="Abort the gauntlet after this many total exchanges",
+    )
     args = parser.parse_args()
 
     report = stats_runner.generate_report(
@@ -46,6 +59,8 @@ def main() -> None:
         timeout=args.timeout,
         max_retries=args.max_retries,
         max_exchanges=args.max_exchanges,
+        wave_timeout=args.wave_timeout,
+        max_total_exchanges=args.max_total_exchanges,
     )
     print(report)
 

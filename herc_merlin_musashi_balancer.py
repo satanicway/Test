@@ -367,6 +367,7 @@ def optimise():
     best_B  = [w.enemy.band[:] for w in WAVES]
     best_err = float('inf')
     last_improve = time.time()
+    start = last_improve
 
     T = 1.0           # initial “temperature” for simulated annealing
     cool = 0.997      # cooling factor
@@ -431,6 +432,9 @@ def optimise():
             cool = 1.0
 
         gen += 1
+        if gen % 1000 == 0:
+            elapsed = time.time() - start
+            print(f"Generation {gen} - elapsed {int(elapsed)}s")
 
     # final dump
     print("\nBest error:", best_err)

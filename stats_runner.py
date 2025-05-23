@@ -87,6 +87,8 @@ def run_gauntlet(
             hero = sim.Hero(
                 hero.name, hero.max_hp, hero.base_cards[:], hero._orig_pool[:]
             )
+            counter["idx"] = 0
+            orig_gain = hero.gain_upgrades
             if hp_log is not None:
                 hp_log.clear()
         finally:

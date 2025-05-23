@@ -184,6 +184,41 @@ class TestStatsRunner(unittest.TestCase):
                 stats_runner.run_gauntlet(hero, timeout=1, max_retries=2, max_total_exchanges=0)
         self.assertEqual(calls["n"], 3)
 
+    def test_upgrades_apply_after_timeout(self):
+        """Upgrades should apply to the new hero after a timeout."""
+        sim.RNG.seed(0)
+        hero = sim.Hero("Hercules", 25, sim.herc_base, sim.herc_pool)
+        initial_len = len(hero.deck.cards)
+
+        calls = {"n": 0, "heroes": []}
+
+        def fake_fight(
+            h,
+            hp_log=None,
+            *,
+            timeout=None,
+            max_exchanges=None,
+            wave_timeout=None,
+            max_total_exchanges=None,
+        ):
+            calls["n"] += 1
+            calls["heroes"].append(h)
+            if calls["n"] == 1:
+                raise TimeoutError("boom")
+            for _ in range(6):
+                h.gain_upgrades()
+            return True
+
+        with unittest.mock.patch("sim.fight_one", side_effect=fake_fight):
+            result = stats_runner.run_gauntlet(hero, timeout=1)
+
+        self.assertTrue(result)
+        self.assertEqual(calls["n"], 2)
+        self.assertEqual(len(hero.deck.cards), initial_len)
+        new_hero = calls["heroes"][1]
+        self.assertIsNot(new_hero, hero)
+        self.assertEqual(len(new_hero.deck.cards), len(new_hero.base_cards) + 8)
+
     def test_run_stats_passes_options(self):
         calls = []
 

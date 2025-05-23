@@ -34,7 +34,7 @@ def run_gauntlet(
     timeout: float = 60.0,
     max_retries: int = 5,
     max_exchanges: int | None = 1000,
-    wave_timeout: float | None = None,
+    wave_timeout: float | None = 10.0,
     max_total_exchanges: int | None = None,
 ) -> bool:
     """Run one gauntlet for ``hero`` using random waves and upgrade schedule.
@@ -117,7 +117,7 @@ def run_stats(
     timeout: float = 60.0,
     max_retries: int = 5,
     max_exchanges: int | None = 1000,
-    wave_timeout: float | None = None,
+    wave_timeout: float | None = 10.0,
     max_total_exchanges: int | None = None,
 ) -> Dict[str, int]:
     """Run ``num_runs`` gauntlets for each hero and return win counts.
@@ -186,7 +186,7 @@ def run_stats_with_damage(
     timeout: float = 60.0,
     max_retries: int = 5,
     max_exchanges: int | None = 1000,
-    wave_timeout: float | None = None,
+    wave_timeout: float | None = 10.0,
     max_total_exchanges: int | None = None,
 ) -> tuple[Dict[str, int], dict, dict]:
     """Run gauntlets collecting win counts, damage and HP progression.
@@ -363,7 +363,7 @@ def generate_report(
     timeout: float = 60.0,
     max_retries: int = 5,
     max_exchanges: int | None = 1000,
-    wave_timeout: float | None = None,
+    wave_timeout: float | None = 10.0,
     max_total_exchanges: int | None = None,
 ) -> str:
     """Run gauntlets and return a formatted statistics report."""
@@ -415,8 +415,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--wave-timeout",
         type=float,
-        default=None,
-        help="Abort a wave if it runs longer than this many seconds",
+        default=10.0,
+        help="Abort a wave if it runs longer than this many seconds (default: 10.0)",
     )
     parser.add_argument(
         "--max-total-exchanges",

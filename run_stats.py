@@ -42,8 +42,8 @@ def main() -> None:
     parser.add_argument(
         "--wave-timeout",
         type=float,
-        default=None,
-        help="Abort a wave if it runs longer than this many seconds",
+        default=10.0,
+        help="Abort a wave if it runs longer than this many seconds (default: 10.0)",
     )
     parser.add_argument(
         "--max-total-exchanges",

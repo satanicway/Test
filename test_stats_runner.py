@@ -88,7 +88,7 @@ class TestStatsRunner(unittest.TestCase):
             max_total_exchanges=None,
         ):
             self.assertEqual(max_exchanges, 42)
-            self.assertIsNone(wave_timeout)
+            self.assertEqual(wave_timeout, 10.0)
             self.assertIsNone(max_total_exchanges)
             return True
 

@@ -212,6 +212,36 @@ def spawn_end_of_round(rnd, verbose=False):
             if verbose:
                 print(f"    Monster spawn at {loc}")
 
+# ───────── Priority helpers ─────────
+def compute_priority(dark_cnt, rift_cnt, mons_cnt):
+    """Return 'D', 'R', or 'M' when thresholds are exceeded."""
+    if dark_cnt >= 4 or rift_cnt >= 6 or mons_cnt >= 4:
+        diffs = {'D': dark_cnt - 3, 'R': rift_cnt - 5, 'M': mons_cnt - 3}
+        types = ['D', 'R', 'M']
+        return max(types, key=lambda t: diffs[t])
+    return None
+
+
+def get_candidates(board, dark_map, priority):
+    """Return ordered candidate locations based on the priority type."""
+    rmq_candidates = [
+        loc
+        for loc, spots in board.items()
+        if any(s.t in ("R", "M", "Q") for s in spots)
+    ]
+    dark_candidates = [CLUSTER_MAJOR[c] for c, dark in dark_map.items() if dark]
+
+    if priority == 'D':
+        ordered = dark_candidates
+    elif priority == 'R':
+        ordered = [loc for loc in rmq_candidates if any(s.t == 'R' for s in board[loc])]
+    elif priority == 'M':
+        ordered = [loc for loc in rmq_candidates if any(s.t == 'M' for s in board[loc])]
+    else:
+        ordered = rmq_candidates + dark_candidates
+
+    return list(dict.fromkeys(ordered))
+
 # ───────── One game ─────────
 board = None
 dark_map = None
@@ -259,47 +289,8 @@ def play_game(verbose=False, return_loss_detail=False):
 
         dist_maps = [dijkstra(h)[0] for h in heroes]
 
-        priority = None
-        if dark_cnt >= 4 or rift_cnt >= 6 or mons_cnt >= 4:
-            diffs = {
-                'D': dark_cnt - 3,
-                'R': rift_cnt - 5,
-                'M': mons_cnt - 3,
-            }
-            max_diff = max(diffs.values())
-            if max_diff > 0:
-                tmp = [t for t, d in diffs.items() if d == max_diff]
-                if len(tmp) == 1:
-                    priority = tmp[0]
-                else:
-                    caps = {'D': 3, 'R': 5, 'M': 3}
-                    ratio = {t: diffs[t] / caps[t] for t in tmp}
-                    priority = max(tmp, key=lambda t: ratio[t])
-
-        rmq_candidates = [
-            loc
-            for loc, spots in board.items()
-            if any(s.t in ("R", "M", "Q") for s in spots)
-        ]
-        dark_candidates = [
-            CLUSTER_MAJOR[c] for c, dark in dark_map.items() if dark
-        ]
-
-        if priority == 'D':
-            ordered = dark_candidates + rmq_candidates
-        elif priority == 'R':
-            rifts = [loc for loc in rmq_candidates if any(s.t == 'R' for s in board[loc])]
-            others = [loc for loc in rmq_candidates if loc not in rifts]
-            ordered = rifts + dark_candidates + others
-        elif priority == 'M':
-            mons = [loc for loc in rmq_candidates if any(s.t == 'M' for s in board[loc])]
-            others = [loc for loc in rmq_candidates if loc not in mons]
-            ordered = mons + dark_candidates + others
-        else:
-            ordered = rmq_candidates + dark_candidates
-
-        # Remove duplicates while preserving ordering
-        candidates = list(dict.fromkeys(ordered))
+        priority = compute_priority(dark_cnt, rift_cnt, mons_cnt)
+        candidates = get_candidates(board, dark_map, priority)
 
         targets = [None] * H
         if candidates:

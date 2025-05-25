@@ -107,7 +107,7 @@ class Spot:
 def initial_spawn(board):
     free = [n for n in ALL if n != CENTRE]
     picks = random.sample(free, 6)
-    types = ['M', 'M', 'R', 'R', 'Q', 'Q']
+    types = ['R', 'R', 'Q', 'Q', 'Q', 'Q']
     random.shuffle(types)
     for loc, t in zip(picks, types):
         board[loc].append(Spot(t))
@@ -193,9 +193,15 @@ def spawn_end_of_round(rnd, verbose=False):
     if rnd <= 3:
         k = 1 if random.random() < 0.75 else 0
     elif rnd <= 6:
-        k = 1 + (random.random() < 0.5)
+        r = random.random()
+        if r < 0.25:
+            k = 2
+        elif r < 0.75:
+            k = 1
+        else:
+            k = 0
     elif rnd <= 8:
-        k = 2 + (random.random() < 0.5)
+        k = 1 + (random.random() < 0.5)
     else:
         k = 0
 
@@ -210,10 +216,11 @@ def spawn_end_of_round(rnd, verbose=False):
         loc for loc, spots in board.items() if any(s.t == 'R' for s in spots)
     ]
     for loc in rift_locs:
-        if random.random() < 0.75:
-            board[loc].append(Spot('M'))
-            if verbose:
-                print(f"    Monster spawn at {loc}")
+        cl = NODE_TO_CLUSTER[loc]
+        spawn_loc = random.choice(CLUSTERS[cl])
+        board[spawn_loc].append(Spot('M'))
+        if verbose:
+            print(f"    Monster spawn at {spawn_loc}")
 
 # ───────── Priority helpers ─────────
 def compute_priority(dark_cnt, rift_cnt, mons_cnt):

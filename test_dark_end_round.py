@@ -9,12 +9,12 @@ class TestEndOfRoundSpawning(unittest.TestCase):
         dgs.board = defaultdict(list)
         dgs.board[5].append(dgs.Spot('R'))
         with patch('dark_game_sim.random.sample', return_value=[6]), \
-             patch('dark_game_sim.random.random', side_effect=[0.0, 0.0, 0.0]):
+             patch('dark_game_sim.random.choice', side_effect=[4, 7]):
             dgs.spawn_end_of_round(1)
         rift_locs = [loc for loc, spots in dgs.board.items() if any(s.t == 'R' for s in spots)]
         mons_at = [loc for loc, spots in dgs.board.items() if any(s.t == 'M' for s in spots)]
         self.assertCountEqual(rift_locs, [5, 6])
-        self.assertTrue(all(loc in mons_at for loc in [5, 6]))
+        self.assertCountEqual(mons_at, [4, 7])
 
 class TestPlayGameDoom(unittest.TestCase):
     def test_doom_before_spawning(self):
@@ -25,8 +25,8 @@ class TestPlayGameDoom(unittest.TestCase):
              patch.object(dgs, 'TOTAL_ROUNDS', 3), \
              patch('dark_game_sim.spawn_end_of_round', side_effect=fake_spawn_end_of_round):
             res = dgs.play_game(return_loss_detail=True)
-        self.assertEqual(res['end_mons'], 4)
-        self.assertEqual(res['end_doom'], 5)
+        self.assertEqual(res['end_mons'], 2)
+        self.assertEqual(res['end_doom'], 1)
 
 if __name__ == '__main__':
     unittest.main()

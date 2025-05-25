@@ -229,6 +229,10 @@ def play_game(verbose=False, return_loss_detail=False):
                 for loc in board
                 if any(s.t in ('R', 'M', 'Q') for s in board[loc])
             ]
+            dark_candidates = [
+                CLUSTER_MAJOR[c] for c in dark_map if dark_map[c]
+            ]
+            candidates = list(dict.fromkeys(candidates + dark_candidates))
 
         targets = [None] * H
         if candidates:

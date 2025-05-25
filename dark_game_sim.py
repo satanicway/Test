@@ -290,6 +290,8 @@ def play_game(verbose=False, return_loss_detail=False):
     mons_per_round = []
     rifts_removed = 0
     mons_removed = 0
+    dark_removed = 0
+    quests_completed = 0
     moves_round = [[0] * H for _ in range(TOTAL_ROUNDS)]
 
     if verbose:
@@ -376,6 +378,7 @@ def play_game(verbose=False, return_loss_detail=False):
             if cl != 'A' and dark_map[cl] and pos == CLUSTER_MAJOR[cl]:
                 if random.random() < 0.7:
                     dark_map[cl] = False
+                    dark_removed += 1
                     if verbose:
                         print(f"  Hero{h+1} cleaned darkness at {pos}")
 
@@ -393,6 +396,7 @@ def play_game(verbose=False, return_loss_detail=False):
                     print(f"  Hero{h+1} killed Monster")
             elif 'Q' in types:
                 pile.remove(next(s for s in pile if s.t == 'Q'))
+                quests_completed += 1
                 if verbose:
                     print(f"  Hero{h+1} took Quest")
                 spawn_new_quest(verbose)
@@ -423,6 +427,8 @@ def play_game(verbose=False, return_loss_detail=False):
             'peak_mons': max(mons_per_round),
             'rifts_removed': rifts_removed,
             'mons_removed': mons_removed,
+            'darks_removed': dark_removed,
+            'quests_completed': quests_completed,
             'moves_round': moves_round,
         }
     return None
@@ -443,6 +449,8 @@ def main():
     sum_peak_mons = 0
     sum_rifts_removed = 0
     sum_mons_removed = 0
+    sum_darks_removed = 0
+    sum_quests_completed = 0
     sum_moves_round = [[0] * H for _ in range(TOTAL_ROUNDS)]
 
     for i in range(1, RUNS + 1):
@@ -466,6 +474,8 @@ def main():
         sum_peak_mons += res['peak_mons']
         sum_rifts_removed += res['rifts_removed']
         sum_mons_removed += res['mons_removed']
+        sum_darks_removed += res['darks_removed']
+        sum_quests_completed += res['quests_completed']
 
         if i <= 10 or i % 100 == 0 or i == RUNS:
             sys.stdout.write(f"\rSim {i}/{RUNS} ({100 * i / RUNS:5.1f}%)")
@@ -493,6 +503,8 @@ def main():
     print(f"Avg peak Monsters:        {sum_peak_mons / RUNS:.2f}")
     print(f"Avg rifts removed:        {sum_rifts_removed / RUNS:.2f}")
     print(f"Avg monsters removed:     {sum_mons_removed / RUNS:.2f}")
+    print(f"Avg darkness removed:     {sum_darks_removed / RUNS:.2f}")
+    print(f"Avg quests completed:     {sum_quests_completed / RUNS:.2f}")
     print("\nAvg hero movements per round:")
     for r in range(TOTAL_ROUNDS):
         vals = ", ".join(

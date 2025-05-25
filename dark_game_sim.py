@@ -6,7 +6,6 @@ from itertools import permutations
 
 # ───────────── TUNABLE CONSTANTS ─────────────
 HERO_SPEED   = 2
-ROUND_SPAWNS = [0,2,2,2,3,3,3,4,4,4]
 TOTAL_ROUNDS = 9
 RUNS         = 2500
 # ──────────────────────────────────────────────
@@ -376,7 +375,6 @@ def play_game(verbose=False, return_loss_detail=False):
                 full_loss = True
                 if verbose:
                     print(" ALL 8 majors dark!")
-            spawn_spots(ROUND_SPAWNS[rnd])
 
     if return_loss_detail:
         final_cnts = Counter(s.t for p in board.values() for s in p)

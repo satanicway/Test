@@ -207,35 +207,55 @@ def play_game(verbose=False, return_loss_detail=False):
         if verbose:
             print(f"\n-- ROUND {rnd} --")
         cnts = Counter(s.t for p in board.values() for s in p)
-        rift_count = cnts['R']
-        mons_count = cnts['M']
-        rifts_per_round.append(rift_count)
-        mons_per_round.append(mons_count)
+        rift_cnt = cnts['R']
+        mons_cnt = cnts['M']
+        rifts_per_round.append(rift_cnt)
+        mons_per_round.append(mons_cnt)
 
-        dark_count = sum(dark_map[c] for c in dark_map if c != 'A')
-        dark_per_round[rnd - 1] = dark_count
+        dark_cnt = sum(dark_map[c] for c in dark_map if c != 'A')
+        dark_per_round[rnd - 1] = dark_cnt
         if verbose:
             dlist = [c for c in dark_map if dark_map[c]]
             print(
-                f" Rifts={rift_count} Mons={mons_count} Doom={doom} Dark={len(dlist)}/8 {dlist}"
+                f" Rifts={rift_cnt} Mons={mons_cnt} Doom={doom} Dark={len(dlist)}/8 {dlist}"
             )
             print(" Heroes:", heroes)
 
         dist_maps = [dijkstra(h)[0] for h in heroes]
 
-        # Candidate targets always include every board location with a Rift,
-        # Monster or Quest and the major node for each dark cluster.
-        rmq_candidates = [
-            loc
-            for loc, spots in board.items()
-            if any(s.t in ("R", "M", "Q") for s in spots)
-        ]
-        dark_candidates = [
-            CLUSTER_MAJOR[c] for c, dark in dark_map.items() if dark
-        ]
-        # Remove duplicates while preserving initial ordering so heroes can
-        # select dark majors even when fewer than five clusters are dark.
-        candidates = list(dict.fromkeys(rmq_candidates + dark_candidates))
+        priority = None
+        if dark_cnt >= 4 or rift_cnt >= 6 or mons_cnt >= 4:
+            diffs = {
+                'D': dark_cnt - 3,
+                'R': rift_cnt - 5,
+                'M': mons_cnt - 3,
+            }
+            priority = max(diffs, key=diffs.get)
+            if diffs[priority] <= 0:
+                priority = None
+
+        if priority == 'D':
+            candidates = [CLUSTER_MAJOR[c] for c, d in dark_map.items() if d]
+        elif priority == 'R':
+            candidates = [
+                loc for loc, spots in board.items() if any(s.t == 'R' for s in spots)
+            ]
+        elif priority == 'M':
+            candidates = [
+                loc for loc, spots in board.items() if any(s.t == 'M' for s in spots)
+            ]
+        else:
+            rmq_candidates = [
+                loc
+                for loc, spots in board.items()
+                if any(s.t in ("R", "M", "Q") for s in spots)
+            ]
+            dark_candidates = [
+                CLUSTER_MAJOR[c] for c, dark in dark_map.items() if dark
+            ]
+            # Remove duplicates while preserving initial ordering so heroes can
+            # select dark majors even when fewer than five clusters are dark.
+            candidates = list(dict.fromkeys(rmq_candidates + dark_candidates))
 
         targets = [None] * H
         if candidates:

@@ -230,9 +230,15 @@ def play_game(verbose=False, return_loss_detail=False):
                 'R': rift_cnt - 5,
                 'M': mons_cnt - 3,
             }
-            priority = max(diffs, key=diffs.get)
-            if diffs[priority] <= 0:
-                priority = None
+            max_diff = max(diffs.values())
+            if max_diff > 0:
+                candidates = [t for t, d in diffs.items() if d == max_diff]
+                if len(candidates) == 1:
+                    priority = candidates[0]
+                else:
+                    caps = {'D': 3, 'R': 5, 'M': 3}
+                    ratio = {t: diffs[t] / caps[t] for t in candidates}
+                    priority = max(candidates, key=lambda t: ratio[t])
 
         if priority == 'D':
             candidates = [CLUSTER_MAJOR[c] for c, d in dark_map.items() if d]

@@ -8,6 +8,12 @@ from itertools import permutations
 HERO_SPEED   = 2
 TOTAL_ROUNDS = 9
 RUNS         = 2500
+MONSTER_SPAWN_CHANCE = 0.75
+RIFT_SPAWN_RULES = [
+    ((1, 3), [(1, 0.75)]),
+    ((4, 6), [(1, 1.0), (1, 0.5)]),
+    ((7, 8), [(2, 1.0), (1, 0.5)]),
+]
 # ──────────────────────────────────────────────
 
 # ---------------- Graph ----------------
@@ -185,19 +191,23 @@ def end_of_round_darkness(rnd, verbose=False):
                     print(f"    Filled dark at {CLUSTER_MAJOR[cl]} ({cl})")
 
 
+def get_rift_spawn_count(rnd):
+    for (lo, hi), rules in RIFT_SPAWN_RULES:
+        if lo <= rnd <= hi:
+            total = 0
+            for count, chance in rules:
+                for _ in range(count):
+                    if random.random() < chance:
+                        total += 1
+            return total
+    return 0
+
 def spawn_end_of_round(rnd, verbose=False):
     global board
-    if rnd == 9:
+    if rnd == TOTAL_ROUNDS:
         return
 
-    if rnd <= 3:
-        k = 1 if random.random() < 0.75 else 0
-    elif rnd <= 6:
-        k = 1 + (random.random() < 0.5)
-    elif rnd <= 8:
-        k = 2 + (random.random() < 0.5)
-    else:
-        k = 0
+    k = get_rift_spawn_count(rnd)
 
     free = [n for n in ALL if n != CENTRE and not board.get(n)]
     rift_locs = random.sample(free, min(k, len(free)))
@@ -210,7 +220,7 @@ def spawn_end_of_round(rnd, verbose=False):
         loc for loc, spots in board.items() if any(s.t == 'R' for s in spots)
     ]
     for loc in rift_locs:
-        if random.random() < 0.75:
+        if random.random() < MONSTER_SPAWN_CHANCE:
             board[loc].append(Spot('M'))
             if verbose:
                 print(f"    Monster spawn at {loc}")

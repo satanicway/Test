@@ -114,6 +114,20 @@ def initial_spawn(board):
         board[loc].append(Spot('M'))
     board[picks[4]].append(Spot('Q'))
 
+
+def spawn_spots(k):
+    global board
+    free = [n for n in ALL if n != CENTRE and not board.get(n)]
+    for loc in random.sample(free, min(k, len(free))):
+        r = random.random()
+        if r < 0.3:
+            t = 'R'
+        elif r < 0.8:
+            t = 'M'
+        else:
+            t = 'Q'
+        board[loc].append(Spot(t))
+
 # ───────── Darkness helpers ─────────
 def place_initial_dark(verbose=False):
     for cl in random.sample(list(CLUSTER_MAJOR.keys()), 2):

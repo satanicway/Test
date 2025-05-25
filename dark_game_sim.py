@@ -175,6 +175,34 @@ def end_of_round_darkness(rnd, verbose=False):
                 if verbose:
                     print(f"    Filled dark at {CLUSTER_MAJOR[cl]} ({cl})")
 
+
+def spawn_end_of_round(rnd, verbose=False):
+    global board
+    if rnd == 9:
+        return
+
+    if rnd <= 3:
+        k = 1 if random.random() < 0.75 else 0
+    elif rnd <= 6:
+        k = 1 + (random.random() < 0.5)
+    elif rnd <= 8:
+        k = 2 + (random.random() < 0.5)
+    else:
+        k = 0
+
+    free = [n for n in ALL if n != CENTRE and not board.get(n)]
+    rift_locs = random.sample(free, min(k, len(free)))
+    for loc in rift_locs:
+        board[loc].append(Spot('R'))
+        if verbose:
+            print(f"    Rift spawn at {loc}")
+
+    for loc in rift_locs:
+        if random.random() < 0.75:
+            board[loc].append(Spot('M'))
+            if verbose:
+                print(f"    Monster spawn at {loc}")
+
 # ───────── One game ─────────
 board = None
 dark_map = None

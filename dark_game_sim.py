@@ -363,13 +363,14 @@ def play_game(verbose=False, return_loss_detail=False):
             if verbose:
                 print(" End-of-round Darkness:")
             end_of_round_darkness(rnd, verbose)
-            spawn_spots(ROUND_SPAWNS[rnd])
+            spawn_end_of_round(rnd, verbose)
             cnts = Counter(s.t for p in board.values() for s in p)
             doom += cnts['M']
             if sum(dark_map[c] for c in dark_map if c != 'A') == 8:
                 full_loss = True
                 if verbose:
                     print(" ALL 8 majors dark!")
+            spawn_spots(ROUND_SPAWNS[rnd])
 
     if return_loss_detail:
         final_cnts = Counter(s.t for p in board.values() for s in p)

@@ -107,10 +107,12 @@ class Spot:
 def initial_spawn(board):
     free = [n for n in ALL if n != CENTRE]
     picks = random.sample(free, 6)
-    types = ['M', 'M', 'R', 'R', 'Q', 'Q']
-    random.shuffle(types)
-    for loc, t in zip(picks, types):
-        board[loc].append(Spot(t))
+    for loc in picks[:2]:
+        board[loc].append(Spot('R'))
+    for loc in picks[2:4]:
+        board[loc].append(Spot('M'))
+    for loc in picks[4:]:
+        board[loc].append(Spot('Q'))
 
 
 def spawn_spots(k):

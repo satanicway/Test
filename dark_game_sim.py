@@ -223,17 +223,18 @@ def play_game(verbose=False, return_loss_detail=False):
 
         dist_maps = [dijkstra(h)[0] for h in heroes]
 
-        # Candidate targets include all board locations containing a Rift,
-        # Monster or Quest, along with the major node for every dark cluster.
+        # Candidate targets always include every board location with a Rift,
+        # Monster or Quest and the major node for each dark cluster.
         rmq_candidates = [
             loc
-            for loc in board
-            if any(s.t in ('R', 'M', 'Q') for s in board[loc])
+            for loc, spots in board.items()
+            if any(s.t in ("R", "M", "Q") for s in spots)
         ]
         dark_candidates = [
-            CLUSTER_MAJOR[c] for c in dark_map if dark_map[c]
+            CLUSTER_MAJOR[c] for c, dark in dark_map.items() if dark
         ]
-        # Remove duplicates while preserving initial ordering
+        # Remove duplicates while preserving initial ordering so heroes can
+        # select dark majors even when fewer than five clusters are dark.
         candidates = list(dict.fromkeys(rmq_candidates + dark_candidates))
 
         targets = [None] * H

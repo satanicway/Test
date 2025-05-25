@@ -223,42 +223,18 @@ def play_game(verbose=False, return_loss_detail=False):
 
         dist_maps = [dijkstra(h)[0] for h in heroes]
 
-        priority = None
-        if dark_count > 4 or rift_count > 6 or mons_count > 4:
-            diffs = {
-                'dark': dark_count - 3,
-                'rift': rift_count - 5,
-                'mons': mons_count - 3,
-            }
-            priority = max(diffs, key=diffs.get)
-            if diffs[priority] <= 0:
-                priority = None
-
-        if priority == 'dark':
-            candidates = [CLUSTER_MAJOR[c] for c in dark_map if dark_map[c]]
-        elif priority == 'rift':
-            candidates = [
-                loc for loc in board if any(s.t == 'R' for s in board[loc])
-            ]
-        elif priority == 'mons':
-            candidates = [
-                loc for loc in board if any(s.t == 'M' for s in board[loc])
-            ]
-        else:
-            if dark_count >= 5:
-                candidates = [
-                    CLUSTER_MAJOR[c] for c in dark_map if dark_map[c]
-                ]
-            else:
-                candidates = [
-                    loc
-                    for loc in board
-                    if any(s.t in ('R', 'M', 'Q') for s in board[loc])
-                ]
-                dark_candidates = [
-                    CLUSTER_MAJOR[c] for c in dark_map if dark_map[c]
-                ]
-                candidates = list(dict.fromkeys(candidates + dark_candidates))
+        # Candidate targets include all board locations containing a Rift,
+        # Monster or Quest, along with the major node for every dark cluster.
+        rmq_candidates = [
+            loc
+            for loc in board
+            if any(s.t in ('R', 'M', 'Q') for s in board[loc])
+        ]
+        dark_candidates = [
+            CLUSTER_MAJOR[c] for c in dark_map if dark_map[c]
+        ]
+        # Remove duplicates while preserving initial ordering
+        candidates = list(dict.fromkeys(rmq_candidates + dark_candidates))
 
         targets = [None] * H
         if candidates:

@@ -358,6 +358,12 @@ def play_game(verbose=False, return_loss_detail=False):
                 pile.remove(next(s for s in pile if s.t == 'Q'))
                 if verbose:
                     print(f"  Hero{h+1} took Quest")
+                free = [n for n in ALL if n != CENTRE and not board.get(n)]
+                if free:
+                    loc = random.choice(free)
+                    board[loc].append(Spot('Q'))
+                    if verbose:
+                        print(f"    New Quest at {loc}")
 
         if rnd < TOTAL_ROUNDS:
             if verbose:

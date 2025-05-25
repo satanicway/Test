@@ -8,6 +8,25 @@ from itertools import permutations
 HERO_SPEED   = 2
 TOTAL_ROUNDS = 9
 RUNS         = 2500
+
+# --- Spawn configuration ---
+# Chance that a monster spawns from each rift every round
+MONSTER_SPAWN_CHANCE = 1.0
+
+# Chance of new rifts appearing each round.  The dictionary maps the
+# round number to a list of ``(probability, count)`` tuples.  The
+# probability values are cumulative thresholds evaluated against
+# ``random.random()``.  Edit these values to tweak rift behaviour.
+RIFT_SPAWN_RULES = {
+    1: [(0.75, 1)],
+    2: [(0.75, 1)],
+    3: [(0.75, 1)],
+    4: [(0.25, 2), (0.75, 1)],
+    5: [(0.25, 2), (0.75, 1)],
+    6: [(0.25, 2), (0.75, 1)],
+    7: [(0.5, 2), (1.0, 1)],
+    8: [(0.5, 2), (1.0, 1)],
+}
 # ──────────────────────────────────────────────
 
 # ---------------- Graph ----------------
@@ -185,25 +204,24 @@ def end_of_round_darkness(rnd, verbose=False):
                     print(f"    Filled dark at {CLUSTER_MAJOR[cl]} ({cl})")
 
 
+def rift_spawn_count(rnd):
+    """Return the number of new rifts to spawn for the given round."""
+    rules = RIFT_SPAWN_RULES.get(rnd)
+    if not rules:
+        return 0
+    r = random.random()
+    for prob, count in rules:
+        if r < prob:
+            return count
+    return 0
+
+
 def spawn_end_of_round(rnd, verbose=False):
     global board
     if rnd == 9:
         return
 
-    if rnd <= 3:
-        k = 1 if random.random() < 0.75 else 0
-    elif rnd <= 6:
-        r = random.random()
-        if r < 0.25:
-            k = 2
-        elif r < 0.75:
-            k = 1
-        else:
-            k = 0
-    elif rnd <= 8:
-        k = 1 + (random.random() < 0.5)
-    else:
-        k = 0
+    k = rift_spawn_count(rnd)
 
     free = [n for n in ALL if n != CENTRE and not board.get(n)]
     rift_locs = random.sample(free, min(k, len(free)))
@@ -216,11 +234,12 @@ def spawn_end_of_round(rnd, verbose=False):
         loc for loc, spots in board.items() if any(s.t == 'R' for s in spots)
     ]
     for loc in rift_locs:
-        cl = NODE_TO_CLUSTER[loc]
-        ml = random.choice(CLUSTERS[cl])
-        board[ml].append(Spot('M'))
-        if verbose:
-            print(f"    Monster spawn at {ml}")
+        if random.random() < MONSTER_SPAWN_CHANCE:
+            cl = NODE_TO_CLUSTER[loc]
+            ml = random.choice(CLUSTERS[cl])
+            board[ml].append(Spot('M'))
+            if verbose:
+                print(f"    Monster spawn at {ml}")
 
 # ───────── Priority helpers ─────────
 def compute_priority(dark_cnt, rift_cnt, mons_cnt):
@@ -269,6 +288,8 @@ def play_game(verbose=False, return_loss_detail=False):
     dark_per_round = [0] * TOTAL_ROUNDS
     rifts_per_round = []
     mons_per_round = []
+    dark_removed = 0
+    quests_completed = 0
 
     if verbose:
         print("==== GAME START ====")
@@ -353,6 +374,7 @@ def play_game(verbose=False, return_loss_detail=False):
             if cl != 'A' and dark_map[cl] and pos == CLUSTER_MAJOR[cl]:
                 if random.random() < 0.7:
                     dark_map[cl] = False
+                    dark_removed += 1
                     if verbose:
                         print(f"  Hero{h+1} cleaned darkness at {pos}")
 
@@ -368,6 +390,7 @@ def play_game(verbose=False, return_loss_detail=False):
                     print(f"  Hero{h+1} killed Monster")
             elif 'Q' in types:
                 pile.remove(next(s for s in pile if s.t == 'Q'))
+                quests_completed += 1
                 if verbose:
                     print(f"  Hero{h+1} took Quest")
                 spawn_new_quest(verbose)
@@ -396,6 +419,8 @@ def play_game(verbose=False, return_loss_detail=False):
             'end_doom': doom,
             'peak_rifts': max(rifts_per_round),
             'peak_mons': max(mons_per_round),
+            'dark_removed': dark_removed,
+            'quests_completed': quests_completed,
         }
     return None
 
@@ -413,6 +438,8 @@ def main():
     sum_end_doom = 0
     sum_peak_rifts = 0
     sum_peak_mons = 0
+    sum_dark_removed = 0
+    sum_quests_completed = 0
 
     for i in range(1, RUNS + 1):
         res = play_game(verbose=False, return_loss_detail=True)
@@ -432,6 +459,8 @@ def main():
         sum_end_doom += res['end_doom']
         sum_peak_rifts += res['peak_rifts']
         sum_peak_mons += res['peak_mons']
+        sum_dark_removed += res['dark_removed']
+        sum_quests_completed += res['quests_completed']
 
         if i <= 10 or i % 100 == 0 or i == RUNS:
             sys.stdout.write(f"\rSim {i}/{RUNS} ({100 * i / RUNS:5.1f}%)")
@@ -457,6 +486,8 @@ def main():
     print(f"Avg end-of-game Doom:     {sum_end_doom / RUNS:.2f}\n")
     print(f"Avg peak Rifts:           {sum_peak_rifts / RUNS:.2f}")
     print(f"Avg peak Monsters:        {sum_peak_mons / RUNS:.2f}")
+    print(f"Avg darkness removed:     {sum_dark_removed / RUNS:.2f}")
+    print(f"Avg quests completed:     {sum_quests_completed / RUNS:.2f}")
 
 
 if __name__ == '__main__':

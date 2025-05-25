@@ -9,12 +9,13 @@ class TestEndOfRoundSpawning(unittest.TestCase):
         dgs.board = defaultdict(list)
         dgs.board[5].append(dgs.Spot('R'))
         with patch('dark_game_sim.random.sample', return_value=[6]), \
-             patch('dark_game_sim.random.random', side_effect=[0.0, 0.0, 0.0]):
+             patch('dark_game_sim.random.random', return_value=0.0), \
+             patch('dark_game_sim.random.choice', side_effect=[1, 2]):
             dgs.spawn_end_of_round(1)
         rift_locs = [loc for loc, spots in dgs.board.items() if any(s.t == 'R' for s in spots)]
         mons_at = [loc for loc, spots in dgs.board.items() if any(s.t == 'M' for s in spots)]
         self.assertCountEqual(rift_locs, [5, 6])
-        self.assertTrue(all(loc in mons_at for loc in [5, 6]))
+        self.assertCountEqual(mons_at, [1, 2])
 
 class TestPlayGameDoom(unittest.TestCase):
     def test_doom_before_spawning(self):

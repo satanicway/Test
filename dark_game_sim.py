@@ -216,10 +216,11 @@ def spawn_end_of_round(rnd, verbose=False):
         loc for loc, spots in board.items() if any(s.t == 'R' for s in spots)
     ]
     for loc in rift_locs:
-        if random.random() < 0.75:
-            board[loc].append(Spot('M'))
-            if verbose:
-                print(f"    Monster spawn at {loc}")
+        cl = NODE_TO_CLUSTER[loc]
+        ml = random.choice(CLUSTERS[cl])
+        board[ml].append(Spot('M'))
+        if verbose:
+            print(f"    Monster spawn at {ml}")
 
 # ───────── Priority helpers ─────────
 def compute_priority(dark_cnt, rift_cnt, mons_cnt):

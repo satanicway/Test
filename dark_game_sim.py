@@ -268,36 +268,38 @@ def play_game(verbose=False, return_loss_detail=False):
             }
             max_diff = max(diffs.values())
             if max_diff > 0:
-                candidates = [t for t, d in diffs.items() if d == max_diff]
-                if len(candidates) == 1:
-                    priority = candidates[0]
+                tmp = [t for t, d in diffs.items() if d == max_diff]
+                if len(tmp) == 1:
+                    priority = tmp[0]
                 else:
                     caps = {'D': 3, 'R': 5, 'M': 3}
-                    ratio = {t: diffs[t] / caps[t] for t in candidates}
-                    priority = max(candidates, key=lambda t: ratio[t])
+                    ratio = {t: diffs[t] / caps[t] for t in tmp}
+                    priority = max(tmp, key=lambda t: ratio[t])
+
+        rmq_candidates = [
+            loc
+            for loc, spots in board.items()
+            if any(s.t in ("R", "M", "Q") for s in spots)
+        ]
+        dark_candidates = [
+            CLUSTER_MAJOR[c] for c, dark in dark_map.items() if dark
+        ]
 
         if priority == 'D':
-            candidates = [CLUSTER_MAJOR[c] for c, d in dark_map.items() if d]
+            ordered = dark_candidates + rmq_candidates
         elif priority == 'R':
-            candidates = [
-                loc for loc, spots in board.items() if any(s.t == 'R' for s in spots)
-            ]
+            rifts = [loc for loc in rmq_candidates if any(s.t == 'R' for s in board[loc])]
+            others = [loc for loc in rmq_candidates if loc not in rifts]
+            ordered = rifts + dark_candidates + others
         elif priority == 'M':
-            candidates = [
-                loc for loc, spots in board.items() if any(s.t == 'M' for s in spots)
-            ]
+            mons = [loc for loc in rmq_candidates if any(s.t == 'M' for s in board[loc])]
+            others = [loc for loc in rmq_candidates if loc not in mons]
+            ordered = mons + dark_candidates + others
         else:
-            rmq_candidates = [
-                loc
-                for loc, spots in board.items()
-                if any(s.t in ("R", "M", "Q") for s in spots)
-            ]
-            dark_candidates = [
-                CLUSTER_MAJOR[c] for c, dark in dark_map.items() if dark
-            ]
-            # Remove duplicates while preserving initial ordering so heroes can
-            # select dark majors even when fewer than five clusters are dark.
-            candidates = list(dict.fromkeys(rmq_candidates + dark_candidates))
+            ordered = rmq_candidates + dark_candidates
+
+        # Remove duplicates while preserving ordering
+        candidates = list(dict.fromkeys(ordered))
 
         targets = [None] * H
         if candidates:

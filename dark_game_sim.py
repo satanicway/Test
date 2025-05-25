@@ -211,7 +211,6 @@ def play_game(verbose=False, return_loss_detail=False):
         mons_count = cnts['M']
         rifts_per_round.append(rift_count)
         mons_per_round.append(mons_count)
-        doom += mons_count
 
         dark_count = sum(dark_map[c] for c in dark_map if c != 'A')
         dark_per_round[rnd - 1] = dark_count
@@ -335,6 +334,8 @@ def play_game(verbose=False, return_loss_detail=False):
                 print(" End-of-round Darkness:")
             end_of_round_darkness(rnd, verbose)
             spawn_spots(ROUND_SPAWNS[rnd])
+            cnts = Counter(s.t for p in board.values() for s in p)
+            doom += cnts['M']
             if sum(dark_map[c] for c in dark_map if c != 'A') == 8:
                 full_loss = True
                 if verbose:

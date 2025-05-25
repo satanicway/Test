@@ -288,6 +288,9 @@ def play_game(verbose=False, return_loss_detail=False):
     dark_per_round = [0] * TOTAL_ROUNDS
     rifts_per_round = []
     mons_per_round = []
+    rifts_removed = 0
+    mons_removed = 0
+    moves_round = [[0] * H for _ in range(TOTAL_ROUNDS)]
 
     if verbose:
         print("==== GAME START ====")
@@ -363,6 +366,7 @@ def play_game(verbose=False, return_loss_detail=False):
                 mp -= cost
                 lost_hero[h] += cost - 1
                 lost_round[rnd - 1][h] += cost - 1
+                moves_round[rnd - 1][h] += 1
                 pos = nxt
             heroes[h] = pos
             if verbose:
@@ -379,10 +383,12 @@ def play_game(verbose=False, return_loss_detail=False):
             types = {s.t for s in pile}
             if 'R' in types and random.random() < min(1, 0.65 + (rnd - 1) * 0.015):
                 pile.remove(next(s for s in pile if s.t == 'R'))
+                rifts_removed += 1
                 if verbose:
                     print(f"  Hero{h+1} closed Rift")
             elif 'M' in types:
                 pile.remove(next(s for s in pile if s.t == 'M'))
+                mons_removed += 1
                 if verbose:
                     print(f"  Hero{h+1} killed Monster")
             elif 'Q' in types:
@@ -415,6 +421,9 @@ def play_game(verbose=False, return_loss_detail=False):
             'end_doom': doom,
             'peak_rifts': max(rifts_per_round),
             'peak_mons': max(mons_per_round),
+            'rifts_removed': rifts_removed,
+            'mons_removed': mons_removed,
+            'moves_round': moves_round,
         }
     return None
 
@@ -432,6 +441,9 @@ def main():
     sum_end_doom = 0
     sum_peak_rifts = 0
     sum_peak_mons = 0
+    sum_rifts_removed = 0
+    sum_mons_removed = 0
+    sum_moves_round = [[0] * H for _ in range(TOTAL_ROUNDS)]
 
     for i in range(1, RUNS + 1):
         res = play_game(verbose=False, return_loss_detail=True)
@@ -445,12 +457,15 @@ def main():
             sum_lost_hero[h] += res['lost_hero'][h]
             for r in range(TOTAL_ROUNDS):
                 sum_lost_round[r][h] += res['lost_round'][r][h]
+                sum_moves_round[r][h] += res['moves_round'][r][h]
 
         sum_end_rifts += res['end_rifts']
         sum_end_mons += res['end_mons']
         sum_end_doom += res['end_doom']
         sum_peak_rifts += res['peak_rifts']
         sum_peak_mons += res['peak_mons']
+        sum_rifts_removed += res['rifts_removed']
+        sum_mons_removed += res['mons_removed']
 
         if i <= 10 or i % 100 == 0 or i == RUNS:
             sys.stdout.write(f"\rSim {i}/{RUNS} ({100 * i / RUNS:5.1f}%)")
@@ -476,6 +491,14 @@ def main():
     print(f"Avg end-of-game Doom:     {sum_end_doom / RUNS:.2f}\n")
     print(f"Avg peak Rifts:           {sum_peak_rifts / RUNS:.2f}")
     print(f"Avg peak Monsters:        {sum_peak_mons / RUNS:.2f}")
+    print(f"Avg rifts removed:        {sum_rifts_removed / RUNS:.2f}")
+    print(f"Avg monsters removed:     {sum_mons_removed / RUNS:.2f}")
+    print("\nAvg hero movements per round:")
+    for r in range(TOTAL_ROUNDS):
+        vals = ", ".join(
+            f"H{h+1}:{sum_moves_round[r][h] / RUNS:.2f}" for h in range(H)
+        )
+        print(f" Round {r + 1}: {vals}")
 
 
 if __name__ == '__main__':

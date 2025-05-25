@@ -193,9 +193,15 @@ def spawn_end_of_round(rnd, verbose=False):
     if rnd <= 3:
         k = 1 if random.random() < 0.75 else 0
     elif rnd <= 6:
-        k = 1 + (random.random() < 0.5)
+        r = random.random()
+        if r < 0.25:
+            k = 2
+        elif r < 0.75:
+            k = 1
+        else:
+            k = 0
     elif rnd <= 8:
-        k = 2 + (random.random() < 0.5)
+        k = 1 + (random.random() < 0.5)
     else:
         k = 0
 

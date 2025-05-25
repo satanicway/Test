@@ -334,6 +334,7 @@ def play_game(verbose=False, return_loss_detail=False):
             if verbose:
                 print(" End-of-round Darkness:")
             end_of_round_darkness(rnd, verbose)
+            spawn_spots(ROUND_SPAWNS[rnd])
             if sum(dark_map[c] for c in dark_map if c != 'A') == 8:
                 full_loss = True
                 if verbose:

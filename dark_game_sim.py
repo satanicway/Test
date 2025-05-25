@@ -207,35 +207,35 @@ def play_game(verbose=False, return_loss_detail=False):
         if verbose:
             print(f"\n-- ROUND {rnd} --")
         cnts = Counter(s.t for p in board.values() for s in p)
-        rift_count = cnts['R']
-        mons_count = cnts['M']
-        rifts_per_round.append(rift_count)
-        mons_per_round.append(mons_count)
+        rift_cnt = cnts['R']
+        mons_cnt = cnts['M']
+        rifts_per_round.append(rift_cnt)
+        mons_per_round.append(mons_cnt)
 
-        dark_count = sum(dark_map[c] for c in dark_map if c != 'A')
-        dark_per_round[rnd - 1] = dark_count
+        dark_cnt = sum(dark_map[c] for c in CLUSTER_MAJOR)
+        dark_per_round[rnd - 1] = dark_cnt
         if verbose:
             dlist = [c for c in dark_map if dark_map[c]]
             print(
-                f" Rifts={rift_count} Mons={mons_count} Doom={doom} Dark={len(dlist)}/8 {dlist}"
+                f" Rifts={rift_cnt} Mons={mons_cnt} Doom={doom} Dark={len(dlist)}/8 {dlist}"
             )
             print(" Heroes:", heroes)
 
         dist_maps = [dijkstra(h)[0] for h in heroes]
 
         priority = None
-        if dark_count > 4 or rift_count > 6 or mons_count > 4:
+        if dark_cnt > 3 or rift_cnt > 5 or mons_cnt > 3:
             diffs = {
-                'dark': dark_count - 3,
-                'rift': rift_count - 5,
-                'mons': mons_count - 3,
+                'dark': dark_cnt - 3,
+                'rift': rift_cnt - 5,
+                'mons': mons_cnt - 3,
             }
             priority = max(diffs, key=diffs.get)
             if diffs[priority] <= 0:
                 priority = None
 
         if priority == 'dark':
-            candidates = [CLUSTER_MAJOR[c] for c in dark_map if dark_map[c]]
+            candidates = [CLUSTER_MAJOR[c] for c in CLUSTER_MAJOR if dark_map[c]]
         elif priority == 'rift':
             candidates = [
                 loc for loc in board if any(s.t == 'R' for s in board[loc])
@@ -245,10 +245,8 @@ def play_game(verbose=False, return_loss_detail=False):
                 loc for loc in board if any(s.t == 'M' for s in board[loc])
             ]
         else:
-            if dark_count >= 5:
-                candidates = [
-                    CLUSTER_MAJOR[c] for c in dark_map if dark_map[c]
-                ]
+            if dark_cnt >= 5:
+                candidates = [CLUSTER_MAJOR[c] for c in CLUSTER_MAJOR if dark_map[c]]
             else:
                 candidates = [
                     loc
@@ -256,7 +254,7 @@ def play_game(verbose=False, return_loss_detail=False):
                     if any(s.t in ('R', 'M', 'Q') for s in board[loc])
                 ]
                 dark_candidates = [
-                    CLUSTER_MAJOR[c] for c in dark_map if dark_map[c]
+                    CLUSTER_MAJOR[c] for c in CLUSTER_MAJOR if dark_map[c]
                 ]
                 candidates = list(dict.fromkeys(candidates + dark_candidates))
 

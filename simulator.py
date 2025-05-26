@@ -12,6 +12,15 @@ def roll_dice(dice: str) -> int:
     return sum(random.randint(1, sides) for _ in range(count))
 
 
+def parse_dice(dice: str) -> (int, int):
+    """Return (count, sides) for a dice string like '2d6'."""
+    try:
+        count, sides = map(int, dice.lower().split("d"))
+    except Exception:
+        return 0, 0
+    return count, sides
+
+
 @dataclass
 class Card:
     """Representation of an ability card."""
@@ -66,7 +75,6 @@ class Hero:
         if dmg > 0:
             if self.fate > 0:
                 dmg -= 1
-                self.fate -= 1
             if dmg > 0:
                 self.hp -= dmg
 
@@ -151,28 +159,67 @@ class Combat:
     def __init__(self, hero: Hero, monster: Monster):
         self.hero = hero
         self.monster = monster
+        self.round = 0
 
     def exchange(self) -> bool:
         """Run a single exchange. Return True if both combatants live."""
+        draw_seq = [3, 2, 1, 0]
+        if self.round < len(draw_seq):
+            self.hero.draw(draw_seq[self.round])
+        self.round += 1
+
         ranged = [c for c in self.hero.hand if c.type == "ranged"]
         melee = [c for c in self.hero.hand if c.type == "melee"]
         self.hero.hand.clear()
         order = ranged + melee
 
+        cancel_next = "cancel" in self.monster.abilities
+
         for card in order:
-            roll = card.roll()
-            dmg = roll + card.effects.get("damage", 0)
+            if cancel_next:
+                cancel_next = False
+                self.hero.discard.append(card)
+                continue
+
+            if "disrupt" in self.monster.abilities and self.hero.hand:
+                idx = random.randrange(len(self.hero.hand))
+                self.hero.discard.append(self.hero.hand.pop(idx))
+
+            dmg = 0
+            count, sides = parse_dice(card.dice)
+            rerolls = 0
+            for _ in range(count):
+                result = random.randint(1, sides)
+                while (result < self.monster.defense and self.hero.fate > 0
+                       and rerolls < 2 and self.monster.hp <= 2):
+                    self.hero.fate -= 1
+                    rerolls += 1
+                    result = random.randint(1, sides)
+                if result >= self.monster.defense:
+                    hit = 2 if random.random() < 0.2 else 1
+                    dmg += hit
+            dmg += card.effects.get("damage", 0)
             arm = card.effects.get("armor", 0)
             self.hero.add_armor(arm)
             actual = max(0, dmg - self.monster.armor)
             self.monster.armor = max(0, self.monster.armor - dmg)
             self.monster.hp -= actual
+
+            if "shot" in self.monster.abilities and card.type == "ranged" and self.monster.hp > 0:
+                self.hero.apply_damage(1)
+
             self.hero.discard.append(card)
 
         dmg, arm = self.monster.roll_action()
         self.monster.armor += arm
         if self.monster.hp > 0:
-            self.hero.apply_damage(dmg)
+            if "pierce" in self.monster.abilities:
+                saved = self.hero.armor
+                self.hero.armor = 0
+                self.hero.apply_damage(dmg)
+                self.hero.armor = saved
+            else:
+                self.hero.apply_damage(dmg)
             if "poison" in self.monster.abilities:
                 self.hero.apply_damage(1)
 
@@ -184,8 +231,6 @@ class Combat:
         round_num = 1
         while self.hero.hp > 0 and self.monster.hp > 0:
             print(f"-- Round {round_num} --")
-            self.hero.draw(1)
-            print("Hero plays:", ", ".join(c.name for c in self.hero.hand))
             alive = self.exchange()
             print(f"Hero HP: {self.hero.hp}")
             print(f"Monster HP: {self.monster.hp}\n")
@@ -359,16 +404,43 @@ def run_trials(hero_name: str, n: int) -> None:
     def run_combat(h: Hero, m: Monster) -> Dict[str, int]:
         """Simulate a combat without printing and return statistics."""
         stats = {"hero_damage": 0, "hero_armor": 0, "enemy_damage": 0, "enemy_armor": 0}
-        round_num = 1
+        round_num = 0
         while h.hp > 0 and m.hp > 0:
-            h.draw(1)
+            draw_seq = [3, 2, 1, 0]
+            if round_num < len(draw_seq):
+                h.draw(draw_seq[round_num])
+            round_num += 1
+
             ranged = [c for c in h.hand if c.type == "ranged"]
             melee = [c for c in h.hand if c.type == "melee"]
             h.hand.clear()
             order = ranged + melee
+
+            cancel_next = "cancel" in m.abilities
+
             for card in order:
-                roll = card.roll()
-                dmg = roll + card.effects.get("damage", 0)
+                if cancel_next:
+                    cancel_next = False
+                    h.discard.append(card)
+                    continue
+
+                if "disrupt" in m.abilities and h.hand:
+                    idx = random.randrange(len(h.hand))
+                    h.discard.append(h.hand.pop(idx))
+
+                dmg = 0
+                count, sides = parse_dice(card.dice)
+                rerolls = 0
+                for _ in range(count):
+                    result = random.randint(1, sides)
+                    while (result < m.defense and h.fate > 0 and rerolls < 2 and m.hp <= 2):
+                        h.fate -= 1
+                        rerolls += 1
+                        result = random.randint(1, sides)
+                    if result >= m.defense:
+                        hit = 2 if random.random() < 0.2 else 1
+                        dmg += hit
+                dmg += card.effects.get("damage", 0)
                 arm = card.effects.get("armor", 0)
                 h.add_armor(arm)
                 stats["hero_armor"] += arm
@@ -376,19 +448,32 @@ def run_trials(hero_name: str, n: int) -> None:
                 m.armor = max(0, m.armor - dmg)
                 m.hp -= actual
                 stats["hero_damage"] += actual
+
+                if "shot" in m.abilities and card.type == "ranged" and m.hp > 0:
+                    prev_hp = h.hp
+                    h.apply_damage(1)
+                    stats["enemy_damage"] += prev_hp - h.hp
+
                 h.discard.append(card)
+
             dmg, arm = m.roll_action()
             m.armor += arm
             stats["enemy_armor"] += arm
             if m.hp > 0:
                 prev_hp = h.hp
-                h.apply_damage(dmg)
+                if "pierce" in m.abilities:
+                    saved = h.armor
+                    h.armor = 0
+                    h.apply_damage(dmg)
+                    h.armor = saved
+                else:
+                    h.apply_damage(dmg)
                 if "poison" in m.abilities:
                     h.apply_damage(1)
                 stats["enemy_damage"] += prev_hp - h.hp
+
             h.reset_armor()
             m.armor = 0
-            round_num += 1
         return stats
 
     final_hps: List[int] = []

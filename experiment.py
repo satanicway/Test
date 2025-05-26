@@ -37,7 +37,11 @@ def run_experiments(
         Iterable of multipliers applied to every enemy damage band.
     armor_rules:
         Optional sequence of callables receiving ``True`` to apply and
-        ``False`` to revert armor related tweaks.
+        ``False`` to revert armor related tweaks.  Built-in helpers include
+        :func:`sim.band_reduction_rule`, :func:`sim.total_min_damage_rule`,
+        :func:`sim.per_enemy_min_damage_rule`,
+        :func:`sim.half_after_first_soak_rule`,
+        :func:`sim.armor_cap_rule` and :func:`sim.armor_decay_rule`.
     card_modifiers:
         Optional sequence of callables receiving ``True`` to apply and
         ``False`` to revert card related tweaks.

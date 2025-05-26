@@ -3,6 +3,8 @@ import unittest.mock
 import experiment
 import stats_runner
 import sim
+import io
+import contextlib
 
 
 class TestExperimentRunner(unittest.TestCase):
@@ -179,6 +181,90 @@ class TestExperimentRunner(unittest.TestCase):
         self.assertFalse(sim.TOTAL_MIN_DAMAGE)
 
         self.assertNotEqual(results_total[0]["wins"], results_per[0]["wins"])
+
+    def test_summary_report_for_multiple_rules(self):
+        """Run several armor rules and verify the formatted summary output.
+
+        The test simulates three simplified armor rules representing a balanced
+        configuration, an overpowered option and an underpowered option.  The
+        printed summary should flag rules whose win rates fall outside the
+        40-60% band or whose heroes finish over 30% HP more than 20% of the
+        time.
+        """
+
+        # Placeholder armor rules.  They don't modify the simulation state but
+        # allow run_experiments() to record which rule produced which results.
+        def rule_balanced(apply: bool) -> None:
+            pass
+
+        def rule_overpowered(apply: bool) -> None:
+            pass
+
+        def rule_underpowered(apply: bool) -> None:
+            pass
+
+        # Predetermined win counts and >30% HP outcomes for each rule above.
+        # The tuples are (wins_per_hero, high_hp_count) across two runs.  The
+        # values simulate whether the rule meets the target thresholds.
+        outcomes = [
+            (1, 0),  # balanced: 50% win rate, 0% high-HP
+            (2, 1),  # overpowered: 100% win rate, 50% high-HP
+            (0, 0),  # underpowered: 0% win rate, 0% high-HP
+        ]
+
+        def fake_run_stats_with_damage(*args, **kwargs):
+            idx = fake_run_stats_with_damage.calls
+            fake_run_stats_with_damage.calls += 1
+            wins_per_hero, over_count = outcomes[idx]
+            return (
+                {h.name: wins_per_hero for h in sim.HEROES},
+                {},
+                {h.name: [0] * 8 for h in sim.HEROES},
+                {h.name: over_count for h in sim.HEROES},
+            )
+
+        fake_run_stats_with_damage.calls = 0
+
+        with unittest.mock.patch(
+            "stats_runner.run_stats_with_damage", side_effect=fake_run_stats_with_damage
+        ):
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                results = experiment.run_experiments(
+                    hp_values=[20],
+                    damage_multipliers=[1.0],
+                    armor_rules=[rule_balanced, rule_overpowered, rule_underpowered],
+                    num_runs=2,
+                )
+                for entry in results:
+                    print(entry["armor_rule"])
+                    report = stats_runner.format_report(
+                        entry["wins"],
+                        {},
+                        {},
+                        {},
+                        2,
+                        entry["hp_avgs"],
+                        entry["hp_thresh"],
+                    )
+                    print(report)
+            summary = buf.getvalue()
+
+        # Balanced rule should not be flagged
+        self.assertIn("rule_balanced", summary)
+        self.assertIn("Hercules: 50.0% (1/2)", summary)
+        self.assertIn(">30% HP: 0.0% (0/2)", summary)
+        self.assertNotIn("50.0% (1/2) *", summary)
+
+        # Overpowered rule should be flagged for high win rate and HP
+        self.assertIn("rule_overpowered", summary)
+        self.assertIn("Hercules: 100.0% (2/2) *", summary)
+        self.assertIn(">30% HP: 50.0% (1/2)", summary)
+
+        # Underpowered rule should be flagged for low win rate
+        self.assertIn("rule_underpowered", summary)
+        self.assertIn("Hercules: 0.0% (0/2) *", summary)
+
 
 
 if __name__ == "__main__":

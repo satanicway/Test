@@ -330,7 +330,9 @@ def format_report(
     lines: list[str] = []
 
     lines.append("=== Hero Win Rates ===")
-    for hero in sorted(wins):
+    # iterate heroes in a deterministic order even if dictionaries are sparse
+    hero_names = sorted(set(wins) | set(hp_avgs) | set(hp_thresh))
+    for hero in hero_names:
         rate = (wins[hero] / num_runs) * 100 if num_runs else 0.0
         over = (hp_thresh.get(hero, 0) / num_runs) * 100 if num_runs else 0.0
         flag = "" if 40 <= rate <= 60 and over <= 20 else " *"
@@ -340,8 +342,8 @@ def format_report(
         lines.append(f"  HP after fights: {hp_str}")
         lines.append(f"  >30% HP: {over:.1f}% ({hp_thresh.get(hero,0)}/{num_runs})")
 
-    total_over = sum(hp_thresh.values())
-    total_runs = num_runs * len(hp_thresh)
+    total_over = sum(hp_thresh.get(h, 0) for h in hero_names)
+    total_runs = num_runs * len(hero_names)
     overall = (total_over / total_runs) * 100 if total_runs else 0.0
     stacking = "yes" if overall > 20 else "no"
     lines.append(f"Armor stacking >30% HP runs >20%: {stacking} ({overall:.1f}% overall)")

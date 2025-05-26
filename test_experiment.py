@@ -180,6 +180,109 @@ class TestExperimentRunner(unittest.TestCase):
 
         self.assertNotEqual(results_total[0]["wins"], results_per[0]["wins"])
 
+    def test_half_after_first_rule_effect(self):
+        outcomes = []
+
+        def fake_run_stats(*args, **kwargs):
+            hero = sim.Hero("Hero", 10, [])
+            hero.armor_pool = 4
+            e1 = sim.Enemy("G1", 1, 1, sim.Element.NONE, [2, 2, 2, 2])
+            e2 = sim.Enemy("G2", 1, 1, sim.Element.NONE, [2, 2, 2, 2])
+            ctx = {"enemies": [e1, e2]}
+            sim.monster_attack([hero], ctx)
+            outcomes.append((hero.hp, hero.armor_pool, sim.HALF_AFTER_FIRST))
+            return (
+                {h.name: 0 for h in sim.HEROES},
+                {},
+                {h.name: [0] for h in sim.HEROES},
+                {h.name: 0 for h in sim.HEROES},
+            )
+
+        with unittest.mock.patch(
+            "stats_runner.run_stats_with_damage", side_effect=fake_run_stats
+        ):
+            results = experiment.run_experiments(
+                hp_values=[10],
+                damage_multipliers=[1.0],
+                armor_rules=[sim.half_after_first_soak_rule],
+                num_runs=1,
+            )
+
+        hp, armor, flag = outcomes.pop()
+        self.assertTrue(flag)
+        self.assertEqual(hp, 9)
+        self.assertEqual(armor, 0)
+        self.assertEqual(results[0]["armor_rule"], "half_after_first_soak_rule")
+        self.assertFalse(sim.HALF_AFTER_FIRST)
+
+    def test_armor_cap_rule_effect(self):
+        outcomes = []
+
+        def fake_run_stats(*args, **kwargs):
+            hero = sim.Hero("Hero", 10, [])
+            hero.armor_pool = 5
+            enemy = sim.Enemy("Goblin", 1, 1, sim.Element.NONE, [5, 5, 5, 5])
+            ctx = {"enemies": [enemy]}
+            sim.monster_attack([hero], ctx)
+            outcomes.append((hero.hp, hero.armor_pool, sim.ARMOR_CAP))
+            return (
+                {h.name: 0 for h in sim.HEROES},
+                {},
+                {h.name: [0] for h in sim.HEROES},
+                {h.name: 0 for h in sim.HEROES},
+            )
+
+        with unittest.mock.patch(
+            "stats_runner.run_stats_with_damage", side_effect=fake_run_stats
+        ):
+            results = experiment.run_experiments(
+                hp_values=[10],
+                damage_multipliers=[1.0],
+                armor_rules=[sim.armor_cap_rule],
+                num_runs=1,
+            )
+
+        hp, armor, cap = outcomes.pop()
+        self.assertEqual(cap, 3)
+        self.assertEqual(hp, 8)
+        self.assertEqual(armor, 2)
+        self.assertEqual(results[0]["armor_rule"], "armor_cap_rule")
+        self.assertEqual(sim.ARMOR_CAP, 0)
+
+    def test_armor_decay_rule_effect(self):
+        outcomes = []
+
+        def fake_run_stats(*args, **kwargs):
+            hero = sim.Hero("Hero", 10, [])
+            hero.armor_pool = 1
+            enemy = sim.Enemy("Goblin", 1, 1, sim.Element.NONE, [0, 0, 0, 0])
+            ctx = {"enemies": [enemy]}
+            sim.monster_attack([hero], ctx)
+            outcomes.append((hero.hp, hero.armor_pool, sim.ARMOR_DECAY))
+            return (
+                {h.name: 0 for h in sim.HEROES},
+                {},
+                {h.name: [0] for h in sim.HEROES},
+                {h.name: 0 for h in sim.HEROES},
+            )
+
+        with unittest.mock.patch(
+            "stats_runner.run_stats_with_damage", side_effect=fake_run_stats
+        ):
+            results = experiment.run_experiments(
+                hp_values=[10],
+                damage_multipliers=[1.0],
+                armor_rules=[sim.armor_decay_rule],
+                num_runs=1,
+            )
+
+        hp, armor, flag = outcomes.pop()
+        self.assertTrue(flag)
+        self.assertEqual(hp, 10)
+        self.assertEqual(armor, 0)
+        self.assertEqual(results[0]["armor_rule"], "armor_decay_rule")
+        self.assertFalse(sim.ARMOR_DECAY)
+
 
 if __name__ == "__main__":
     unittest.main()

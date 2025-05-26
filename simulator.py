@@ -207,6 +207,38 @@ HERCULES_UPGRADES = [
 ]
 
 
+def merlin_base_deck() -> List[Card]:
+    """Return Merlin's starting deck of ten cards."""
+    return [
+        Card("Arcane Bolt", "ranged", "1d6", {"damage": 1}),
+        Card("Arcane Bolt", "ranged", "1d6", {"damage": 1}),
+        Card("Arcane Bolt", "ranged", "1d6", {"damage": 1}),
+        Card("Arcane Bolt", "ranged", "1d6", {"damage": 1}),
+        Card("Mystic Barrier", "ranged", "1d4", {"armor": 2}),
+        Card("Mystic Barrier", "ranged", "1d4", {"armor": 2}),
+        Card("Staff Strike", "melee", "1d6"),
+        Card("Staff Strike", "melee", "1d6"),
+        Card("Staff Strike", "melee", "1d6"),
+        Card("Staff Strike", "melee", "1d6"),
+    ]
+
+
+def hercules_base_deck() -> List[Card]:
+    """Return Hercules' starting deck of ten cards."""
+    return [
+        Card("Slash", "melee", "1d6", {"damage": 1}),
+        Card("Slash", "melee", "1d6", {"damage": 1}),
+        Card("Slash", "melee", "1d6", {"damage": 1}),
+        Card("Slash", "melee", "1d6", {"damage": 1}),
+        Card("Block", "melee", "1d4", {"armor": 2}),
+        Card("Block", "melee", "1d4", {"armor": 2}),
+        Card("Block", "melee", "1d4", {"armor": 2}),
+        Card("Block", "melee", "1d4", {"armor": 2}),
+        Card("Javelin", "ranged", "1d6", {"damage": 1}),
+        Card("Javelin", "ranged", "1d6", {"damage": 1}),
+    ]
+
+
 RARITY_WEIGHT = {"common": 3, "uncommon": 2, "rare": 1}
 
 
@@ -252,12 +284,7 @@ def run_trials(hero_name: str, n: int) -> None:
     - Percentage of runs where the hero defeated the final foe while alive.
     """
 
-    def base_deck() -> List[Card]:
-        return [
-            Card("Slash", "melee", "1d6", {"damage": 1}),
-            Card("Block", "melee", "1d4", {"armor": 2}),
-            Card("Arrow", "ranged", "1d6", {"damage": 1}),
-        ]
+    base_deck_fn = merlin_base_deck if hero_name.lower() == "merlin" else hercules_base_deck
 
     def encounter_list() -> List[Monster]:
         return [
@@ -313,7 +340,7 @@ def run_trials(hero_name: str, n: int) -> None:
     for _ in range(n):
         hero = Hero(name=hero_name, hp=20,
                     deck=[Card(c.name, c.type, c.dice, c.effects.copy(), c.rarity, c.upgrade)
-                          for c in base_deck()])
+                          for c in base_deck_fn()])
         encounters = [Monster(m.name, m.hp, m.defense, m.type, m.abilities.copy())
                       for m in encounter_list()]
 

@@ -116,6 +116,70 @@ class TestExperimentRunner(unittest.TestCase):
         self.assertNotEqual(results_rule[0]["wins"], results_no_rule[0]["wins"])
         self.assertNotEqual(results_rule[0]["hp_avgs"], results_no_rule[0]["hp_avgs"])
 
+    def test_min_damage_rules(self):
+        """total_min_damage_rule and per_enemy_min_damage_rule differ."""
+
+        outcomes = []
+
+        def fake_run_stats(*args, **kwargs):
+            flag = kwargs.get("min_damage", False)
+            hero = sim.Hero("Hero", 5, [])
+            hero.armor_pool = 5
+            e1 = sim.Enemy("G1", 1, 1, sim.Element.NONE, [1, 1, 1, 1])
+            e2 = sim.Enemy("G2", 1, 1, sim.Element.NONE, [1, 1, 1, 1])
+            ctx = {"enemies": [e1, e2]}
+            sim.RNG.seed(0)
+            sim.monster_attack([hero], ctx)
+            dmg = hero.max_hp - hero.hp
+            outcomes.append((flag, dmg, sim.MIN_DAMAGE, sim.TOTAL_MIN_DAMAGE))
+            win = 1 if sim.TOTAL_MIN_DAMAGE else 2
+            return (
+                {h.name: win for h in sim.HEROES},
+                {},
+                {h.name: [0] * 8 for h in sim.HEROES},
+                {h.name: 0 for h in sim.HEROES},
+            )
+
+        with unittest.mock.patch(
+            "stats_runner.run_stats_with_damage", side_effect=fake_run_stats
+        ):
+            results_total = experiment.run_experiments(
+                hp_values=[20],
+                damage_multipliers=[1.0],
+                armor_rules=[sim.total_min_damage_rule],
+                num_runs=1,
+            )
+
+        flag, dmg, min_flag, total_flag = outcomes.pop(0)
+        self.assertFalse(flag)
+        self.assertFalse(min_flag)
+        self.assertTrue(total_flag)
+        self.assertEqual(dmg, 1)
+        self.assertEqual(results_total[0]["wins"], {h.name: 1 for h in sim.HEROES})
+        self.assertFalse(sim.MIN_DAMAGE)
+        self.assertFalse(sim.TOTAL_MIN_DAMAGE)
+
+        with unittest.mock.patch(
+            "stats_runner.run_stats_with_damage", side_effect=fake_run_stats
+        ):
+            results_per = experiment.run_experiments(
+                hp_values=[20],
+                damage_multipliers=[1.0],
+                armor_rules=[sim.per_enemy_min_damage_rule],
+                num_runs=1,
+            )
+
+        flag, dmg, min_flag, total_flag = outcomes.pop(0)
+        self.assertFalse(flag)
+        self.assertTrue(min_flag)
+        self.assertFalse(total_flag)
+        self.assertEqual(dmg, 2)
+        self.assertEqual(results_per[0]["wins"], {h.name: 2 for h in sim.HEROES})
+        self.assertFalse(sim.MIN_DAMAGE)
+        self.assertFalse(sim.TOTAL_MIN_DAMAGE)
+
+        self.assertNotEqual(results_total[0]["wins"], results_per[0]["wins"])
+
 
 if __name__ == "__main__":
     unittest.main()

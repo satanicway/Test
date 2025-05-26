@@ -291,6 +291,21 @@ class TestMinotaurAbilities(unittest.TestCase):
         sim.monster_attack([hero], ctx)
         self.assertEqual(hero.hp, 2)
 
+    def test_min_damage_rule(self):
+        hero = sim.Hero("Hero", 10, [])
+        hero.armor_pool = 5
+        enemy = sim.Enemy("Goblin", 1, 1, sim.Element.NONE, [1, 1, 1, 1])
+        ctx = {"enemies": [enemy]}
+        sim.MIN_DAMAGE = False
+        sim.monster_attack([hero], ctx)
+        self.assertEqual(hero.hp, 10)
+        hero.hp = 10
+        hero.armor_pool = 5
+        sim.MIN_DAMAGE = True
+        sim.monster_attack([hero], ctx)
+        self.assertEqual(hero.hp, 9)
+        sim.MIN_DAMAGE = False
+
 
 class TestMonsterDamageTracking(unittest.TestCase):
     def test_damage_logged(self):

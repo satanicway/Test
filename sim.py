@@ -19,6 +19,10 @@ RNG = random.Random()
 # gameplay because all interactive prompts have been removed.
 AUTO_MODE = False
 
+# When ``MIN_DAMAGE`` is ``True`` monsters always inflict at least 1 HP
+# of damage after armor so long as the attack dealt positive damage.
+MIN_DAMAGE = False
+
 # Each enemy template stores its own damage band so the old per-wave
 # ``BANDS`` table is no longer required.  Enemy lookups below provide the
 # appropriate values for each wave.
@@ -547,7 +551,10 @@ def cleave_all(hero_list: List[Hero], dmg: int) -> None:
     for h in hero_list:
         soak = min(h.armor_pool, dmg)
         h.armor_pool -= soak
-        h.hp -= max(0, dmg - soak)
+        taken = max(0, dmg - soak)
+        if MIN_DAMAGE and dmg > 0 and taken == 0:
+            taken = 1
+        h.hp -= taken
 
 def enrage(enemy: Enemy) -> bool:
     """Return True if ``enemy`` is enraged and attacks twice."""
@@ -2575,6 +2582,8 @@ def monster_attack(heroes: List[Hero], ctx: Dict[str, object]) -> None:
         soak = min(hero.armor_pool, dmg)
         hero.armor_pool -= soak
         taken = max(0, dmg - soak)
+        if MIN_DAMAGE and dmg > 0 and taken == 0:
+            taken = 1
         hero.hp -= taken
         if enemy:
             MONSTER_DAMAGE[(hero.name, enemy.name)] += taken

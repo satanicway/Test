@@ -51,6 +51,11 @@ def main() -> None:
         default=None,
         help="Abort the gauntlet after this many total exchanges",
     )
+    parser.add_argument(
+        "--min-damage",
+        action="store_true",
+        help="Monsters always deal at least 1 damage after armor",
+    )
     args = parser.parse_args()
 
     report = stats_runner.generate_report(
@@ -61,6 +66,7 @@ def main() -> None:
         max_exchanges=args.max_exchanges,
         wave_timeout=args.wave_timeout,
         max_total_exchanges=args.max_total_exchanges,
+        min_damage=args.min_damage,
     )
     print(report)
 

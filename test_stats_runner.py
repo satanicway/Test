@@ -232,9 +232,10 @@ class TestStatsRunner(unittest.TestCase):
             max_exchanges=None,
             wave_timeout=None,
             max_total_exchanges=None,
+            min_damage=None,
         ):
             calls.append(
-                (timeout, max_retries, max_exchanges, wave_timeout, max_total_exchanges)
+                (timeout, max_retries, max_exchanges, wave_timeout, max_total_exchanges, min_damage)
             )
             return True
 
@@ -250,12 +251,13 @@ class TestStatsRunner(unittest.TestCase):
             )
 
         self.assertEqual(len(calls), len(sim.HEROES))
-        for t, r, e, w, m in calls:
+        for t, r, e, w, m, d in calls:
             self.assertEqual(t, 1.5)
             self.assertEqual(r, 7)
             self.assertEqual(e, 44)
             self.assertEqual(w, 0.5)
             self.assertEqual(m, 123)
+            self.assertFalse(d)
 
     def test_run_stats_with_damage_passes_options(self):
         calls = []
@@ -269,9 +271,10 @@ class TestStatsRunner(unittest.TestCase):
             max_exchanges=None,
             wave_timeout=None,
             max_total_exchanges=None,
+            min_damage=None,
         ):
             calls.append(
-                (timeout, max_retries, max_exchanges, wave_timeout, max_total_exchanges)
+                (timeout, max_retries, max_exchanges, wave_timeout, max_total_exchanges, min_damage)
             )
             return True
 
@@ -287,12 +290,13 @@ class TestStatsRunner(unittest.TestCase):
             )
 
         self.assertEqual(len(calls), len(sim.HEROES))
-        for t, r, e, w, m in calls:
+        for t, r, e, w, m, d in calls:
             self.assertEqual(t, 2.5)
             self.assertEqual(r, 8)
             self.assertEqual(e, 55)
             self.assertEqual(w, 1.5)
             self.assertEqual(m, 321)
+            self.assertFalse(d)
 
 if __name__ == "__main__":
     unittest.main()

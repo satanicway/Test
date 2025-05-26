@@ -73,7 +73,7 @@ def run_experiments(
         if card_fn:
             card_fn(True)
 
-        wins, _damage, hp_avgs = stats_runner.run_stats_with_damage(
+        wins, _damage, hp_avgs, _hp_thresh = stats_runner.run_stats_with_damage(
             num_runs=num_runs,
             progress=progress,
             timeout=timeout,

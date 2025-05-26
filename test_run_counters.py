@@ -5,7 +5,7 @@ import stats_runner
 class TestSimulationCounters(unittest.TestCase):
     def test_run_stats_aggregates(self):
         sim.RNG.seed(0)
-        wins, damage, hp = stats_runner.run_stats_with_damage(num_runs=3)
+        wins, damage, hp, over = stats_runner.run_stats_with_damage(num_runs=3)
         # win counters should record a loss for each hero
         expected_wins = {h.name: 0 for h in sim.HEROES}
         self.assertEqual(wins, expected_wins)

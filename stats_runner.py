@@ -216,6 +216,7 @@ def run_stats_with_damage(
     damage: dict = defaultdict(int)
     hp_totals: dict[str, list[int]] = {h.name: [0] * 8 for h in sim.HEROES}
     hp_counts: dict[str, list[int]] = {h.name: [0] * 8 for h in sim.HEROES}
+    hp_thresh: dict[str, int] = {h.name: 0 for h in sim.HEROES}
 
     sim.CARD_CORRELATIONS.clear()
     sim.ENEMY_RUN_COUNTS.clear()
@@ -233,7 +234,7 @@ def run_stats_with_damage(
                     proto.name, proto.max_hp, proto.base_cards[:], proto._orig_pool[:]
                 )
                 hp_log: list[int] = []
-                if run_gauntlet(
+                success = run_gauntlet(
                     hero,
                     hp_log,
                     timeout=timeout,
@@ -241,8 +242,12 @@ def run_stats_with_damage(
                     max_exchanges=max_exchanges,
                     wave_timeout=wave_timeout,
                     max_total_exchanges=max_total_exchanges,
-                ):
+                )
+                if success:
                     results[proto.name] += 1
+                final_hp = hero.hp if success else 0
+                if final_hp / proto.max_hp > 0.3:
+                    hp_thresh[proto.name] += 1
                 for idx in range(8):
                     hp = hp_log[idx] if idx < len(hp_log) else 0
                     hp_totals[proto.name][idx] += hp
@@ -293,8 +298,9 @@ def run_stats_with_damage(
             "elite": {"win": 0, "loss": 0},
         }
         damage[("Hercules", "Elite Minotaur")] = 0
+        hp_thresh = {h.name: 0 for h in sim.HEROES}
 
-    return results, damage, hp_avgs
+    return results, damage, hp_avgs, hp_thresh
 
 
 def format_report(
@@ -304,6 +310,7 @@ def format_report(
     enemy_data: dict,
     num_runs: int,
     hp_avgs: dict,
+    hp_thresh: dict,
 ) -> str:
     """Create a human readable report from aggregated statistics."""
     from collections import defaultdict
@@ -313,10 +320,19 @@ def format_report(
     lines.append("=== Hero Win Rates ===")
     for hero in sorted(wins):
         rate = (wins[hero] / num_runs) * 100 if num_runs else 0.0
-        lines.append(f"{hero}: {rate:.1f}% ({wins[hero]}/{num_runs})")
+        over = (hp_thresh.get(hero, 0) / num_runs) * 100 if num_runs else 0.0
+        flag = "" if 40 <= rate <= 60 and over <= 20 else " *"
+        lines.append(f"{hero}: {rate:.1f}% ({wins[hero]}/{num_runs}){flag}")
         hp_vals = hp_avgs.get(hero, [0.0] * 8)
         hp_str = "/".join(f"{v:.0f}%" for v in hp_vals)
         lines.append(f"  HP after fights: {hp_str}")
+        lines.append(f"  >30% HP: {over:.1f}% ({hp_thresh.get(hero,0)}/{num_runs})")
+
+    total_over = sum(hp_thresh.values())
+    total_runs = num_runs * len(hp_thresh)
+    overall = (total_over / total_runs) * 100 if total_runs else 0.0
+    stacking = "yes" if overall > 20 else "no"
+    lines.append(f"Armor stacking >30% HP runs >20%: {stacking} ({overall:.1f}% overall)")
 
     lines.append("\n=== Card Correlations ===")
     for hero in sorted(card_data):
@@ -367,7 +383,7 @@ def generate_report(
     max_total_exchanges: int | None = None,
 ) -> str:
     """Run gauntlets and return a formatted statistics report."""
-    wins, damage, hp = run_stats_with_damage(
+    wins, damage, hp, hp_thresh = run_stats_with_damage(
         num_runs,
         progress=progress,
         timeout=timeout,
@@ -378,7 +394,9 @@ def generate_report(
     )
     card_data = sim.get_card_correlations()
     enemy_data = sim.get_enemy_run_counts()
-    return format_report(wins, card_data, damage, enemy_data, num_runs, hp)
+    return format_report(
+        wins, card_data, damage, enemy_data, num_runs, hp, hp_thresh
+    )
 
 
 if __name__ == "__main__":

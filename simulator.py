@@ -371,18 +371,12 @@ def run_trials(hero_name: str, n: int) -> None:
     print(f"\nSuccess rate: {rate:.2f}%\n")
 
 
-def main():
-    deck = [
-        Card("Slash", "melee", "1d6", {"damage": 1}),
-        Card("Block", "melee", "1d4", {"armor": 2}),
-        Card("Arrow", "ranged", "1d6", {"damage": 1}),
-    ]
-    hero = Hero(name="Merlin", hp=20, deck=deck.copy())
-    hero.draw(2)
-
-    monster = Monster("Goblin", hp=15, defense=6, type="goblin", abilities=["tough"])
-    combat = Combat(hero, monster)
-    combat.run()
+def main() -> None:
+    """Run aggregated simulations for Merlin and Hercules."""
+    print("=== Merlin Trials ===")
+    run_trials("Merlin", 20000)
+    print("=== Hercules Trials ===")
+    run_trials("Hercules", 20000)
 
 
 if __name__ == "__main__":

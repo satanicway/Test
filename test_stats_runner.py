@@ -14,9 +14,10 @@ class TestStatsRunner(unittest.TestCase):
 
     def test_run_stats_with_hp(self):
         sim.RNG.seed(1)
-        wins, damage, hp = stats_runner.run_stats_with_damage(num_runs=1)
+        wins, damage, hp, over = stats_runner.run_stats_with_damage(num_runs=1)
         hero_names = {h.name for h in sim.HEROES}
         self.assertEqual(set(hp.keys()), hero_names)
+        self.assertEqual(set(over.keys()), hero_names)
         for vals in hp.values():
             self.assertEqual(len(vals), 8)
             for v in vals:
@@ -25,7 +26,7 @@ class TestStatsRunner(unittest.TestCase):
     def test_hp_log_fills_zeros_after_death(self):
         """HP logs should contain zeros after an early death."""
         sim.RNG.seed(0)
-        _, _, hp = stats_runner.run_stats_with_damage(num_runs=1)
+        _, _, hp, _ = stats_runner.run_stats_with_damage(num_runs=1)
         vals = hp.get("Hercules")
         self.assertIsNotNone(vals)
         self.assertEqual(len(vals), 8)

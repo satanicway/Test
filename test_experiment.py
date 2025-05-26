@@ -333,5 +333,53 @@ class TestExperimentRunner(unittest.TestCase):
         self.assertIn("rule_underpowered", summary)
         self.assertIn("Hercules: 0.0% (0/2) *", summary)
 
+    def test_auto_optimize_returns_best_config(self):
+        sim.RNG.seed(0)
+
+        orig_hp = {h.name: h.max_hp for h in sim.HEROES}
+        orig_bands = {n: e.damage_band[:] for n, e in sim.ENEMIES.items()}
+
+        calls: list[tuple[int, float]] = []
+
+        def fake_run_stats_with_damage(*args, **kwargs):
+            hp = sim.HEROES[0].max_hp
+            mult = sim.ENEMIES["Treant"].damage_band[1]
+            base = orig_bands["Treant"][1]
+            mult_val = 2.0 if mult == base * 2 else 1.0
+            calls.append((hp, mult_val))
+            wins = {h.name: (1 if (hp == 25 and mult_val == 2.0) else 0) for h in sim.HEROES}
+            return (
+                wins,
+                {},
+                {h.name: [0] * 8 for h in sim.HEROES},
+                {h.name: 0 for h in sim.HEROES},
+            )
+
+        with unittest.mock.patch("random.shuffle", lambda x: None):
+            with unittest.mock.patch(
+                "stats_runner.run_stats_with_damage",
+                side_effect=fake_run_stats_with_damage,
+            ):
+                best = experiment.auto_optimize(
+                    [20, 25],
+                    [1.0, 2.0],
+                    num_runs=2,
+                    time_limit=0.1,
+                )
+
+        self.assertEqual(
+            calls,
+            [(20, 1.0), (20, 2.0), (25, 1.0), (25, 2.0)],
+        )
+        self.assertIsNotNone(best)
+        self.assertEqual(best["hp"], 25)
+        self.assertEqual(best["mult"], 2.0)
+        self.assertFalse(best["min_damage"])
+
+        for hero in sim.HEROES:
+            self.assertEqual(hero.max_hp, orig_hp[hero.name])
+        for name, vals in orig_bands.items():
+            self.assertEqual(sim.ENEMIES[name].damage_band, vals)
+
 if __name__ == "__main__":
     unittest.main()

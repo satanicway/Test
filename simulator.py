@@ -242,6 +242,135 @@ def run_encounter(hero: Hero, encounters: List[Monster]) -> None:
             hero.draw(3)
 
 
+def run_trials(hero_name: str, n: int) -> None:
+    """Run ``n`` full encounters consisting of six combats each.
+
+    Statistics collected:
+    - Final hero HP after each run and the overall average.
+    - Average total damage dealt and armor gained by the hero.
+    - Average damage taken from and armor gained by each enemy type.
+    - Percentage of runs where the hero defeated the final foe while alive.
+    """
+
+    def base_deck() -> List[Card]:
+        return [
+            Card("Slash", "melee", "1d6", {"damage": 1}),
+            Card("Block", "melee", "1d4", {"armor": 2}),
+            Card("Arrow", "ranged", "1d6", {"damage": 1}),
+        ]
+
+    def encounter_list() -> List[Monster]:
+        return [
+            Monster("Goblin", hp=8, defense=6, type="goblin"),
+            Monster("Orc", hp=10, defense=6, type="orc", abilities=["tough"]),
+            Monster("Skeleton", hp=10, defense=5, type="undead", abilities=["poison"]),
+            Monster("Wolf", hp=12, defense=5, type="beast"),
+            Monster("Troll", hp=12, defense=7, type="troll", abilities=["tough"]),
+            Monster("Dragonling", hp=14, defense=8, type="dragon", abilities=["tough"]),
+        ]
+
+    def run_combat(h: Hero, m: Monster) -> Dict[str, int]:
+        """Simulate a combat without printing and return statistics."""
+        stats = {"hero_damage": 0, "hero_armor": 0, "enemy_damage": 0, "enemy_armor": 0}
+        round_num = 1
+        while h.hp > 0 and m.hp > 0:
+            h.draw(1)
+            ranged = [c for c in h.hand if c.type == "ranged"]
+            melee = [c for c in h.hand if c.type == "melee"]
+            h.hand.clear()
+            order = ranged + melee
+            for card in order:
+                roll = card.roll()
+                dmg = roll + card.effects.get("damage", 0)
+                arm = card.effects.get("armor", 0)
+                h.add_armor(arm)
+                stats["hero_armor"] += arm
+                actual = max(0, dmg - m.armor)
+                m.armor = max(0, m.armor - dmg)
+                m.hp -= actual
+                stats["hero_damage"] += actual
+                h.discard.append(card)
+            dmg, arm = m.roll_action()
+            m.armor += arm
+            stats["enemy_armor"] += arm
+            if m.hp > 0:
+                prev_hp = h.hp
+                h.apply_damage(dmg)
+                if "poison" in m.abilities:
+                    h.apply_damage(1)
+                stats["enemy_damage"] += prev_hp - h.hp
+            h.reset_armor()
+            m.armor = 0
+            round_num += 1
+        return stats
+
+    final_hps: List[int] = []
+    hero_damage_total = 0
+    hero_armor_total = 0
+    enemy_totals: Dict[str, Dict[str, float]] = {}
+    success = 0
+
+    for _ in range(n):
+        hero = Hero(name=hero_name, hp=20,
+                    deck=[Card(c.name, c.type, c.dice, c.effects.copy(), c.rarity, c.upgrade)
+                          for c in base_deck()])
+        encounters = [Monster(m.name, m.hp, m.defense, m.type, m.abilities.copy())
+                      for m in encounter_list()]
+
+        hero.deck = hero.deck[:10]
+        hero.hand.clear()
+        hero.discard.clear()
+        hero.draw(4)
+
+        last_alive = False
+        for idx, monster in enumerate(encounters):
+            hero.fate += 1
+            stats = run_combat(hero, monster)
+            hero_damage_total += stats["hero_damage"]
+            hero_armor_total += stats["hero_armor"]
+
+            et = monster.type
+            if et not in enemy_totals:
+                enemy_totals[et] = {"damage": 0, "armor": 0, "count": 0}
+            enemy_totals[et]["damage"] += stats["enemy_damage"]
+            enemy_totals[et]["armor"] += stats["enemy_armor"]
+            enemy_totals[et]["count"] += 1
+
+            if hero.hp <= 0:
+                last_alive = False
+                break
+            last_alive = monster.hp <= 0
+            if idx < len(encounters) - 1:
+                upgrade = draw_upgrade(hero)
+                hero.deck.append(upgrade)
+                hero.hand.append(upgrade)
+                hero.draw(3)
+
+        final_hps.append(hero.hp)
+        if last_alive and hero.hp > 0:
+            success += 1
+
+    avg_hp = sum(final_hps) / n if n else 0
+    print("Final HP per run:")
+    for i, hp in enumerate(final_hps, 1):
+        print(f"  Run {i}: {hp}")
+    print(f"Average final HP: {avg_hp:.2f}\n")
+
+    print("Average hero totals per run:")
+    print(f"  Damage dealt: {hero_damage_total / n:.2f}")
+    print(f"  Armor gained: {hero_armor_total / n:.2f}\n")
+
+    print("Enemy type averages:")
+    for etype, vals in enemy_totals.items():
+        count = vals["count"] or 1
+        dmg = vals["damage"] / count
+        arm = vals["armor"] / count
+        print(f"  {etype}: dealt {dmg:.2f} dmg, gained {arm:.2f} armor")
+
+    rate = (success / n) * 100 if n else 0
+    print(f"\nSuccess rate: {rate:.2f}%\n")
+
+
 def main():
     deck = [
         Card("Slash", "melee", "1d6", {"damage": 1}),

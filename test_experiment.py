@@ -265,7 +265,5 @@ class TestExperimentRunner(unittest.TestCase):
         self.assertIn("rule_underpowered", summary)
         self.assertIn("Hercules: 0.0% (0/2) *", summary)
 
-
-
 if __name__ == "__main__":
     unittest.main()

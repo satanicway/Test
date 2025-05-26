@@ -14,6 +14,7 @@ def run_experiments(
     damage_multipliers: Iterable[float],
     armor_rules: Optional[Iterable[Callable[[bool], Any]]] = None,
     card_modifiers: Optional[Iterable[Callable[[bool], Any]]] = None,
+    min_damage_values: Iterable[bool] | None = None,
     *,
     num_runs: int = 100,
     progress: bool = False,
@@ -37,6 +38,8 @@ def run_experiments(
     card_modifiers:
         Optional sequence of callables receiving ``True`` to apply and
         ``False`` to revert card related tweaks.
+    min_damage_values:
+        Iterable of booleans toggling the minimum damage rule.
     num_runs:
         Number of gauntlet simulations per experiment.
 
@@ -49,6 +52,7 @@ def run_experiments(
 
     armor_rules = list(armor_rules) if armor_rules is not None else [None]
     card_modifiers = list(card_modifiers) if card_modifiers is not None else [None]
+    min_damage_values = list(min_damage_values) if min_damage_values is not None else [False]
 
     # Preserve original values so they can be restored between runs
     orig_hp = {h.name: h.max_hp for h in sim.HEROES}
@@ -56,8 +60,8 @@ def run_experiments(
 
     results: list[dict[str, Any]] = []
 
-    for hp, mult, armor_fn, card_fn in itertools.product(
-        hp_values, damage_multipliers, armor_rules, card_modifiers
+    for hp, mult, armor_fn, card_fn, min_dmg in itertools.product(
+        hp_values, damage_multipliers, armor_rules, card_modifiers, min_damage_values
     ):
         # Apply hero HP
         for hero in sim.HEROES:
@@ -81,6 +85,7 @@ def run_experiments(
             max_exchanges=max_exchanges,
             wave_timeout=wave_timeout,
             max_total_exchanges=max_total_exchanges,
+            min_damage=min_dmg,
         )
 
         result = {
@@ -88,6 +93,7 @@ def run_experiments(
             "mult": mult,
             "armor_rule": getattr(armor_fn, "__name__", None),
             "card_modifier": getattr(card_fn, "__name__", None),
+            "min_damage": min_dmg,
             "wins": wins,
             "hp_avgs": hp_avgs,
         }
@@ -113,7 +119,7 @@ def run_experiments(
         rate = win_rate(entry) * 100
         print(
             f"HP={entry['hp']} mult={entry['mult']} armor={entry['armor_rule']} "
-            f"card={entry['card_modifier']} win={rate:.1f}%"
+            f"card={entry['card_modifier']} min_dmg={entry['min_damage']} win={rate:.1f}%"
         )
 
     return results

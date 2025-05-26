@@ -36,6 +36,7 @@ def run_gauntlet(
     max_exchanges: int | None = 1000,
     wave_timeout: float | None = 10.0,
     max_total_exchanges: int | None = None,
+    min_damage: bool = False,
 ) -> bool:
     """Run one gauntlet for ``hero`` using random waves and upgrade schedule.
 
@@ -55,6 +56,7 @@ def run_gauntlet(
         Abort the gauntlet once this many exchanges occur across all waves.
     """
     original_waves = sim.ENEMY_WAVES[:]
+    orig_min = sim.MIN_DAMAGE
 
     # track upgrade calls to add bonuses after 3rd and 6th fights
     orig_gain = hero.gain_upgrades
@@ -69,6 +71,7 @@ def run_gauntlet(
     while True:
         sim.ENEMY_WAVES = _select_waves()
         hero.gain_upgrades = patched
+        sim.MIN_DAMAGE = min_damage
         try:
             return sim.fight_one(
                 hero,
@@ -94,6 +97,7 @@ def run_gauntlet(
         finally:
             hero.gain_upgrades = orig_gain
             sim.ENEMY_WAVES = original_waves
+            sim.MIN_DAMAGE = orig_min
 
 
 # bulk stats ------------------------------------------------------------------
@@ -119,6 +123,7 @@ def run_stats(
     max_exchanges: int | None = 1000,
     wave_timeout: float | None = 10.0,
     max_total_exchanges: int | None = None,
+    min_damage: bool = False,
 ) -> Dict[str, int]:
     """Run ``num_runs`` gauntlets for each hero and return win counts.
 
@@ -161,6 +166,7 @@ def run_stats(
                     max_exchanges=max_exchanges,
                     wave_timeout=wave_timeout,
                     max_total_exchanges=max_total_exchanges,
+                    min_damage=min_damage,
                 ):
                     results[proto.name] += 1
                 count += 1
@@ -188,6 +194,7 @@ def run_stats_with_damage(
     max_exchanges: int | None = 1000,
     wave_timeout: float | None = 10.0,
     max_total_exchanges: int | None = None,
+    min_damage: bool = False,
 ) -> tuple[Dict[str, int], dict, dict]:
     """Run gauntlets collecting win counts, damage and HP progression.
 
@@ -242,6 +249,7 @@ def run_stats_with_damage(
                     max_exchanges=max_exchanges,
                     wave_timeout=wave_timeout,
                     max_total_exchanges=max_total_exchanges,
+                    min_damage=min_damage,
                 )
                 if success:
                     results[proto.name] += 1
@@ -381,6 +389,7 @@ def generate_report(
     max_exchanges: int | None = 1000,
     wave_timeout: float | None = 10.0,
     max_total_exchanges: int | None = None,
+    min_damage: bool = False,
 ) -> str:
     """Run gauntlets and return a formatted statistics report."""
     wins, damage, hp, hp_thresh = run_stats_with_damage(
@@ -391,6 +400,7 @@ def generate_report(
         max_exchanges=max_exchanges,
         wave_timeout=wave_timeout,
         max_total_exchanges=max_total_exchanges,
+        min_damage=min_damage,
     )
     card_data = sim.get_card_correlations()
     enemy_data = sim.get_enemy_run_counts()
@@ -442,6 +452,11 @@ if __name__ == "__main__":
         default=None,
         help="Abort the gauntlet after this many total exchanges",
     )
+    parser.add_argument(
+        "--min-damage",
+        action="store_true",
+        help="Monsters always deal at least 1 damage after armor",
+    )
     args = parser.parse_args()
 
     if args.report:
@@ -454,6 +469,7 @@ if __name__ == "__main__":
                 max_exchanges=args.max_exchanges,
                 wave_timeout=args.wave_timeout,
                 max_total_exchanges=args.max_total_exchanges,
+                min_damage=args.min_damage,
             )
         )
     else:
@@ -465,6 +481,7 @@ if __name__ == "__main__":
             max_exchanges=args.max_exchanges,
             wave_timeout=args.wave_timeout,
             max_total_exchanges=args.max_total_exchanges,
+            min_damage=args.min_damage,
         )
         for name, count in wins.items():
             print(f"{name}: {count}")

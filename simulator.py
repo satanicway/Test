@@ -1,6 +1,6 @@
 import random
 from dataclasses import dataclass, field
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 
 def roll_dice(dice: str) -> int:
@@ -19,6 +19,8 @@ class Card:
     type: str  # 'melee' or 'ranged'
     dice: str
     effects: Dict[str, int] = field(default_factory=dict)
+    rarity: str = "common"  # 'common', 'uncommon', or 'rare'
+    upgrade: bool = False
 
     def roll(self) -> int:
         return roll_dice(self.dice)
@@ -26,19 +28,30 @@ class Card:
 
 @dataclass
 class Hero:
+    name: str
     hp: int
     deck: List[Card] = field(default_factory=list)
     hand: List[Card] = field(default_factory=list)
+    discard: List[Card] = field(default_factory=list)
     armor: int = 0
     fate: int = 0
 
     def draw(self, count: int = 1) -> None:
         for _ in range(count):
+            if not self.deck and self.discard:
+                random.shuffle(self.discard)
+                self.deck.extend(self.discard)
+                self.discard.clear()
             if self.deck:
                 self.hand.append(self.deck.pop(0))
+            if len(self.hand) > 7:
+                idx = next((i for i, c in enumerate(self.hand) if not c.upgrade), 0)
+                self.discard.append(self.hand.pop(idx))
 
     def commit_card(self, index: int) -> Card:
-        return self.hand.pop(index)
+        card = self.hand.pop(index)
+        self.discard.append(card)
+        return card
 
     def add_armor(self, amount: int) -> None:
         self.armor += amount
@@ -98,6 +111,7 @@ class Combat:
             actual = max(0, dmg - self.monster.armor)
             self.monster.armor = max(0, self.monster.armor - dmg)
             self.monster.hp -= actual
+            self.hero.discard.append(card)
 
         dmg, arm = self.monster.roll_action()
         self.monster.armor += arm
@@ -128,13 +142,113 @@ class Combat:
             print(f"{self.monster.name} was defeated!")
 
 
+MERLIN_UPGRADES = [
+    Card("Runic Ray", "ranged", "1d6", rarity="common", upgrade=True),
+    Card("Crystal-Shot Volley", "ranged", "1d6", rarity="common", upgrade=True),
+    Card("Glyph-Marking Bolt", "ranged", "1d6", rarity="common", upgrade=True),
+    Card("Voice of Destiny", "ranged", "1d6", rarity="common", upgrade=True),
+    Card("Druidic Ways", "ranged", "1d6", rarity="common", upgrade=True),
+    Card("Protective Mists", "ranged", "1d6", rarity="common", upgrade=True),
+    Card("Mark of Fated Fall", "melee", "1d6", rarity="common", upgrade=True),
+    Card("Veil-Rain of Chaos", "ranged", "1d6", rarity="common", upgrade=True),
+    Card("Oracle of Avalon", "ranged", "1d6", rarity="common", upgrade=True),
+
+    Card("Waves of Destiny", "ranged", "1d6", rarity="uncommon", upgrade=True),
+    Card("Ancestral Echoes", "ranged", "1d6", rarity="uncommon", upgrade=True),
+    Card("Whispers of the Wyrd", "ranged", "1d6", rarity="uncommon", upgrade=True),
+    Card("Nature’s Rebuke", "ranged", "1d6", rarity="uncommon", upgrade=True),
+    Card("Guard from Beyond", "ranged", "1d6", rarity="uncommon", upgrade=True),
+    Card("Sage's Alacrity", "ranged", "1d6", rarity="uncommon", upgrade=True),
+    Card("Charged Spirits", "ranged", "1d6", rarity="uncommon", upgrade=True),
+    Card("Avalon's Light", "ranged", "1d6", rarity="uncommon", upgrade=True),
+    Card("Spiritual Gifts", "ranged", "1d6", rarity="uncommon", upgrade=True),
+
+    Card("Rune Shatter", "ranged", "1d6", rarity="rare", upgrade=True),
+    Card("Sigil of Final Fate", "ranged", "1d6", rarity="rare", upgrade=True),
+    Card("Conflux Lance", "ranged", "1d6", rarity="rare", upgrade=True),
+    Card("Echoes of Guidance", "ranged", "1d6", rarity="rare", upgrade=True),
+    Card("Mercury Guard", "ranged", "1d6", rarity="rare", upgrade=True),
+    Card("Old-Ways Shillelagh", "melee", "1d6", rarity="rare", upgrade=True),
+    Card("Favor of the Druids", "ranged", "1d6", rarity="rare", upgrade=True),
+    Card("Chains of Morrígan", "ranged", "1d6", rarity="rare", upgrade=True),
+    Card("Spirits of the Lands", "ranged", "1d6", rarity="rare", upgrade=True),
+]
+
+HERCULES_UPGRADES = [
+    Card("Bondless Effort", "melee", "1d6", rarity="common", upgrade=True),
+    Card("Colossus Smash", "melee", "1d6", rarity="common", upgrade=True),
+    Card("Olympian Call", "melee", "1d6", rarity="common", upgrade=True),
+    Card("Divine Resilience", "melee", "1d6", rarity="common", upgrade=True),
+    Card("Horde Breaker", "melee", "1d6", rarity="common", upgrade=True),
+    Card("Disorienting Blow", "melee", "1d6", rarity="common", upgrade=True),
+    Card("Piercing Spear", "ranged", "1d6", rarity="common", upgrade=True),
+    Card("Fated War", "melee", "1d6", rarity="common", upgrade=True),
+    Card("Fortune's Throw", "ranged", "1d6", rarity="common", upgrade=True),
+
+    Card("Pain Strike", "melee", "1d6", rarity="uncommon", upgrade=True),
+    Card("Fortifying Attack", "melee", "1d6", rarity="uncommon", upgrade=True),
+    Card("Bone-Splinter Whirl", "melee", "1d6", rarity="uncommon", upgrade=True),
+    Card("Glorious Uproar", "melee", "1d6", rarity="uncommon", upgrade=True),
+    Card("Guided By The Gods", "melee", "1d6", rarity="uncommon", upgrade=True),
+    Card("Chiron's Training", "melee", "1d6", rarity="uncommon", upgrade=True),
+    Card("Once Isn't Enough", "melee", "1d6", rarity="uncommon", upgrade=True),
+    Card("Strength from Anger", "melee", "1d6", rarity="uncommon", upgrade=True),
+    Card("Enduring Wave", "melee", "1d6", rarity="uncommon", upgrade=True),
+
+    Card("Zeus' Wrath", "melee", "1d6", rarity="rare", upgrade=True),
+    Card("Ares' Will", "melee", "1d6", rarity="rare", upgrade=True),
+    Card("True Might of Hercules", "melee", "1d6", rarity="rare", upgrade=True),
+    Card("Athena's Guidance", "melee", "1d6", rarity="rare", upgrade=True),
+    Card("Apollo's Sunburst", "ranged", "1d6", rarity="rare", upgrade=True),
+    Card("Nike's Desire", "melee", "1d6", rarity="rare", upgrade=True),
+    Card("Blessing of Hephaestus", "ranged", "1d6", rarity="rare", upgrade=True),
+    Card("Hermes’ Delivery", "melee", "1d6", rarity="rare", upgrade=True),
+    Card("Eris' Pandemonium", "melee", "1d6", rarity="rare", upgrade=True),
+]
+
+
+RARITY_WEIGHT = {"common": 3, "uncommon": 2, "rare": 1}
+
+
+def draw_upgrade(hero: Hero) -> Card:
+    """Draw three upgrade cards and keep the highest rarity."""
+    pool = MERLIN_UPGRADES if hero.name.lower() == "merlin" else HERCULES_UPGRADES
+    weights = [RARITY_WEIGHT[c.rarity] for c in pool]
+    cards = random.choices(pool, weights, k=3)
+    order = {"common": 0, "uncommon": 1, "rare": 2}
+    top = max(cards, key=lambda c: order[c.rarity]).rarity
+    finalists = [c for c in cards if c.rarity == top]
+    chosen = random.choice(finalists)
+    return Card(chosen.name, chosen.type, chosen.dice, chosen.effects.copy(), chosen.rarity, True)
+
+
+def run_encounter(hero: Hero, encounters: List[Monster]) -> None:
+    """Run a sequence of combats applying upgrade logic."""
+    hero.deck = hero.deck[:10]
+    hero.hand.clear()
+    hero.discard.clear()
+    hero.draw(4)
+
+    for idx, monster in enumerate(encounters):
+        hero.fate += 1
+        combat = Combat(hero, monster)
+        combat.run()
+        if hero.hp <= 0:
+            break
+        if idx < len(encounters) - 1:
+            upgrade = draw_upgrade(hero)
+            hero.deck.append(upgrade)
+            hero.hand.append(upgrade)
+            hero.draw(3)
+
+
 def main():
     deck = [
         Card("Slash", "melee", "1d6", {"damage": 1}),
         Card("Block", "melee", "1d4", {"armor": 2}),
         Card("Arrow", "ranged", "1d6", {"damage": 1}),
     ]
-    hero = Hero(hp=20, deck=deck.copy())
+    hero = Hero(name="Merlin", hp=20, deck=deck.copy())
     hero.draw(2)
 
     monster = Monster("Goblin", hp=15, defense=6, type="goblin", abilities=["tough"])

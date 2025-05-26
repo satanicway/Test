@@ -118,6 +118,74 @@ class TestExperimentRunner(unittest.TestCase):
         self.assertNotEqual(results_rule[0]["wins"], results_no_rule[0]["wins"])
         self.assertNotEqual(results_rule[0]["hp_avgs"], results_no_rule[0]["hp_avgs"])
 
+    def test_half_after_first_cap_and_decay_rules(self):
+        """half_after_first_soak_rule, armor_cap_rule and armor_decay_rule toggle globals."""
+
+        rules = [
+            (sim.half_after_first_soak_rule, "HALF_AFTER_FIRST", True, False),
+            (sim.armor_cap_rule, "ARMOR_CAP", 3, 0),
+            (sim.armor_decay_rule, "ARMOR_DECAY", True, False),
+        ]
+
+        for rule, attr, enabled, disabled in rules:
+            def fake_run_stats_with_rule(*args, **kwargs):
+                self.assertEqual(getattr(sim, attr), enabled)
+                return (
+                    {h.name: 1 for h in sim.HEROES},
+                    {},
+                    {h.name: [100] * 8 for h in sim.HEROES},
+                    {h.name: 0 for h in sim.HEROES},
+                )
+
+            with unittest.mock.patch(
+                "stats_runner.run_stats_with_damage", side_effect=fake_run_stats_with_rule
+            ):
+                results_rule = experiment.run_experiments(
+                    hp_values=[20],
+                    damage_multipliers=[1.0],
+                    armor_rules=[rule],
+                    num_runs=1,
+                )
+
+            self.assertEqual(getattr(sim, attr), disabled)
+
+            def fake_run_stats_no_rule(*args, **kwargs):
+                self.assertEqual(getattr(sim, attr), disabled)
+                return (
+                    {h.name: 0 for h in sim.HEROES},
+                    {},
+                    {h.name: [50] * 8 for h in sim.HEROES},
+                    {h.name: 0 for h in sim.HEROES},
+                )
+
+            with unittest.mock.patch(
+                "stats_runner.run_stats_with_damage", side_effect=fake_run_stats_no_rule
+            ):
+                results_no_rule = experiment.run_experiments(
+                    hp_values=[20],
+                    damage_multipliers=[1.0],
+                    num_runs=1,
+                )
+
+            entry = results_rule[0]
+            for key in [
+                "hp",
+                "mult",
+                "armor_rule",
+                "card_modifier",
+                "stat_mods",
+                "min_damage",
+                "wins",
+                "hp_avgs",
+                "hp_thresh",
+            ]:
+                self.assertIn(key, entry)
+
+            self.assertNotEqual(results_rule[0]["wins"], results_no_rule[0]["wins"])
+            self.assertNotEqual(
+                results_rule[0]["hp_avgs"], results_no_rule[0]["hp_avgs"]
+            )
+
     def test_min_damage_rules(self):
         """total_min_damage_rule and per_enemy_min_damage_rule differ."""
 

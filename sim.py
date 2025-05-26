@@ -23,9 +23,64 @@ AUTO_MODE = False
 # of damage after armor so long as the attack dealt positive damage.
 MIN_DAMAGE = False
 
+# Experimental combat rule toggles ------------------------------------------------
+# ``BAND_REDUCTION`` shifts monster damage band rolls down by available armor
+# rather than soaking after damage is determined.
+BAND_REDUCTION = False
+
+# ``TOTAL_MIN_DAMAGE`` guarantees at least 1 point of damage is taken by each
+# hero in a monster round if any attack hits that hero.
+TOTAL_MIN_DAMAGE = False
+
+# ``HALF_AFTER_FIRST`` halves armor effectiveness after the first soak in a
+# monster round.
+HALF_AFTER_FIRST = False
+
+# ``ARMOR_CAP`` limits total armor that can be spent per round when non-zero.
+ARMOR_CAP = 0
+
+# ``ARMOR_DECAY`` removes 1 armor from every hero at the start of each monster
+# round when enabled.
+ARMOR_DECAY = False
+
 # Each enemy template stores its own damage band so the old per-wave
 # ``BANDS`` table is no longer required.  Enemy lookups below provide the
 # appropriate values for each wave.
+
+def band_reduction_rule(apply: bool) -> None:
+    """Toggle damage band reduction by hero armor."""
+    global BAND_REDUCTION
+    BAND_REDUCTION = apply
+
+
+def total_min_damage_rule(apply: bool) -> None:
+    """Ensure at least 1 total damage per hero if any attacks land."""
+    global TOTAL_MIN_DAMAGE
+    TOTAL_MIN_DAMAGE = apply
+
+
+def per_enemy_min_damage_rule(apply: bool) -> None:
+    """Minimum 1 damage per enemy attack when enabled."""
+    global MIN_DAMAGE
+    MIN_DAMAGE = apply
+
+
+def half_after_first_soak_rule(apply: bool) -> None:
+    """Halve armor effectiveness after the first soak in a round."""
+    global HALF_AFTER_FIRST
+    HALF_AFTER_FIRST = apply
+
+
+def armor_cap_rule(apply: bool) -> None:
+    """Limit armor usage to 3 points per round."""
+    global ARMOR_CAP
+    ARMOR_CAP = 3 if apply else 0
+
+
+def armor_decay_rule(apply: bool) -> None:
+    """Lose 1 armor at the start of each monster round."""
+    global ARMOR_DECAY
+    ARMOR_DECAY = apply
 
 def d8() -> int:
     return RNG.randint(1, 8)
@@ -2604,14 +2659,43 @@ def resolve_attack(hero: Hero, card: Card, ctx: Dict[str, object]) -> None:
 
 def monster_attack(heroes: List[Hero], ctx: Dict[str, object]) -> None:
     """Resolve monster attacks for the current wave."""
+    if ARMOR_DECAY:
+        for h in heroes:
+            if h.armor_pool > 0:
+                h.armor_pool -= 1
 
-    def apply(hero: Hero, enemy: Optional[Enemy], dmg: int) -> None:
-        soak = min(hero.armor_pool, dmg)
-        hero.armor_pool -= soak
+    cap_rem = {h.name: ARMOR_CAP for h in heroes} if ARMOR_CAP else None
+    halved = {h.name: False for h in heroes} if HALF_AFTER_FIRST else None
+    totals = {h.name: 0 for h in heroes}
+    hits = {h.name: False for h in heroes}
+
+    def apply(hero: Hero, enemy: Optional[Enemy], dmg: int, soak_ok: bool = True) -> None:
+        if dmg > 0:
+            hits[hero.name] = True
+
+        if not soak_ok:
+            soak = 0
+        else:
+            avail = hero.armor_pool
+            if cap_rem is not None:
+                avail = min(avail, cap_rem[hero.name])
+            if HALF_AFTER_FIRST and halved is not None and halved[hero.name]:
+                soak = min(avail // 2, dmg)
+                spent = soak * 2
+            else:
+                soak = min(avail, dmg)
+                spent = soak
+                if HALF_AFTER_FIRST and halved is not None and soak > 0:
+                    halved[hero.name] = True
+            hero.armor_pool -= spent
+            if cap_rem is not None:
+                cap_rem[hero.name] -= spent
+
         taken = max(0, dmg - soak)
         if MIN_DAMAGE and dmg > 0 and taken == 0:
             taken = 1
         hero.hp -= taken
+        totals[hero.name] += taken
         if enemy:
             MONSTER_DAMAGE[(hero.name, enemy.name)] += taken
         if enemy:
@@ -2627,16 +2711,45 @@ def monster_attack(heroes: List[Hero], ctx: Dict[str, object]) -> None:
         attacks = 2 if e.ability == "enrage" and enrage(e) else 1
         for _ in range(attacks):
             band = e.damage_band
-            dmg = band[(d8() - 1) // 2]
             if e.ability == "cleave_all":
-                cleave_all(heroes, dmg)
+                roll = d8()
+                dmg = band[(max(1, roll) - 1) // 2]
+                for h in heroes:
+                    apply(h, e, dmg)
+                continue
+
+            target = ctx.get('forced_target', heroes[0])
+            roll = d8()
+            if BAND_REDUCTION:
+                avail = target.armor_pool
+                if cap_rem is not None:
+                    avail = min(avail, cap_rem[target.name])
+                if HALF_AFTER_FIRST and halved is not None and halved[target.name]:
+                    use = min(avail // 2, roll - 1)
+                    spent = use * 2
+                else:
+                    use = min(avail, roll - 1)
+                    spent = use
+                    if HALF_AFTER_FIRST and halved is not None and use > 0:
+                        halved[target.name] = True
+                target.armor_pool -= spent
+                if cap_rem is not None:
+                    cap_rem[target.name] -= spent
+                roll = max(1, roll - use)
+                dmg = band[(roll - 1) // 2]
+                apply(target, e, dmg, soak_ok=False)
             else:
-                target = ctx.get('forced_target', heroes[0])
+                dmg = band[(roll - 1) // 2]
                 apply(target, e, dmg)
 
     if bonus:
         target = ctx.get('forced_target', heroes[0])
         apply(target, None, bonus)
+
+    if TOTAL_MIN_DAMAGE:
+        for hero in heroes:
+            if hits[hero.name] and totals[hero.name] == 0:
+                hero.hp -= 1
 
 # very small fight simulation -------------------------------------------------
 

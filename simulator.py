@@ -89,6 +89,62 @@ class Monster:
         return damage, armor
 
 
+@dataclass
+class EnemyGroup:
+    """Collection of identical monsters appearing together."""
+
+    count: int
+    monster: Monster
+
+
+# Enemy groups from the design reference
+BASIC_GROUPS: List[EnemyGroup] = [
+    EnemyGroup(3, Monster("Shadow Spinner", hp=1, defense=4, type="spiritual",
+                          abilities=["Web Slinger: Ranged attacks are considered Melee."])),
+    EnemyGroup(3, Monster("Void Soldier", hp=2, defense=5, type="precise",
+                          abilities=["Dark Phalanx: Soldiers take -1 <DMG> (min. 1) from multi target attacks, if at least 2 Soldiers are alive."])),
+    EnemyGroup(3, Monster("Priest of Oblivion", hp=2, defense=3, type="arcane",
+                          abilities=["Power of Death: Priests deal +1 <DMG> for each dead Priest in this combat."])),
+    EnemyGroup(3, Monster("Corrupted Dryad", hp=2, defense=4, type="brutal",
+                          abilities=["Cursed Thorns: Unused <ARMOR> at end of Exchange cause hero to lose that amount of <HP>."])),
+    EnemyGroup(2, Monster("Dark Minotaur", hp=4, defense=3, type="precise",
+                          abilities=["Cleaving and Stomping: Minotaurs deals <DMG> to each hero in battle."])),
+    EnemyGroup(2, Monster("Dark Wizard", hp=2, defense=3, type="brutal",
+                          abilities=["Curse of Torment: Hero takes 1 <DMG> whenever it rolls a 1 or 2 (after rerolls)."])),
+    EnemyGroup(2, Monster("Shadow Banshee", hp=3, defense=5, type="divine",
+                          abilities=["Ghostly: Start of 4th Exchange, end combat without resolution. MOVE Banshees to the next letter Location in this tile."])),
+    EnemyGroup(1, Monster("Void Gryphon", hp=4, defense=5, type="spiritual",
+                          abilities=["Aerial Combat: Melee Attacks have -1 to <Hit> the Gryphon."])),
+    EnemyGroup(1, Monster("Void Treant", hp=7, defense=6, type="divine",
+                          abilities=["Power Sap: End of each Exchange, end 1 Combat effect. If it does, HEAL 1 the Treant."])),
+    EnemyGroup(1, Monster("Corrupted Angel", hp=5, defense=5, type="arcane",
+                          abilities=["Corrupted Destiny: Start of each Exchange, the hero loses 2 <Fate>."])),
+]
+
+ELITE_GROUPS: List[EnemyGroup] = [
+    EnemyGroup(3, Monster("Shadow Spinner", hp=2, defense=5, type="spiritual",
+                          abilities=["Sticky Web: Heroes DRAW -1 card on each Exchange draws."])),
+    EnemyGroup(3, Monster("Void Soldier", hp=3, defense=6, type="precise",
+                          abilities=["Spiked Armor: Whenever a single attack deals 3+ <DMG> against a Soldier, the hero loses 1 <HP>."])),
+    EnemyGroup(3, Monster("Priest of Oblivion", hp=3, defense=4, type="arcane",
+                          abilities=["Silence: No Combat or Exchange cards apply their effects."])),
+    EnemyGroup(3, Monster("Corrupted Dryad", hp=2, defense=5, type="brutal",
+                          abilities=["Disturbed Flow: Dice can't be rerolled in this combat."])),
+    EnemyGroup(2, Monster("Dark Minotaur", hp=5, defense=3, type="precise",
+                          abilities=["Enrage: When at 3 <HP> or less, the Minotaur attacks twice."])),
+    EnemyGroup(2, Monster("Dark Wizard", hp=2, defense=4, type="brutal",
+                          abilities=["Void Barrier: Gain 1 <Armor> for each different type of Element <DMG> applied against it. (<B>, <P>, etc...)"])),
+    EnemyGroup(2, Monster("Shadow Banshee", hp=4, defense=5, type="divine",
+                          abilities=["Banshee Wail: Deal 1 <DMG> to all heroes in this Combat for each 3 dice rolled against this Banshee in the Exchange (rounded down)."])),
+    EnemyGroup(1, Monster("Void Gryphon", hp=5, defense=5, type="spiritual",
+                          abilities=["Ephemeral Wings: After you deal <DMG> to the Gryphon, your next card in the Exchange deals no <DMG> to it."])),
+    EnemyGroup(1, Monster("Void Treant", hp=8, defense=7, type="divine",
+                          abilities=["Roots of Despair: Whenever a hero miss all dice on an attack card, it loses 1 <HP>."])),
+    EnemyGroup(1, Monster("Corrupted Angel", hp=7, defense=6, type="arcane",
+                          abilities=["Denied Heaven: Reroll all dice whose face is 8 (as many times as necessary)."])),
+]
+
+
 class Combat:
     """Run a combat between a hero and a monster."""
 
@@ -287,14 +343,18 @@ def run_trials(hero_name: str, n: int) -> None:
     base_deck_fn = merlin_base_deck if hero_name.lower() == "merlin" else hercules_base_deck
 
     def encounter_list() -> List[Monster]:
-        return [
-            Monster("Goblin", hp=8, defense=6, type="goblin"),
-            Monster("Orc", hp=10, defense=6, type="orc", abilities=["tough"]),
-            Monster("Skeleton", hp=10, defense=5, type="undead", abilities=["poison"]),
-            Monster("Wolf", hp=12, defense=5, type="beast"),
-            Monster("Troll", hp=12, defense=7, type="troll", abilities=["tough"]),
-            Monster("Dragonling", hp=14, defense=8, type="dragon", abilities=["tough"]),
-        ]
+        """Pick three basic and three elite enemy groups for this run."""
+
+        basic = random.sample(BASIC_GROUPS, 3)
+        elite = random.sample(ELITE_GROUPS, 3)
+        groups = basic + elite
+
+        encounters: List[Monster] = []
+        for g in groups:
+            # single representative monster per group
+            encounters.append(Monster(g.monster.name, g.monster.hp, g.monster.defense,
+                                      g.monster.type, g.monster.abilities.copy()))
+        return encounters
 
     def run_combat(h: Hero, m: Monster) -> Dict[str, int]:
         """Simulate a combat without printing and return statistics."""

@@ -120,6 +120,7 @@ class Hero:
     base_cards: List[Card]
     upg_pool: List[Card] = field(default_factory=list)
     _orig_pool: List[Card] = field(init=False, repr=False)
+    card_modifiers: Dict[str, Dict[str, float]] = field(default_factory=dict, repr=False)
 
     # dynamic state
     fate: int = 0
@@ -148,13 +149,39 @@ class Hero:
             self.card_rarity = {c.name: "base" for c in self.base_cards}
         self.reset()
 
+    def _mod_card(self, card: Card) -> Card:
+        """Return a copy of ``card`` applying any configured modifiers."""
+        mod = self.card_modifiers.get(card.name)
+        dmg = card.dice
+        arm = card.armor
+        if mod:
+            dmg = int(round(dmg * mod.get("damage", 1.0)))
+            arm = int(round(arm * mod.get("armor", 1.0)))
+        return Card(
+            card.name,
+            card.ctype,
+            dmg,
+            card.element,
+            arm,
+            card.effect,
+            card.persistent,
+            card.hymn,
+            card.multi,
+            card.max_targets,
+            card.dmg_per_hymn,
+            card.pre,
+            card.before_ranged,
+            card.hit_mod,
+        )
+
     def reset(self) -> None:
         # restore upgrade pool to the original state
         self.upg_pool = self._orig_pool[:]
         self.hp = self.max_hp
         self.fate = 0
         self.armor_pool = 0
-        self.deck = Deck(self.base_cards[:], owner=self)
+        cards = [self._mod_card(c) for c in self.base_cards]
+        self.deck = Deck(cards, owner=self)
         self.deck.shuffle()
         self.combat_effects.clear()
         self.exchange_effects.clear()
@@ -172,7 +199,7 @@ class Hero:
                 break
             card = RNG.choice(self.upg_pool)
             self.upg_pool.remove(card)
-            self.deck.cards.append(card)
+            self.deck.cards.append(self._mod_card(card))
 
     def spend_fate(self, n: int = 1) -> bool:
         """Spend ``n`` fate if above the hero specific threshold."""

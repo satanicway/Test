@@ -87,9 +87,11 @@ def run_gauntlet(
             retries += 1
             if retries > max_retries:
                 raise TimeoutError(f"{hero.name} gauntlet failed repeatedly") from exc
+            old_mods = hero.card_modifiers
             hero = sim.Hero(
                 hero.name, hero.max_hp, hero.base_cards[:], hero._orig_pool[:]
             )
+            hero.card_modifiers = old_mods
             counter["idx"] = 0
             orig_gain = hero.gain_upgrades
             if hp_log is not None:
@@ -159,6 +161,7 @@ def run_stats(
                 hero = sim.Hero(
                     proto.name, proto.max_hp, proto.base_cards[:], proto._orig_pool[:]
                 )
+                hero.card_modifiers = getattr(proto, "card_modifiers", {})
                 if run_gauntlet(
                     hero,
                     timeout=timeout,
@@ -240,6 +243,7 @@ def run_stats_with_damage(
                 hero = sim.Hero(
                     proto.name, proto.max_hp, proto.base_cards[:], proto._orig_pool[:]
                 )
+                hero.card_modifiers = getattr(proto, "card_modifiers", {})
                 hp_log: list[int] = []
                 success = run_gauntlet(
                     hero,

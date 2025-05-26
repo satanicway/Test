@@ -14,6 +14,7 @@ def run_experiments(
     damage_multipliers: Iterable[float],
     armor_rules: Optional[Iterable[Callable[[bool], Any]]] = None,
     card_modifiers: Optional[Iterable[Callable[[bool], Any]]] = None,
+    stat_modifiers: Optional[Iterable[dict[str, dict[str, float]]]] = None,
     min_damage_values: Iterable[bool] | None = None,
     *,
     num_runs: int = 100,
@@ -38,6 +39,10 @@ def run_experiments(
     card_modifiers:
         Optional sequence of callables receiving ``True`` to apply and
         ``False`` to revert card related tweaks.
+    stat_modifiers:
+        Optional sequence of dictionaries mapping card names to modifier
+        information. Each dictionary maps a card name to
+        ``{"damage": <mult>, "armor": <mult>}``.
     min_damage_values:
         Iterable of booleans toggling the minimum damage rule.
     num_runs:
@@ -52,16 +57,23 @@ def run_experiments(
 
     armor_rules = list(armor_rules) if armor_rules is not None else [None]
     card_modifiers = list(card_modifiers) if card_modifiers is not None else [None]
+    stat_modifiers = list(stat_modifiers) if stat_modifiers is not None else [None]
     min_damage_values = list(min_damage_values) if min_damage_values is not None else [False]
 
     # Preserve original values so they can be restored between runs
     orig_hp = {h.name: h.max_hp for h in sim.HEROES}
     orig_bands = {name: enemy.damage_band[:] for name, enemy in sim.ENEMIES.items()}
+    orig_mods = {h.name: h.card_modifiers for h in sim.HEROES}
 
     results: list[dict[str, Any]] = []
 
-    for hp, mult, armor_fn, card_fn, min_dmg in itertools.product(
-        hp_values, damage_multipliers, armor_rules, card_modifiers, min_damage_values
+    for hp, mult, armor_fn, card_fn, stat_map, min_dmg in itertools.product(
+        hp_values,
+        damage_multipliers,
+        armor_rules,
+        card_modifiers,
+        stat_modifiers,
+        min_damage_values,
     ):
         # Apply hero HP
         for hero in sim.HEROES:
@@ -76,6 +88,9 @@ def run_experiments(
             armor_fn(True)
         if card_fn:
             card_fn(True)
+        if stat_map:
+            for hero in sim.HEROES:
+                hero.card_modifiers = stat_map
 
         wins, _damage, hp_avgs, _hp_thresh = stats_runner.run_stats_with_damage(
             num_runs=num_runs,
@@ -93,6 +108,7 @@ def run_experiments(
             "mult": mult,
             "armor_rule": getattr(armor_fn, "__name__", None),
             "card_modifier": getattr(card_fn, "__name__", None),
+            "stat_mods": stat_map,
             "min_damage": min_dmg,
             "wins": wins,
             "hp_avgs": hp_avgs,
@@ -104,6 +120,9 @@ def run_experiments(
             armor_fn(False)
         if card_fn:
             card_fn(False)
+        if stat_map:
+            for hero in sim.HEROES:
+                hero.card_modifiers = orig_mods[hero.name]
 
         for hero in sim.HEROES:
             hero.max_hp = orig_hp[hero.name]
@@ -119,7 +138,8 @@ def run_experiments(
         rate = win_rate(entry) * 100
         print(
             f"HP={entry['hp']} mult={entry['mult']} armor={entry['armor_rule']} "
-            f"card={entry['card_modifier']} min_dmg={entry['min_damage']} win={rate:.1f}%"
+            f"card={entry['card_modifier']} min_dmg={entry['min_damage']} win={rate:.1f}%" 
+            f"mods={entry['stat_mods']}"
         )
 
     return results

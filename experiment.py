@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import itertools
 from typing import Iterable, Callable, Optional, Any
+import time
+import random
 
 import sim
 import stats_runner
@@ -92,7 +94,7 @@ def run_experiments(
             for hero in sim.HEROES:
                 hero.card_modifiers = stat_map
 
-        wins, _damage, hp_avgs, _hp_thresh = stats_runner.run_stats_with_damage(
+        wins, _damage, hp_avgs, hp_thresh = stats_runner.run_stats_with_damage(
             num_runs=num_runs,
             progress=progress,
             timeout=timeout,
@@ -112,6 +114,7 @@ def run_experiments(
             "min_damage": min_dmg,
             "wins": wins,
             "hp_avgs": hp_avgs,
+            "hp_thresh": hp_thresh,
         }
         results.append(result)
 
@@ -143,6 +146,104 @@ def run_experiments(
         )
 
     return results
+
+
+def auto_optimize(
+    hp_values: Iterable[int],
+    damage_multipliers: Iterable[float],
+    min_damage_values: Iterable[bool] | None = None,
+    *,
+    num_runs: int = 100,
+    progress: bool = False,
+    timeout: float = 60.0,
+    max_retries: int = 5,
+    max_exchanges: int | None = 1000,
+    wave_timeout: float | None = 10.0,
+    max_total_exchanges: int | None = None,
+    time_limit: float = 4 * 60 * 60,
+    print_every: int = 10,
+) -> Optional[dict[str, Any]]:
+    """Search parameter space for a balanced configuration.
+
+    The search iterates through ``hp_values`` and ``damage_multipliers``
+    combinations until ``time_limit`` seconds have elapsed. A dictionary
+    describing the best configuration is returned or ``None`` if no
+    acceptable parameters were found. Progress messages are printed every
+    ``print_every`` iterations when ``progress`` is ``True``.
+    """
+
+    min_damage_values = list(min_damage_values) if min_damage_values is not None else [False]
+
+    combos = list(itertools.product(hp_values, damage_multipliers, min_damage_values))
+    random.shuffle(combos)
+
+    orig_hp = {h.name: h.max_hp for h in sim.HEROES}
+    orig_bands = {name: e.damage_band[:] for name, e in sim.ENEMIES.items()}
+
+    best: Optional[dict[str, Any]] = None
+    best_score: float | None = None
+    start = time.time()
+    count = 0
+
+    for hp, mult, min_dmg in combos:
+        if time.time() - start >= time_limit:
+            break
+
+        for hero in sim.HEROES:
+            hero.max_hp = hp
+        for name, enemy in sim.ENEMIES.items():
+            base = orig_bands[name]
+            enemy.damage_band = [max(0, int(v * mult)) for v in base]
+
+        wins, _damage, hp_avgs, hp_thresh = stats_runner.run_stats_with_damage(
+            num_runs=num_runs,
+            progress=False,
+            timeout=timeout,
+            max_retries=max_retries,
+            max_exchanges=max_exchanges,
+            wave_timeout=wave_timeout,
+            max_total_exchanges=max_total_exchanges,
+            min_damage=min_dmg,
+        )
+
+        for hero in sim.HEROES:
+            hero.max_hp = orig_hp[hero.name]
+        for name, vals in orig_bands.items():
+            sim.ENEMIES[name].damage_band = vals[:]
+
+        win_rates = {h: wins[h] / num_runs for h in wins}
+        over_rates = {h: hp_thresh[h] / num_runs for h in hp_thresh}
+        overall_over = sum(hp_thresh.values()) / (num_runs * len(sim.HEROES))
+
+        good_rates = all(0.40 <= r <= 0.60 for r in win_rates.values())
+        good_hp = all(v <= 0.20 for v in over_rates.values()) and overall_over <= 0.20
+
+        if good_rates and good_hp:
+            score = sum((r - 0.5) ** 2 for r in win_rates.values())
+            if best_score is None or score < best_score:
+                best_score = score
+                best = {
+                    "hp": hp,
+                    "mult": mult,
+                    "min_damage": min_dmg,
+                    "wins": wins,
+                    "hp_avgs": hp_avgs,
+                    "hp_thresh": hp_thresh,
+                }
+
+        count += 1
+        if progress and count % print_every == 0:
+            elapsed = int(time.time() - start)
+            print(f"Tried {count}/{len(combos)} configs - elapsed {elapsed}s")
+
+    if progress:
+        if best is not None:
+            print("Best configuration found:")
+            print(best)
+        else:
+            print("No configuration satisfied constraints")
+
+    return best
 
 
 if __name__ == "__main__":

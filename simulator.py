@@ -149,7 +149,7 @@ BASIC_GROUPS: List[EnemyGroup] = [
                           abilities=["Cleaving and Stomping"],
                           action_table=BASIC_ACTION_TABLE)),
     EnemyGroup(2, Monster("Dark Wizard", hp=4, defense=3, type="brutal",
-                          abilities=["Curse of Torment"],
+                          abilities=["Curse of Torment", "Void Barrier"],
                           action_table=BASIC_ACTION_TABLE)),
     EnemyGroup(2, Monster("Shadow Banshee", hp=5, defense=5, type="divine",
                           abilities=["Ghostly"],
@@ -235,6 +235,7 @@ class Combat:
 
         dice_count = 0
         skip_next = False
+        void_type = None
 
         # Process cards sequentially
         while order:
@@ -303,6 +304,18 @@ class Combat:
 
             actual = max(0, dmg - self.monster.armor)
             self.monster.armor = max(0, self.monster.armor - dmg)
+
+            if "Void Barrier" in self.monster.abilities:
+                if void_type is None and actual > 0:
+                    void_type = card_type
+                elif void_type is not None and card_type != void_type:
+                    actual = 0
+
+            if ("Dark Phalanx" in self.monster.abilities and
+                    getattr(self.monster, "allies_alive", 1) > 1 and
+                    actual > 0):
+                actual = max(1, actual - 1)
+
             self.monster.hp -= actual
 
             if "Spiked Armor" in self.monster.abilities and actual >= 3:
@@ -320,6 +333,8 @@ class Combat:
             self.hero.apply_damage(dice_count // 3)
 
         dmg, arm = self.monster.roll_action()
+        if "Power of Death" in self.monster.abilities:
+            dmg += getattr(self.monster, "dead_allies", 0)
         if "Enrage" in self.monster.abilities and self.monster.hp <= 3:
             extra_dmg, extra_arm = self.monster.roll_action()
             dmg += extra_dmg
@@ -337,6 +352,14 @@ class Combat:
                 self.hero.apply_damage(1)
 
         leftover = self.hero.armor
+        if "Power Sap" in self.monster.abilities and self.monster.hp > 0:
+            if self.hero.fate > 0:
+                self.hero.fate -= 1
+                self.monster.hp += 1
+            elif leftover > 0:
+                self.hero.armor = max(0, self.hero.armor - 1)
+                leftover -= 1
+                self.monster.hp += 1
         self.hero.reset_armor()
         self.monster.armor = 0
         if "Cursed Thorns" in self.monster.abilities and leftover > 0:
@@ -570,6 +593,9 @@ def run_trials(hero_name: str, n: int) -> None:
 
             dice_count = 0
             skip_next = False
+            for m in alive:
+                if "Void Barrier" in m.abilities:
+                    m.allowed_type = None
 
             while order:
                 card = order.pop(0)
@@ -645,6 +671,18 @@ def run_trials(hero_name: str, n: int) -> None:
 
                 actual = max(0, dmg - target.armor)
                 target.armor = max(0, target.armor - dmg)
+
+                if "Void Barrier" in target.abilities:
+                    if getattr(target, "allowed_type", None) is None and actual > 0:
+                        target.allowed_type = card_type
+                    elif (getattr(target, "allowed_type", None) is not None and
+                          card_type != target.allowed_type):
+                        actual = 0
+
+                if "Dark Phalanx" in target.abilities and actual > 0:
+                    if sum(1 for mm in alive if "Dark Phalanx" in mm.abilities and mm.hp > 0) > 1:
+                        actual = max(1, actual - 1)
+
                 target.hp -= actual
                 stats["hero_damage"] += actual
 
@@ -671,6 +709,9 @@ def run_trials(hero_name: str, n: int) -> None:
 
             for mm in alive:
                 dmg, arm = mm.roll_action()
+                if "Power of Death" in mm.abilities:
+                    dead = sum(1 for p in monsters if "Power of Death" in p.abilities and p.hp <= 0)
+                    dmg += dead
                 if "Enrage" in mm.abilities and mm.hp <= 3:
                     extra_dmg, extra_arm = mm.roll_action()
                     dmg += extra_dmg
@@ -690,6 +731,15 @@ def run_trials(hero_name: str, n: int) -> None:
                         h.apply_damage(1)
                     stats["enemy_damage"] += prev_hp - h.hp
             leftover = h.armor
+            for mm in alive:
+                if "Power Sap" in mm.abilities and mm.hp > 0:
+                    if h.fate > 0:
+                        h.fate -= 1
+                        mm.hp += 1
+                    elif leftover > 0:
+                        h.armor = max(0, h.armor - 1)
+                        leftover -= 1
+                        mm.hp += 1
             h.reset_armor()
             for mm in alive:
                 mm.armor = 0

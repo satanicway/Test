@@ -572,7 +572,8 @@ def run_trials(hero_name: str, n: int) -> None:
         return stats
 
     final_hps: List[int] = []
-    round_hps: List[int] = []
+    combat_hps: List[List[int]] = [[] for _ in range(6)]
+    round_hp_lists: List[List[int]] = []
     hero_damage_total = 0
     hero_armor_total = 0
     enemy_totals: Dict[str, Dict[str, float]] = {}
@@ -608,7 +609,12 @@ def run_trials(hero_name: str, n: int) -> None:
             stats = run_combat(hero, group)
             hero_damage_total += stats["hero_damage"]
             hero_armor_total += stats["hero_armor"]
-            round_hps.extend(stats["hero_hp"])
+            for i, val in enumerate(stats["hero_hp"]):
+                while len(round_hp_lists) <= i:
+                    round_hp_lists.append([])
+                round_hp_lists[i].append(val)
+            if idx < len(combat_hps):
+                combat_hps[idx].append(hero.hp)
 
             et = group[0].type
             if et not in enemy_totals:
@@ -632,9 +638,20 @@ def run_trials(hero_name: str, n: int) -> None:
             success += 1
 
     avg_hp = sum(final_hps) / n if n else 0
-    avg_round_hp = sum(round_hps) / len(round_hps) if round_hps else 0
     print(f"Average final HP: {avg_hp:.2f}")
-    print(f"Average HP per round: {avg_round_hp:.2f}\n")
+    for idx, lst in enumerate(combat_hps, 1):
+        if lst:
+            avg = sum(lst) / len(lst)
+        else:
+            avg = 0
+        print(f"  After combat {idx}: {avg:.2f}")
+    print()
+
+    print("Average HP per round:")
+    for idx, lst in enumerate(round_hp_lists, 1):
+        avg = sum(lst) / len(lst) if lst else 0
+        print(f"  Exchange {idx}: {avg:.2f}")
+    print()
 
     print("Average hero totals per run:")
     print(f"  Damage dealt: {hero_damage_total / n:.2f}")

@@ -113,14 +113,18 @@ class Monster:
     armor: int = 0
     dice_bonus_against: int = 0
 
-    def roll_action(self) -> (int, int):
-        """Return (damage, armor) for the exchange using a d8 table."""
+    def roll_action(self) -> (int, int, bool, bool, bool, bool):
+        """Return (damage, armor, p, dr, s, c) for the exchange using a d8 table."""
         roll = random.randint(1, 8)
         idx = (roll - 1) // 2
         entry = self.action_table[min(idx, len(self.action_table) - 1)]
         damage = entry.get("damage", 0)
         armor = entry.get("armor", 0)
-        return damage, armor
+        p = entry.get("p", False)
+        dr = entry.get("dr", False)
+        s = entry.get("s", False)
+        c = entry.get("c", False)
+        return damage, armor, p, dr, s, c
 
 
 # Action tables for each monster. These should reflect the values in
@@ -129,73 +133,73 @@ class Monster:
 # clearer data becomes available.
 
 SHADOW_SPINNER_TABLE = [
-    {"damage": 1, "armor": 0},
-    {"damage": 1, "armor": 1},
     {"damage": 2, "armor": 0},
-    {"damage": 3, "armor": 1},
+    {"damage": 1, "armor": 0},
+    {"damage": 2, "armor": 0},
+    {"damage": 2, "armor": 0, "p": True},
 ]
 
 VOID_SOLDIER_TABLE = [
     {"damage": 1, "armor": 0},
-    {"damage": 1, "armor": 1},
+    {"damage": 1, "armor": 0},
     {"damage": 2, "armor": 0},
-    {"damage": 3, "armor": 1},
+    {"damage": 1, "armor": 0},
 ]
 
 PRIEST_OF_OBLIVION_TABLE = [
+    {"damage": 0, "armor": 0, "dr": True},
     {"damage": 1, "armor": 0},
-    {"damage": 1, "armor": 1},
-    {"damage": 2, "armor": 0},
-    {"damage": 3, "armor": 1},
+    {"damage": 1, "armor": 0},
+    {"damage": 1, "armor": 0},
 ]
 
 CORRUPTED_DRYAD_TABLE = [
     {"damage": 1, "armor": 0},
-    {"damage": 1, "armor": 1},
+    {"damage": 1, "armor": 0},
+    {"damage": 0, "armor": 0, "s": True},
     {"damage": 2, "armor": 0},
-    {"damage": 3, "armor": 1},
 ]
 
 DARK_MINOTAUR_TABLE = [
     {"damage": 1, "armor": 0},
-    {"damage": 1, "armor": 1},
+    {"damage": 1, "armor": 0},
+    {"damage": 1, "armor": 0, "p": True},
     {"damage": 2, "armor": 0},
-    {"damage": 3, "armor": 1},
 ]
 
 DARK_WIZARD_TABLE = [
+    {"damage": 1, "armor": 0, "c": True},
     {"damage": 1, "armor": 0},
-    {"damage": 1, "armor": 1},
+    {"damage": 1, "armor": 0},
     {"damage": 2, "armor": 0},
-    {"damage": 3, "armor": 1},
 ]
 
 SHADOW_BANSHEE_TABLE = [
+    {"damage": 3, "armor": 0},
+    {"damage": 0, "armor": 0, "dr": True},
     {"damage": 1, "armor": 0},
-    {"damage": 1, "armor": 1},
-    {"damage": 2, "armor": 0},
-    {"damage": 3, "armor": 1},
+    {"damage": 1, "armor": 0},
 ]
 
 VOID_GRYphon_TABLE = [
     {"damage": 1, "armor": 0},
-    {"damage": 1, "armor": 1},
+    {"damage": 1, "armor": 0},
     {"damage": 2, "armor": 0},
-    {"damage": 3, "armor": 1},
+    {"damage": 3, "armor": 2, "p": True},
 ]
 
 VOID_TREANT_TABLE = [
+    {"damage": 3, "armor": 0},
     {"damage": 1, "armor": 0},
-    {"damage": 1, "armor": 1},
-    {"damage": 2, "armor": 0},
-    {"damage": 3, "armor": 1},
+    {"damage": 1, "armor": 0},
+    {"damage": 4, "armor": 1},
 ]
 
 CORRUPTED_ANGEL_TABLE = [
     {"damage": 1, "armor": 0},
-    {"damage": 1, "armor": 1},
+    {"damage": 2, "armor": 0, "p": True},
+    {"damage": 3, "armor": 0, "s": True},
     {"damage": 2, "armor": 0},
-    {"damage": 3, "armor": 1},
 ]
 
 
@@ -481,9 +485,9 @@ def run_trials(hero_name: str, n: int) -> None:
             for m in alive:
                 if "Void Barrier" in m.abilities:
                     m.allowed_type = None
-                dmg, arm = m.roll_action()
+                dmg, arm, *_ = m.roll_action()
                 if "Enrage" in m.abilities and m.hp <= 3:
-                    extra_dmg, extra_arm = m.roll_action()
+                    extra_dmg, extra_arm, *_ = m.roll_action()
                     dmg += extra_dmg
                     arm += extra_arm
                 if "Power of Death" in m.abilities:

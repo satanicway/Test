@@ -1,77 +1,105 @@
-import copy
-from typing import List, Dict
 import simulator
+from copy import deepcopy
+from typing import List, Dict
 
-
-# Helpers to adjust enemy stats
-
-def scale_table(table: List[Dict[str, int]], factor: float) -> List[Dict[str, int]]:
-    """Return a new action table with damage values scaled by ``factor``."""
-    new_table: List[Dict[str, int]] = []
-    for row in table:
-        new_row = row.copy()
-        if "damage" in new_row:
-            new_row["damage"] = max(0, int(round(new_row["damage"] * factor)))
-        new_table.append(new_row)
-    return new_table
-
-
-# Percent changes for basic and elite enemies.
-# Each tuple is (hp_factor, damage_factor)
-BASIC_MODS: Dict[str, tuple] = {
-    "Shadow Spinner": (3.0, 7.8),
-    "Void Soldier": (1.3, 2.1),
-    "Priest of Oblivion": (1.5, 10.6),
-    "Corrupted Dryad": (1.3, 1.2),
-    "Dark Minotaur": (1.2, 3.4),
-    "Dark Wizard": (1.25, 1.6),
-    "Shadow Banshee": (1.25, 8.1),
-    "Void Gryphon": (1.2, 1.9),
-    "Void Treant": (0.85, 0.84),
-    "Corrupted Angel": (1.0, 2.73),
+# HP modifiers as percent changes
+BASIC_HP_MOD: Dict[str, float] = {
+    "Shadow Spinner": 0.0,
+    "Void Soldier": 0.0,
+    "Priest of Oblivion": 0.0,
+    "Corrupted Dryad": 0.0,
+    "Dark Minotaur": 0.0,
+    "Dark Wizard": 0.0,
+    "Shadow Banshee": 0.0,
+    "Corrupted Angel": 0.0,
+    "Void Gryphon": 0.0,
+    "Void Treant": 0.0,
 }
 
-ELITE_MODS: Dict[str, tuple] = {
-    "Shadow Spinner": (1.3, 1.7),
-    "Void Soldier": (1.25, 1.7),
-    "Priest of Oblivion": (1.25, 3.88),
-    "Corrupted Dryad": (1.25, 2.85),
-    "Dark Minotaur": (1.0, 5.67),
-    "Dark Wizard": (1.33, 6.1),
-    "Shadow Banshee": (1.2, 3.67),
-    "Void Gryphon": (1.0, 2.57),
-    "Void Treant": (0.88, 0.52),
-    "Corrupted Angel": (1.0, 1.45),
+ELITE_HP_MOD: Dict[str, float] = {
+    "Shadow Spinner": -0.33,
+    "Void Soldier": 0.25,
+    "Priest of Oblivion": -0.25,
+    "Corrupted Dryad": 0.25,
+    "Dark Minotaur": 0.33,
+    "Dark Wizard": 1.00,
+    "Shadow Banshee": 0.20,
+    "Corrupted Angel": 0.29,
+    "Void Gryphon": 0.33,
+    "Void Treant": 0.38,
+}
+
+# Damage multipliers from proposal
+BASIC_DMG_FACTOR: Dict[str, float] = {
+    "Shadow Spinner": 1.67,
+    "Void Soldier": 1.67,
+    "Priest of Oblivion": 3.0,
+    "Corrupted Dryad": 1.67,
+    "Dark Minotaur": 1.0,
+    "Dark Wizard": 1.0,
+    "Shadow Banshee": 3.0,
+    "Corrupted Angel": 0.67,
+    "Void Gryphon": 0.67,
+    "Void Treant": 0.67,
+}
+
+ELITE_DMG_FACTOR: Dict[str, float] = {
+    "Shadow Spinner": 3.0,
+    "Void Soldier": 3.0,
+    "Priest of Oblivion": 5.0,
+    "Corrupted Dryad": 3.0,
+    "Dark Minotaur": 2.0,
+    "Dark Wizard": 2.0,
+    "Shadow Banshee": 5.0,
+    "Corrupted Angel": 1.0,
+    "Void Gryphon": 1.0,
+    "Void Treant": 1.0,
 }
 
 
-def adjust_groups(groups: List[simulator.EnemyGroup], mods: Dict[str, tuple]) -> List[simulator.EnemyGroup]:
-    """Return a copy of ``groups`` with hp and damage modified."""
-    new_list: List[simulator.EnemyGroup] = []
-    for g in groups:
-        hp_factor, dmg_factor = mods.get(g.monster.name, (1.0, 1.0))
-        monster = copy.deepcopy(g.monster)
-        monster.hp = int(round(monster.hp * hp_factor))
-        monster.action_table = scale_table(monster.action_table, dmg_factor)
-        new_list.append(simulator.EnemyGroup(g.count, monster))
-    return new_list
+def _scale_damage(mult: float) -> float:
+    """Return multiplier applying half of any increase (>1)."""
+    if mult > 1:
+        return 1 + (mult - 1) / 2
+    return mult
 
 
-BASIC_GROUPS_BALANCED = adjust_groups(simulator.BASIC_GROUPS, BASIC_MODS)
-ELITE_GROUPS_BALANCED = adjust_groups(simulator.ELITE_GROUPS, ELITE_MODS)
+def _scale_groups() -> (List[simulator.EnemyGroup], List[simulator.EnemyGroup]):
+    new_basic: List[simulator.EnemyGroup] = []
+    for g in simulator.BASIC_GROUPS:
+        m = deepcopy(g.monster)
+        hp_mod = BASIC_HP_MOD.get(m.name, 0.0)
+        m.hp = int(round(m.hp * (1 + hp_mod)))
+        dmg_mult = _scale_damage(BASIC_DMG_FACTOR.get(m.name, 1.0))
+        m.action_table = [
+            {**entry, "damage": int(round(entry["damage"] * dmg_mult))}
+            for entry in m.action_table
+        ]
+        new_basic.append(simulator.EnemyGroup(g.count, m))
+
+    new_elite: List[simulator.EnemyGroup] = []
+    for g in simulator.ELITE_GROUPS:
+        m = deepcopy(g.monster)
+        hp_mod = ELITE_HP_MOD.get(m.name, 0.0)
+        m.hp = int(round(m.hp * (1 + hp_mod)))
+        dmg_mult = _scale_damage(ELITE_DMG_FACTOR.get(m.name, 1.0))
+        m.action_table = [
+            {**entry, "damage": int(round(entry["damage"] * dmg_mult))}
+            for entry in m.action_table
+        ]
+        new_elite.append(simulator.EnemyGroup(g.count, m))
+
+    return new_basic, new_elite
 
 
 def run_trials(hero_name: str, n: int) -> None:
     """Run ``simulator.run_trials`` with balanced enemy stats."""
-    orig_basic = simulator.BASIC_GROUPS
-    orig_elite = simulator.ELITE_GROUPS
-    simulator.BASIC_GROUPS = BASIC_GROUPS_BALANCED
-    simulator.ELITE_GROUPS = ELITE_GROUPS_BALANCED
+    orig_basic, orig_elite = simulator.BASIC_GROUPS, simulator.ELITE_GROUPS
+    simulator.BASIC_GROUPS, simulator.ELITE_GROUPS = _scale_groups()
     try:
         simulator.run_trials(hero_name, n)
     finally:
-        simulator.BASIC_GROUPS = orig_basic
-        simulator.ELITE_GROUPS = orig_elite
+        simulator.BASIC_GROUPS, simulator.ELITE_GROUPS = orig_basic, orig_elite
 
 
 def main() -> None:

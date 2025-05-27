@@ -225,23 +225,28 @@ class Combat:
 
         ranged = [c for c in self.hero.hand if c.type == "ranged"]
         melee = [c for c in self.hero.hand if c.type == "melee"]
-        self.hero.hand.clear()
         order = melee + ranged if is_web else ranged + melee
+        # remaining cards are processed sequentially and can be removed by
+        # abilities like Disrupt
+        # use the same list so discarded cards disappear from the hand
+        self.hero.hand = order
 
         cancel_next = "cancel" in self.monster.abilities
 
         dice_count = 0
         skip_next = False
 
-        for card in order:
+        # Process cards sequentially
+        while order:
+            card = order.pop(0)
             if cancel_next:
                 cancel_next = False
                 self.hero.discard.append(card)
                 continue
 
-            if "disrupt" in self.monster.abilities and self.hero.hand:
-                idx = random.randrange(len(self.hero.hand))
-                self.hero.discard.append(self.hero.hand.pop(idx))
+            if "disrupt" in self.monster.abilities and order:
+                idx = random.randrange(len(order))
+                self.hero.discard.append(order.pop(idx))
 
             dmg = 0
             count, sides = parse_dice(card.dice)
@@ -254,10 +259,17 @@ class Combat:
                 card_type = "melee"
             if "Aerial Combat" in self.monster.abilities and card_type == "melee":
                 target_def += 1
+            card_rerolls = card.effects.get("reroll", 0)
             for _ in range(count):
                 result = random.randint(1, sides)
                 while "Denied Heaven" in self.monster.abilities and result == 8:
                     result = random.randint(1, sides)
+                while (result < target_def and card_rerolls > 0 and
+                       "Disturbed Flow" not in self.monster.abilities):
+                    card_rerolls -= 1
+                    result = random.randint(1, sides)
+                    while "Denied Heaven" in self.monster.abilities and result == 8:
+                        result = random.randint(1, sides)
                 while (result < target_def and self.hero.fate > 0 and
                        rerolls < 2 and self.monster.hp <= 2 and
                        "Disturbed Flow" not in self.monster.abilities):
@@ -278,9 +290,12 @@ class Combat:
             if "Silence" not in self.monster.abilities:
                 dmg += card.effects.get("damage", 0)
                 arm = card.effects.get("armor", 0)
+                per_hit = card.effects.get("armor_per_hit", 0)
             else:
                 arm = 0
-            self.hero.add_armor(arm)
+                per_hit = 0
+            self.hero.add_armor(arm + per_hit * hits)
+            self.hero.fate += card.effects.get("fate", 0)
 
             if skip_next:
                 dmg = 0
@@ -536,23 +551,24 @@ def run_trials(hero_name: str, n: int) -> None:
 
             ranged = [c for c in h.hand if c.type == "ranged"]
             melee = [c for c in h.hand if c.type == "melee"]
-            h.hand.clear()
             order = melee + ranged if is_web else ranged + melee
+            h.hand = order
 
             cancel_next = "cancel" in m.abilities
 
             dice_count = 0
             skip_next = False
 
-            for card in order:
+            while order:
+                card = order.pop(0)
                 if cancel_next:
                     cancel_next = False
                     h.discard.append(card)
                     continue
 
-                if "disrupt" in m.abilities and h.hand:
-                    idx = random.randrange(len(h.hand))
-                    h.discard.append(h.hand.pop(idx))
+                if "disrupt" in m.abilities and order:
+                    idx = random.randrange(len(order))
+                    h.discard.append(order.pop(idx))
 
                 dmg = 0
                 count, sides = parse_dice(card.dice)
@@ -565,10 +581,17 @@ def run_trials(hero_name: str, n: int) -> None:
                     card_type = "melee"
                 if "Aerial Combat" in m.abilities and card_type == "melee":
                     target_def += 1
+                card_rerolls = card.effects.get("reroll", 0)
                 for _ in range(count):
                     result = random.randint(1, sides)
                     while "Denied Heaven" in m.abilities and result == 8:
                         result = random.randint(1, sides)
+                    while (result < target_def and card_rerolls > 0 and
+                           "Disturbed Flow" not in m.abilities):
+                        card_rerolls -= 1
+                        result = random.randint(1, sides)
+                        while "Denied Heaven" in m.abilities and result == 8:
+                            result = random.randint(1, sides)
                     while (result < target_def and h.fate > 0 and rerolls < 2 and
                            m.hp <= 2 and "Disturbed Flow" not in m.abilities):
                         h.fate -= 1
@@ -592,10 +615,14 @@ def run_trials(hero_name: str, n: int) -> None:
                 if "Silence" not in m.abilities:
                     dmg += card.effects.get("damage", 0)
                     arm = card.effects.get("armor", 0)
+                    per_hit = card.effects.get("armor_per_hit", 0)
                 else:
                     arm = 0
-                h.add_armor(arm)
-                stats["hero_armor"] += arm
+                    per_hit = 0
+                gained = arm + per_hit * hits
+                h.add_armor(gained)
+                h.fate += card.effects.get("fate", 0)
+                stats["hero_armor"] += gained
 
                 if skip_next:
                     dmg = 0

@@ -302,16 +302,16 @@ HERCULES_UPGRADES = [
 def merlin_base_deck() -> List[Card]:
     """Return Merlin's starting deck of ten cards."""
     return [
-        Card("Arcane Bolt", "ranged", "1d6", {"damage": 1}),
-        Card("Arcane Bolt", "ranged", "1d6", {"damage": 1}),
-        Card("Arcane Bolt", "ranged", "1d6", {"damage": 1}),
-        Card("Arcane Bolt", "ranged", "1d6", {"damage": 1}),
-        Card("Mystic Barrier", "ranged", "1d4", {"armor": 2}),
-        Card("Mystic Barrier", "ranged", "1d4", {"armor": 2}),
-        Card("Staff Strike", "melee", "1d6"),
-        Card("Staff Strike", "melee", "1d6"),
-        Card("Staff Strike", "melee", "1d6"),
-        Card("Staff Strike", "melee", "1d6"),
+        Card("Arcane Volley", "ranged", "1d6", {"damage": 1}),
+        Card("Arcane Volley", "ranged", "1d6", {"damage": 1}),
+        Card("Lady’s Warden", "melee", "1d6", {"damage": 1, "armor": 2}),
+        Card("Lady’s Warden", "melee", "1d6", {"damage": 1, "armor": 2}),
+        Card("Weaver of Fate", "ranged", "1d6", {"damage": 1, "reroll": 2}),
+        Card("Weaver of Fate", "ranged", "1d6", {"damage": 1, "reroll": 2}),
+        Card("Crystal Cave's Staff", "melee", "1d6", {"damage": 1, "armor": 1}),
+        Card("Mists of Time", "ranged", "1d6", {"damage": 1}),
+        Card("Mists of Time", "ranged", "1d6", {"damage": 1}),
+        Card("Circle of Avalon", "ranged", "1d6", {"damage": 1, "reroll": 1}),
     ]
 
 

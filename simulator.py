@@ -509,6 +509,7 @@ def run_trials(hero_name: str, n: int) -> None:
                             hits += 1
                             if card.effects.get("extra_dice_on_8") and result == 8:
                                 count += 1
+                                dice_count += 1
                             if result >= 7:
                                 h.add_armor(h.combat_effects.get("armor_per_high", 0))
                     if hits == 0 and any("Roots of Despair" in mm.abilities for mm in alive):

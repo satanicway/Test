@@ -89,10 +89,12 @@ class Hero:
     def reset_armor(self) -> None:
         self.armor = 0
 
-    def apply_damage(self, dmg: int) -> None:
-        block = min(self.armor, dmg)
-        self.armor -= block
-        dmg -= block
+    def apply_damage(self, dmg: int, pierce: bool = False) -> None:
+        """Apply ``dmg`` to the hero, optionally ignoring armor."""
+        if not pierce:
+            block = min(self.armor, dmg)
+            self.armor -= block
+            dmg -= block
         if dmg > 0:
             self.hp -= dmg
 
@@ -485,7 +487,7 @@ def run_trials(hero_name: str, n: int) -> None:
             for m in alive:
                 if "Void Barrier" in m.abilities:
                     m.allowed_type = None
-                dmg, arm, *_ = m.roll_action()
+                dmg, arm, p, dr, s, c = m.roll_action()
                 if "Enrage" in m.abilities and m.hp <= 3:
                     extra_dmg, extra_arm, *_ = m.roll_action()
                     dmg += extra_dmg
@@ -493,14 +495,14 @@ def run_trials(hero_name: str, n: int) -> None:
                 if "Power of Death" in m.abilities:
                     dead = sum(1 for p in monsters if "Power of Death" in p.abilities and p.hp <= 0)
                     dmg += dead
-                enemy_actions[m] = (dmg, arm)
+                enemy_actions[m] = (dmg, arm, p, dr, s, c)
 
             # Determine which enemy rolled the highest damage for this exchange
             max_dmg = 0
             preferred_target = None
             if enemy_actions:
                 max_dmg = max(v[0] for v in enemy_actions.values())
-                top = [m for m, (d, _) in enemy_actions.items() if d == max_dmg and m.hp > 0]
+                top = [m for m, vals in enemy_actions.items() if vals[0] == max_dmg and m.hp > 0]
                 if top:
                     preferred_target = random.choice(top)
 
@@ -720,12 +722,26 @@ def run_trials(hero_name: str, n: int) -> None:
                     stats["enemy_damage"] += prev_hp - h.hp
 
             for mm in alive:
-                dmg, arm = enemy_actions.get(mm, (0, 0))
+                dmg, arm, p, dr, s, c = enemy_actions.get(mm, (0, 0, False, False, False, False))
                 mm.armor += arm
                 stats["enemy_armor"] += arm
                 if mm.hp > 0:
+                    if dr and h.hand:
+                        idx = random.randrange(len(h.hand))
+                        h.discard.append(h.hand.pop(idx))
+                    if c:
+                        keys = [k for k in list(h.exchange_effects.keys()) + list(h.combat_effects.keys()) if k != "cards_played"]
+                        if keys:
+                            k = random.choice(keys)
+                            if k in h.exchange_effects:
+                                del h.exchange_effects[k]
+                            else:
+                                del h.combat_effects[k]
+                    attack_type = "ranged" if s else "melee"
+                    if "Web Slinger" in mm.abilities:
+                        attack_type = "melee"
                     prev_hp = h.hp
-                    h.apply_damage(dmg)
+                    h.apply_damage(dmg, pierce=p)
                     stats["enemy_damage"] += prev_hp - h.hp
             leftover = h.armor
             for mm in alive:

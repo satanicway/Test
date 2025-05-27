@@ -318,16 +318,24 @@ def merlin_base_deck() -> List[Card]:
 def hercules_base_deck() -> List[Card]:
     """Return Hercules' starting deck of ten cards."""
     return [
-        Card("Slash", "melee", "1d6", {"damage": 1}),
-        Card("Slash", "melee", "1d6", {"damage": 1}),
-        Card("Slash", "melee", "1d6", {"damage": 1}),
-        Card("Slash", "melee", "1d6", {"damage": 1}),
-        Card("Block", "melee", "1d4", {"armor": 2}),
-        Card("Block", "melee", "1d4", {"armor": 2}),
-        Card("Block", "melee", "1d4", {"armor": 2}),
-        Card("Block", "melee", "1d4", {"armor": 2}),
-        Card("Javelin", "ranged", "1d6", {"damage": 1}),
-        Card("Javelin", "ranged", "1d6", {"damage": 1}),
+        # Crushing attack drawing on Hercules' immense strength
+        Card("Pillar-Breaker Blow", "melee", "1d6", {"damage": 2}),
+        Card("Pillar-Breaker Blow", "melee", "1d6", {"damage": 2}),
+
+        # Grappling technique used on the Nemean Lion
+        Card("Lion Strangler", "melee", "1d6", {"damage": 1}),
+        Card("Lion Strangler", "melee", "1d6", {"damage": 1}),
+
+        # Brief surge of heroic resilience
+        Card("Demigodly Heroism", "melee", "1d6", {"damage": 1, "armor": 1}),
+        Card("Demigodly Heroism", "melee", "1d6", {"damage": 1, "armor": 1}),
+
+        # Ranged spear toss
+        Card("Herculean Throw", "ranged", "1d6", {"damage": 1}),
+        Card("Herculean Throw", "ranged", "1d6", {"damage": 1}),
+
+        # Defensive stance channeling godly endurance
+        Card("Olympian Guard", "melee", "1d6", {"armor": 2}),
     ]
 
 

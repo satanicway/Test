@@ -44,6 +44,8 @@ class Hero:
     discard: List[Card] = field(default_factory=list)
     armor: int = 0
     fate: int = 0
+    combat_effects: Dict[str, int] = field(default_factory=dict)
+    exchange_effects: Dict[str, int] = field(default_factory=dict)
 
     def draw(self, count: int = 1) -> None:
         for _ in range(count):
@@ -375,87 +377,87 @@ class Combat:
 
 MERLIN_UPGRADES = [
     # Common upgrades
-    Card("Runic Ray", "ranged", "1d8", {"damage": 2}, "common", True),
-    Card("Crystal-Shot Volley", "ranged", "1d8", {"damage": 3}, "common", True),
-    Card("Glyph-Marking Bolt", "ranged", "1d8", {"damage": 1}, "common", True),
-    Card("Voice of Destiny", "ranged", "1d8", {"damage": 3, "reroll": 2}, "common", True),
-    Card("Druidic Ways", "ranged", "1d8", {"damage": 2}, "common", True),
-    Card("Protective Mists", "ranged", "1d8", {"armor": 1}, "common", True),
-    Card("Mark of Fated Fall", "melee", "1d8", {"damage": 1}, "common", True),
-    Card("Veil-Rain of Chaos", "ranged", "1d8", {"damage": 1}, "common", True),
-    Card("Oracle of Avalon", "ranged", "1d8", {"fate": 3}, "common", True),
+    Card("Runic Ray", "ranged", "2d8", {"aoe": True}, "common", True),
+    Card("Crystal-Shot Volley", "ranged", "3d8", {"extra_dice_on_8": 1}, "common", True),
+    Card("Glyph-Marking Bolt", "ranged", "1d8", {}, "common", True),
+    Card("Voice of Destiny", "ranged", "3d8", {"exchange_reroll": 2}, "common", True),
+    Card("Druidic Ways", "ranged", "2d8", {"heal": 1}, "common", True),
+    Card("Protective Mists", "ranged", "0d8", {"armor": 1, "per_enemy_armor": 1}, "common", True),
+    Card("Mark of Fated Fall", "melee", "1d8", {"combat_target_def_minus": 2}, "common", True),
+    Card("Veil-Rain of Chaos", "ranged", "1d8", {"aoe": True, "extra_dice_per_enemy": 1}, "common", True),
+    Card("Oracle of Avalon", "ranged", "0d8", {"gain_fate": 3}, "common", True),
 
     # Uncommon upgrades
-    Card("Waves of Destiny", "ranged", "1d8", {"damage": 3}, "uncommon", True),
-    Card("Ancestral Echoes", "ranged", "1d8", {"damage": 3}, "uncommon", True),
-    Card("Whispers of the Wyrd", "ranged", "1d8", {}, "uncommon", True),
-    Card("Nature’s Rebuke", "ranged", "1d8", {"damage": 2}, "uncommon", True),
-    Card("Guard from Beyond", "ranged", "1d8", {"armor": 5}, "uncommon", True),
-    Card("Sage's Alacrity", "ranged", "1d8", {"damage": 2}, "uncommon", True),
-    Card("Charged Spirits", "ranged", "1d8", {"damage": 2}, "uncommon", True),
-    Card("Avalon's Light", "ranged", "1d8", {"damage": 3}, "uncommon", True),
-    Card("Spiritual Gifts", "ranged", "1d8", {"damage": 4}, "uncommon", True),
+    Card("Waves of Destiny", "ranged", "3d8", {"aoe": True, "fate_on_kill": 1}, "uncommon", True),
+    Card("Ancestral Echoes", "ranged", "3d8", {"aoe": True, "exchange_reroll": 2}, "uncommon", True),
+    Card("Whispers of the Wyrd", "ranged", "0d8", {}, "uncommon", True),
+    Card("Nature’s Rebuke", "ranged", "2d8", {"aoe": True}, "uncommon", True),
+    Card("Guard from Beyond", "ranged", "0d8", {"armor": 5}, "uncommon", True),
+    Card("Sage's Alacrity", "ranged", "2d8", {"combat_reroll": 2}, "uncommon", True),
+    Card("Charged Spirits", "ranged", "2d8", {"aoe": True, "fate_bonus_damage": 1}, "uncommon", True),
+    Card("Avalon's Light", "ranged", "3d8", {"combat_crit_damage": 4}, "uncommon", True),
+    Card("Spiritual Gifts", "ranged", "4d8", {}, "uncommon", True),
 
     # Rare upgrades
-    Card("Rune Shatter", "ranged", "1d8", {"damage": 3}, "rare", True),
-    Card("Sigil of Final Fate", "ranged", "1d8", {}, "rare", True),
-    Card("Conflux Lance", "ranged", "1d8", {"damage": 5}, "rare", True),
-    Card("Echoes of Guidance", "ranged", "1d8", {}, "rare", True),
-    Card("Mercury Guard", "ranged", "1d8", {"armor": 1}, "rare", True),
-    Card("Old-Ways Shillelagh", "melee", "1d8", {"damage": 3, "armor_per_hit": 1}, "rare", True),
-    Card("Favor of the Druids", "ranged", "1d8", {"damage": 1}, "rare", True),
-    Card("Chains of Morrígan", "ranged", "1d8", {}, "rare", True),
-    Card("Spirits of the Lands", "ranged", "1d8", {"damage": 4}, "rare", True),
+    Card("Rune Shatter", "ranged", "3d8", {"aoe": True, "exchange_target_def_minus": 1}, "rare", True),
+    Card("Sigil of Final Fate", "ranged", "0d8", {"combat_ones_to_eights": 1}, "rare", True),
+    Card("Conflux Lance", "ranged", "5d8", {}, "rare", True),
+    Card("Echoes of Guidance", "ranged", "0d8", {}, "rare", True),
+    Card("Mercury Guard", "ranged", "0d8", {"combat_mercury_guard": 1}, "rare", True),
+    Card("Old-Ways Shillelagh", "melee", "3d8", {"armor_per_hit": 1}, "rare", True),
+    Card("Favor of the Druids", "ranged", "1d8", {}, "rare", True),
+    Card("Chains of Morrígan", "ranged", "0d8", {"exchange_dice_plus_targets": 1}, "rare", True),
+    Card("Spirits of the Lands", "ranged", "4d8", {"gain_fate_per_card": 1}, "rare", True),
 ]
 
 HERCULES_UPGRADES = [
     # Common upgrades
-    Card("Bondless Effort", "melee", "1d8", {"damage": 3}, "common", True),
-    Card("Colossus Smash", "melee", "1d8", {"damage": 3, "armor": 1}, "common", True),
-    Card("Olympian Call", "melee", "1d8", {"damage": 1, "reroll": 1}, "common", True),
-    Card("Divine Resilience", "melee", "1d8", {"damage": 1, "armor": 1}, "common", True),
-    Card("Horde Breaker", "melee", "1d8", {"damage": 2}, "common", True),
-    Card("Disorienting Blow", "melee", "1d8", {"damage": 2}, "common", True),
-    Card("Piercing Spear", "ranged", "1d8", {"damage": 2}, "common", True),
-    Card("Fated War", "melee", "1d8", {"damage": 2, "fate": 1}, "common", True),
-    Card("Fortune's Throw", "ranged", "1d8", {"damage": 2, "armor": 2}, "common", True),
+    Card("Bondless Effort", "melee", "3d8", {}, "common", True),
+    Card("Colossus Smash", "melee", "3d8", {"armor": 1}, "common", True),
+    Card("Olympian Call", "melee", "1d8", {"combat_reroll": 1}, "common", True),
+    Card("Divine Resilience", "melee", "1d8", {"armor": 1, "per_enemy_armor": 1}, "common", True),
+    Card("Horde Breaker", "melee", "2d8", {}, "common", True),
+    Card("Disorienting Blow", "melee", "2d8", {"exchange_target_def_minus_next": 3}, "common", True),
+    Card("Piercing Spear", "ranged", "2d8", {"combat_target_def_minus": 1}, "common", True),
+    Card("Fated War", "melee", "2d8", {"aoe": True, "gain_fate_per_enemy": 1}, "common", True),
+    Card("Fortune's Throw", "ranged", "2d8", {"gain_fate": 2}, "common", True),
 
     # Uncommon upgrades
-    Card("Pain Strike", "melee", "1d8", {"damage": 4}, "uncommon", True),
-    Card("Fortifying Attack", "melee", "1d8", {"armor": 2}, "uncommon", True),
-    Card("Bone-Splinter Whirl", "melee", "1d8", {"damage": 3}, "uncommon", True),
-    Card("Glorious Uproar", "melee", "1d8", {"damage": 1}, "uncommon", True),
-    Card("Guided By The Gods", "melee", "1d8", {"damage": 2, "reroll": 1}, "uncommon", True),
-    Card("Chiron's Training", "melee", "1d8", {"damage": 1, "armor_per_hit": 1}, "uncommon", True),
-    Card("Once Isn't Enough", "melee", "1d8", {}, "uncommon", True),
-    Card("Strength from Anger", "melee", "1d8", {"damage": 1}, "uncommon", True),
-    Card("Enduring Wave", "melee", "1d8", {"damage": 2, "armor": 2}, "uncommon", True),
+    Card("Pain Strike", "melee", "4d8", {}, "uncommon", True),
+    Card("Fortifying Attack", "melee", "0d8", {"armor": 2}, "uncommon", True),
+    Card("Bone-Splinter Whirl", "melee", "3d8", {"aoe": True, "combat_enemy_def_minus": 1}, "uncommon", True),
+    Card("Glorious Uproar", "melee", "1d8", {"aoe": True, "bonus_damage_per_enemy": 1}, "uncommon", True),
+    Card("Guided By The Gods", "melee", "2d8", {"combat_reroll": 1}, "uncommon", True),
+    Card("Chiron's Training", "melee", "1d8", {"combat_armor_per_attack": 1}, "uncommon", True),
+    Card("Once Isn't Enough", "melee", "0d8", {"execute_twice_next": 1}, "uncommon", True),
+    Card("Strength from Anger", "melee", "1d8", {"combat_damage_bonus": 1}, "uncommon", True),
+    Card("Enduring Wave", "melee", "2d8", {"aoe": True, "armor": 2}, "uncommon", True),
 
     # Rare upgrades
-    Card("Zeus' Wrath", "melee", "1d8", {"damage": 4}, "rare", True),
-    Card("Ares' Will", "melee", "1d8", {"damage": 1}, "rare", True),
-    Card("True Might of Hercules", "melee", "1d8", {"damage": 8}, "rare", True),
-    Card("Athena's Guidance", "melee", "1d8", {}, "rare", True),
-    Card("Apollo's Sunburst", "ranged", "1d8", {"damage": 3}, "rare", True),
-    Card("Nike's Desire", "melee", "1d8", {"damage": 1}, "rare", True),
-    Card("Blessing of Hephaestus", "ranged", "1d8", {"armor": 5}, "rare", True),
-    Card("Hermes’ Delivery", "melee", "1d8", {"damage": 3}, "rare", True),
-    Card("Eris' Pandemonium", "melee", "1d8", {}, "rare", True),
+    Card("Zeus' Wrath", "melee", "4d8", {"aoe": True}, "rare", True),
+    Card("Ares' Will", "melee", "1d8", {"combat_enemy_hp_loss": 2}, "rare", True),
+    Card("True Might of Hercules", "melee", "8d8", {}, "rare", True),
+    Card("Athena's Guidance", "melee", "0d8", {"combat_double_damage": 1}, "rare", True),
+    Card("Apollo's Sunburst", "ranged", "3d8", {"aoe": True}, "rare", True),
+    Card("Nike's Desire", "melee", "1d8", {}, "rare", True),
+    Card("Blessing of Hephaestus", "ranged", "0d8", {"armor": 5}, "rare", True),
+    Card("Hermes’ Delivery", "melee", "3d8", {}, "rare", True),
+    Card("Eris' Pandemonium", "melee", "0d8", {"exchange_bonus_damage_per_enemy": 1}, "rare", True),
 ]
 
 def merlin_base_deck() -> List[Card]:
     """Return Merlin's starting deck of ten cards."""
     return [
-        Card("Arcane Volley", "ranged", "1d8", {"damage": 1}),
-        Card("Arcane Volley", "ranged", "1d8", {"damage": 1}),
-        Card("Lady’s Warden", "melee", "1d8", {"damage": 1, "armor": 2}),
-        Card("Lady’s Warden", "melee", "1d8", {"damage": 1, "armor": 2}),
-        Card("Weaver of Fate", "ranged", "1d8", {"damage": 1, "reroll": 2}),
-        Card("Weaver of Fate", "ranged", "1d8", {"damage": 1, "reroll": 2}),
-        Card("Crystal Cave's Staff", "melee", "1d8", {"damage": 1, "armor_per_hit": 1}),
-        Card("Mists of Time", "ranged", "1d8", {"damage": 1}),
-        Card("Mists of Time", "ranged", "1d8", {"damage": 1}),
-        Card("Circle of Avalon", "ranged", "1d8", {"damage": 1, "reroll": 1}),
+        Card("Arcane Volley", "ranged", "1d8", {"aoe": True}),
+        Card("Arcane Volley", "ranged", "1d8", {"aoe": True}),
+        Card("Lady’s Warden", "melee", "1d8", {"armor": 2}),
+        Card("Lady’s Warden", "melee", "1d8", {"armor": 2}),
+        Card("Weaver of Fate", "ranged", "1d8", {"exchange_reroll": 2}),
+        Card("Weaver of Fate", "ranged", "1d8", {"exchange_reroll": 2}),
+        Card("Crystal Cave's Staff", "melee", "1d8", {"combat_armor_per_high": 1}),
+        Card("Mists of Time", "ranged", "1d8", {"exchange_dice_plus": 1}),
+        Card("Mists of Time", "ranged", "1d8", {"exchange_dice_plus": 1}),
+        Card("Circle of Avalon", "ranged", "1d8", {"combat_reroll": 1}),
     ]
 
 
@@ -463,26 +465,26 @@ def hercules_base_deck() -> List[Card]:
     """Return Hercules' starting deck of ten cards."""
     return [
         # Crushing attack drawing on Hercules' immense strength
-        Card("Pillar-Breaker Blow", "melee", "1d8", {"damage": 2}),
-        Card("Pillar-Breaker Blow", "melee", "1d8", {"damage": 2}),
+        Card("Pillar-Breaker Blow", "melee", "2d8", {}),
+        Card("Pillar-Breaker Blow", "melee", "2d8", {}),
 
         # Grappling technique used on the Nemean Lion
-        Card("Lion Strangler", "melee", "1d8", {"damage": 1}),
+        Card("Lion Strangler", "melee", "1d8", {"combat_enemy_hp_loss": 1}),
 
         # Brief surge of heroic resilience
-        Card("Demigodly Heroism", "melee", "1d8", {"damage": 1, "armor": 1}),
-        Card("Demigodly Heroism", "melee", "1d8", {"damage": 1, "armor": 1}),
+        Card("Demigodly Heroism", "melee", "1d8", {"armor": 1}),
+        Card("Demigodly Heroism", "melee", "1d8", {"armor": 1}),
 
         # Divine spear
-        Card("Sky Javelin", "ranged", "1d8", {"damage": 2}),
+        Card("Sky Javelin", "ranged", "2d8", {"exchange_damage_bonus": 1}),
 
         # Sweeping attack
-        Card("Club Spin", "melee", "1d8", {"damage": 1}),
-        Card("Club Spin", "melee", "1d8", {"damage": 1}),
+        Card("Club Spin", "melee", "1d8", {"aoe": True}),
+        Card("Club Spin", "melee", "1d8", {"aoe": True}),
 
         # Defensive stance channeling godly endurance
-        Card("Atlas Guard", "ranged", "1d8", {"armor": 3}),
-        Card("Atlas Guard", "ranged", "1d8", {"armor": 3}),
+        Card("Atlas Guard", "ranged", "0d8", {"armor": 3}),
+        Card("Atlas Guard", "ranged", "0d8", {"armor": 3}),
     ]
 
 
@@ -566,9 +568,10 @@ def run_trials(hero_name: str, n: int) -> None:
         stats = {"hero_damage": 0, "hero_armor": 0, "enemy_damage": 0, "enemy_armor": 0}
         round_num = 0
         hero_hp: List[int] = []
-
+        h.combat_effects.clear()
         alive = [m for m in monsters if m.hp > 0]
         while h.hp > 0 and alive:
+            h.exchange_effects = {"cards_played": 0}
             draw_seq = [3, 2, 1, 0]
             draw_amt = draw_seq[round_num] if round_num < len(draw_seq) else 0
             if any("Sticky Web" in m.abilities for m in alive):
@@ -580,6 +583,8 @@ def run_trials(hero_name: str, n: int) -> None:
                     h.fate = max(0, h.fate - 2)
             if any("Ghostly" in m.abilities for m in alive) and round_num >= 3:
                 break
+            if "combat_mercury_guard" in h.combat_effects:
+                h.add_armor(len(alive) * h.combat_effects["combat_mercury_guard"])
             round_num += 1
 
             is_web = any("Web Slinger" in m.abilities for m in alive)
@@ -599,6 +604,11 @@ def run_trials(hero_name: str, n: int) -> None:
 
             while order:
                 card = order.pop(0)
+                if card.effects.get("execute_twice_next"):
+                    h.exchange_effects["execute_twice_next"] = True
+                    h.discard.append(card)
+                    continue
+                repeat = 2 if h.exchange_effects.pop("execute_twice_next", False) else 1
                 if cancel_next:
                     cancel_next = False
                     h.discard.append(card)
@@ -607,98 +617,122 @@ def run_trials(hero_name: str, n: int) -> None:
                 if any("disrupt" in m.abilities for m in alive) and order:
                     idx = random.randrange(len(order))
                     h.discard.append(order.pop(idx))
-
-                dmg = 0
-                count, sides = parse_dice(card.dice)
-                dice_count += count
-                rerolls = 0
-                hits = 0
-                target = next((mm for mm in alive if mm.hp > 0), None)
-                if target is None:
-                    break
-                target_def = target.defense
-                card_type = card.type
-                if is_web and card.type == "ranged":
-                    card_type = "melee"
-                if "Aerial Combat" in target.abilities and card_type == "melee":
-                    target_def += 1
-                card_rerolls = card.effects.get("reroll", 0)
-                for _ in range(count):
-                    result = random.randint(1, sides)
-                    while "Denied Heaven" in target.abilities and result == 8:
+                for _ in range(repeat):
+                    dmg = 0
+                    count, sides = parse_dice(card.dice)
+                    count += card.effects.get("extra_dice_per_enemy", 0) * len(alive)
+                    dice_count += count
+                    rerolls = 0
+                    hits = 0
+                    target = next((mm for mm in alive if mm.hp > 0), None)
+                    if target is None:
+                        break
+                    target_def = target.defense - h.combat_effects.get("combat_enemy_def_minus", 0) - h.exchange_effects.get("exchange_target_def_minus", 0)
+                    card_type = card.type
+                    if is_web and card.type == "ranged":
+                        card_type = "melee"
+                    if "Aerial Combat" in target.abilities and card_type == "melee":
+                        target_def += 1
+                    card_rerolls = card.effects.get("reroll", 0)
+                    card_rerolls += h.combat_effects.get("combat_reroll", 0)
+                    card_rerolls += h.exchange_effects.get("exchange_reroll", 0)
+                    dice_plus = h.exchange_effects.get("exchange_dice_plus", 0)
+                    dice_plus += h.exchange_effects.get("dice_plus_targets", 0) * (len(alive) if card.effects.get("aoe") else 1)
+                    for _ in range(count):
                         result = random.randint(1, sides)
-                    while (result < target_def and card_rerolls > 0 and
-                           "Disturbed Flow" not in target.abilities):
-                        card_rerolls -= 1
-                        result = random.randint(1, sides)
+                        if h.combat_effects.get("combat_ones_to_eights") and result == 1:
+                            result = 8
+                        result = min(8, result + dice_plus)
                         while "Denied Heaven" in target.abilities and result == 8:
                             result = random.randint(1, sides)
-                    while (result < target_def and h.fate > 0 and rerolls < 2 and
-                           target.hp <= 2 and "Disturbed Flow" not in target.abilities):
-                        h.fate -= 1
-                        rerolls += 1
-                        result = random.randint(1, sides)
-                        while "Denied Heaven" in target.abilities and result == 8:
+                            result = min(8, result + dice_plus)
+                        while (result < target_def and card_rerolls > 0 and "Disturbed Flow" not in target.abilities):
+                            card_rerolls -= 1
                             result = random.randint(1, sides)
-                    if result in (1, 2) and "Curse of Torment" in target.abilities:
+                            if h.combat_effects.get("combat_ones_to_eights") and result == 1:
+                                result = 8
+                            result = min(8, result + dice_plus)
+                        if result in (1, 2) and "Curse of Torment" in target.abilities:
+                            prev = h.hp
+                            h.apply_damage(1)
+                            stats["enemy_damage"] += prev - h.hp
+                        if result >= target_def:
+                            hit = 2 if random.random() < 0.2 else 1
+                            if result == 8 and h.combat_effects.get("combat_crit_damage"):
+                                hit = h.combat_effects["combat_crit_damage"]
+                            dmg += hit
+                            hits += 1
+                            if card.effects.get("extra_dice_on_8") and result == 8:
+                                count += 1
+                            if result >= 7:
+                                h.add_armor(h.combat_effects.get("armor_per_high", 0))
+                    if hits == 0 and any("Roots of Despair" in mm.abilities for mm in alive):
                         prev = h.hp
                         h.apply_damage(1)
                         stats["enemy_damage"] += prev - h.hp
-                    if result >= target_def:
-                        hit = 2 if random.random() < 0.2 else 1
-                        dmg += hit
-                        hits += 1
-                if hits == 0 and "Roots of Despair" in target.abilities:
-                    prev = h.hp
-                    h.apply_damage(1)
-                    stats["enemy_damage"] += prev - h.hp
 
-                if "Silence" not in target.abilities:
-                    dmg += card.effects.get("damage", 0)
-                    arm = card.effects.get("armor", 0)
-                    per_hit = card.effects.get("armor_per_hit", 0)
-                else:
-                    arm = 0
-                    per_hit = 0
-                gained = arm + per_hit * hits
-                h.add_armor(gained)
-                h.fate += card.effects.get("fate", 0)
-                stats["hero_armor"] += gained
+                    if "Silence" not in target.abilities:
+                        dmg += card.effects.get("damage", 0)
+                        arm = card.effects.get("armor", 0)
+                        per_hit = card.effects.get("armor_per_hit", 0)
+                        arm += card.effects.get("per_enemy_armor", 0) * len(alive)
+                        if card.effects.get("armor_per_high"):
+                            arm += card.effects["armor_per_high"] * hits
+                    else:
+                        arm = 0
+                        per_hit = 0
+                    gained = arm + per_hit * hits
+                    h.add_armor(gained)
+                    if card.effects.get("heal"):
+                        h.hp += card.effects["heal"]
+                    if card.effects.get("gain_fate"):
+                        h.fate += card.effects["gain_fate"]
+                    stats["hero_armor"] += gained
 
-                if skip_next:
-                    dmg = 0
-                    skip_next = False
+                    dmg += h.combat_effects.get("combat_damage_bonus", 0) + h.exchange_effects.get("exchange_damage_bonus", 0)
 
-                actual = max(0, dmg - target.armor)
-                target.armor = max(0, target.armor - dmg)
+                    if skip_next:
+                        dmg = 0
+                        skip_next = False
 
-                if "Void Barrier" in target.abilities:
-                    if getattr(target, "allowed_type", None) is None and actual > 0:
-                        target.allowed_type = card_type
-                    elif (getattr(target, "allowed_type", None) is not None and
-                          card_type != target.allowed_type):
-                        actual = 0
+                    if card.effects.get("gain_fate_per_enemy"):
+                        h.fate += len(alive) * card.effects["gain_fate_per_enemy"]
+                    targets = alive if card.effects.get("aoe") else [target]
+                    for mm in targets:
+                        actual = max(0, dmg - mm.armor)
+                        mm.armor = max(0, mm.armor - dmg)
+                        local_def = mm.defense
+                        if "Void Barrier" in mm.abilities:
+                            if getattr(mm, "allowed_type", None) is None and actual > 0:
+                                mm.allowed_type = card_type
+                            elif (getattr(mm, "allowed_type", None) is not None and card_type != mm.allowed_type):
+                                actual = 0
+                        if "Dark Phalanx" in mm.abilities and card.effects.get("aoe") and actual > 0:
+                            if sum(1 for x in alive if "Dark Phalanx" in x.abilities and x.hp > 0) > 1:
+                                actual = max(1, actual - 1)
+                        prev_hp_t = mm.hp
+                        mm.hp -= actual
+                        stats["hero_damage"] += actual
+                        if h.combat_effects.get("combat_enemy_hp_loss"):
+                            if mm.hp > 0:
+                                mm.hp -= h.combat_effects["combat_enemy_hp_loss"]
+                        if prev_hp_t > 0 and mm.hp <= 0 and card.effects.get("fate_on_kill"):
+                            h.fate += card.effects["fate_on_kill"]
 
-                if "Dark Phalanx" in target.abilities and actual > 0:
-                    if sum(1 for mm in alive if "Dark Phalanx" in mm.abilities and mm.hp > 0) > 1:
-                        actual = max(1, actual - 1)
+                        if "Spiked Armor" in mm.abilities and actual >= 3:
+                            prev = h.hp
+                            h.apply_damage(1)
+                            stats["enemy_damage"] += prev - h.hp
+                        if "shot" in mm.abilities and card_type == "ranged" and mm.hp > 0:
+                            prev_hp = h.hp
+                            h.apply_damage(1)
+                            stats["enemy_damage"] += prev_hp - h.hp
+                        if "Ephemeral Wings" in mm.abilities and actual > 0:
+                            skip_next = True
 
-                target.hp -= actual
-                stats["hero_damage"] += actual
-
-                if "Spiked Armor" in target.abilities and actual >= 3:
-                    prev = h.hp
-                    h.apply_damage(1)
-                    stats["enemy_damage"] += prev - h.hp
-
-                if "shot" in target.abilities and card_type == "ranged" and target.hp > 0:
-                    prev_hp = h.hp
-                    h.apply_damage(1)
-                    stats["enemy_damage"] += prev_hp - h.hp
-
-                if "Ephemeral Wings" in target.abilities and actual > 0:
-                    skip_next = True
-
+                    h.exchange_effects["cards_played"] += 1
+                    if card.effects.get("gain_fate_per_card"):
+                        h.fate += card.effects["gain_fate_per_card"] * (h.exchange_effects["cards_played"] - 1)
                 h.discard.append(card)
 
             for mm in alive:

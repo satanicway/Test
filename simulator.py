@@ -451,8 +451,13 @@ def run_trials(hero_name: str, n: int) -> None:
             encounters.append(monsters)
         return encounters
 
-    def run_combat(h: Hero, monsters: List[Monster]) -> Dict[str, int]:
-        """Simulate a combat against multiple monsters and return statistics."""
+    def run_combat(h: Hero, monsters: List[Monster], run_idx: int, combat_idx: int) -> Dict[str, int]:
+        """Simulate a combat against multiple monsters and return statistics.
+
+        ``run_idx`` and ``combat_idx`` are only used for progress output.
+        """
+
+        print(f"  Run {run_idx+1}: starting combat {combat_idx+1} against {monsters[0].name} x{len(monsters)}")
 
         stats = {"hero_damage": 0, "hero_armor": 0, "enemy_damage": 0, "enemy_armor": 0}
         round_num = 0
@@ -473,6 +478,7 @@ def run_trials(hero_name: str, n: int) -> None:
             if "combat_mercury_guard" in h.combat_effects:
                 h.add_armor(len(alive) * h.combat_effects["combat_mercury_guard"])
             round_num += 1
+            print(f"    Exchange {round_num}: hero HP {h.hp}, fate {h.fate}, monster HPs {[m.hp for m in alive]}")
 
             is_web = any("Web Slinger" in m.abilities for m in alive)
 
@@ -783,6 +789,7 @@ def run_trials(hero_name: str, n: int) -> None:
             hero_hp.append(h.hp)
 
         stats["hero_hp"] = hero_hp
+        print(f"  Combat {combat_idx+1} complete. Hero HP now {h.hp}")
         return stats
 
     final_hps: List[int] = []
@@ -793,7 +800,9 @@ def run_trials(hero_name: str, n: int) -> None:
     enemy_totals: Dict[str, Dict[str, float]] = {}
     success = 0
 
-    for _ in range(n):
+    for run_idx in range(n):
+        if run_idx % 100 == 0:
+            print(f"Starting run {run_idx+1}/{n}")
         if hero_name.lower() == "merlin":
             start_hp = 15
         elif hero_name.lower() == "hercules":
@@ -821,7 +830,7 @@ def run_trials(hero_name: str, n: int) -> None:
         last_alive = False
         for idx, group in enumerate(encounters):
             hero.fate += 1
-            stats = run_combat(hero, group)
+            stats = run_combat(hero, group, run_idx, idx)
             hero_damage_total += stats["hero_damage"]
             hero_armor_total += stats["hero_armor"]
             hero_hp_data = stats["hero_hp"]
@@ -851,6 +860,7 @@ def run_trials(hero_name: str, n: int) -> None:
                 hero.draw(3)
 
         final_hps.append(hero.hp)
+        print(f"Finished run {run_idx+1}/{n} with HP {hero.hp}")
         if last_alive and hero.hp > 0:
             success += 1
 

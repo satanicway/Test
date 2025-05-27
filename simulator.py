@@ -814,6 +814,7 @@ def run_trials(hero_name: str, n: int) -> None:
         hero.deck = hero.deck[:10]
         hero.hand.clear()
         hero.discard.clear()
+        random.shuffle(hero.deck)
         hero.draw(4)
 
         last_alive = False

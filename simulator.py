@@ -417,9 +417,19 @@ def run_trials(hero_name: str, n: int) -> None:
 
             dice_count = 0
             skip_next = False
+            enemy_actions = {}
             for m in alive:
                 if "Void Barrier" in m.abilities:
                     m.allowed_type = None
+                dmg, arm = m.roll_action()
+                if "Enrage" in m.abilities and m.hp <= 3:
+                    extra_dmg, extra_arm = m.roll_action()
+                    dmg += extra_dmg
+                    arm += extra_arm
+                if "Power of Death" in m.abilities:
+                    dead = sum(1 for p in monsters if "Power of Death" in p.abilities and p.hp <= 0)
+                    dmg += dead
+                enemy_actions[m] = (dmg, arm)
 
             while order:
                 card = order.pop(0)
@@ -580,14 +590,7 @@ def run_trials(hero_name: str, n: int) -> None:
                     stats["enemy_damage"] += prev_hp - h.hp
 
             for mm in alive:
-                dmg, arm = mm.roll_action()
-                if "Power of Death" in mm.abilities:
-                    dead = sum(1 for p in monsters if "Power of Death" in p.abilities and p.hp <= 0)
-                    dmg += dead
-                if "Enrage" in mm.abilities and mm.hp <= 3:
-                    extra_dmg, extra_arm = mm.roll_action()
-                    dmg += extra_dmg
-                    arm += extra_arm
+                dmg, arm = enemy_actions.get(mm, (0, 0))
                 mm.armor += arm
                 stats["enemy_armor"] += arm
                 if mm.hp > 0:

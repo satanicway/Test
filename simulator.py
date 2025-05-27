@@ -111,6 +111,7 @@ class Monster:
         {"damage": 3, "armor": 1},
     ])
     armor: int = 0
+    dice_bonus_against: int = 0
 
     def roll_action(self) -> (int, int):
         """Return (damage, armor) for the exchange using a d8 table."""
@@ -280,7 +281,7 @@ MERLIN_UPGRADES = [
     # Common upgrades
     Card("Runic Ray", "ranged", "2d8", {"aoe": True, "discard_damage_per_card": 2}, "common", True),
     Card("Crystal-Shot Volley", "ranged", "3d8", {"extra_dice_on_8": 1}, "common", True),
-    Card("Glyph-Marking Bolt", "ranged", "1d8", {}, "common", True),
+    Card("Glyph-Marking Bolt", "ranged", "1d8", {"combat_target_dice_plus": 1}, "common", True),
     Card("Voice of Destiny", "ranged", "3d8", {"exchange_reroll": 2}, "common", True),
     Card("Druidic Ways", "ranged", "2d8", {"heal": 1}, "common", True),
     Card("Protective Mists", "ranged", "0d8", {"armor": 1, "per_enemy_armor": 1}, "common", True),
@@ -291,8 +292,8 @@ MERLIN_UPGRADES = [
     # Uncommon upgrades
     Card("Waves of Destiny", "ranged", "3d8", {"aoe": True, "fate_on_kill": 1}, "uncommon", True),
     Card("Ancestral Echoes", "ranged", "3d8", {"aoe": True, "exchange_reroll": 2}, "uncommon", True),
-    Card("Whispers of the Wyrd", "ranged", "0d8", {}, "uncommon", True),
-    Card("Nature’s Rebuke", "ranged", "2d8", {"aoe": True}, "uncommon", True),
+    Card("Whispers of the Wyrd", "ranged", "0d8", {"combat_damage_bonus": 2}, "uncommon", True),
+    Card("Nature’s Rebuke", "ranged", "2d8", {"aoe": True, "heal_on_kill": 1}, "uncommon", True),
     Card("Guard from Beyond", "ranged", "0d8", {"armor": 5}, "uncommon", True),
     Card("Sage's Alacrity", "ranged", "2d8", {"combat_reroll": 2}, "uncommon", True),
     Card("Charged Spirits", "ranged", "2d8", {"aoe": True, "fate_bonus_damage": 1}, "uncommon", True),
@@ -303,7 +304,7 @@ MERLIN_UPGRADES = [
     Card("Rune Shatter", "ranged", "3d8", {"aoe": True, "exchange_target_def_minus": 1}, "rare", True),
     Card("Sigil of Final Fate", "ranged", "0d8", {"combat_ones_to_eights": 1}, "rare", True),
     Card("Conflux Lance", "ranged", "5d8", {}, "rare", True),
-    Card("Echoes of Guidance", "ranged", "0d8", {}, "rare", True),
+    Card("Echoes of Guidance", "ranged", "0d8", {"execute_twice_next": 1}, "rare", True),
     Card("Mercury Guard", "ranged", "0d8", {"combat_mercury_guard": 1}, "rare", True),
     Card("Old-Ways Shillelagh", "melee", "3d8", {"armor_per_hit": 1}, "rare", True),
     Card("Favor of the Druids", "ranged", "1d8", {}, "rare", True),
@@ -317,7 +318,7 @@ HERCULES_UPGRADES = [
     Card("Colossus Smash", "melee", "3d8", {"armor": 1}, "common", True),
     Card("Olympian Call", "melee", "1d8", {"combat_reroll": 1}, "common", True),
     Card("Divine Resilience", "melee", "1d8", {"armor": 1, "per_enemy_armor": 1}, "common", True),
-    Card("Horde Breaker", "melee", "2d8", {}, "common", True),
+    Card("Horde Breaker", "melee", "2d8", {"combat_enemy_hp_loss_on_death": 2}, "common", True),
     Card("Disorienting Blow", "melee", "2d8", {"exchange_target_def_minus_next": 3}, "common", True),
     Card("Piercing Spear", "ranged", "2d8", {"combat_target_def_minus": 1}, "common", True),
     Card("Fated War", "melee", "2d8", {"aoe": True, "gain_fate_per_enemy": 1}, "common", True),
@@ -507,6 +508,39 @@ def run_trials(hero_name: str, n: int) -> None:
                     continue
                 repeat = 2 if h.exchange_effects.pop("execute_twice_next", False) else 1
 
+                # Apply persistent effects from the card
+                if card.effects.get("exchange_dice_plus"):
+                    h.exchange_effects["exchange_dice_plus"] = (
+                        h.exchange_effects.get("exchange_dice_plus", 0)
+                        + card.effects["exchange_dice_plus"]
+                    )
+                if card.effects.get("exchange_reroll"):
+                    h.exchange_effects["exchange_reroll"] = (
+                        h.exchange_effects.get("exchange_reroll", 0)
+                        + card.effects["exchange_reroll"]
+                    )
+                if card.effects.get("exchange_target_def_minus") is not None:
+                    h.exchange_effects["exchange_target_def_minus"] = card.effects[
+                        "exchange_target_def_minus"
+                    ]
+                if card.effects.get("exchange_dice_plus_targets"):
+                    h.exchange_effects["dice_plus_targets"] = card.effects[
+                        "exchange_dice_plus_targets"
+                    ]
+
+                if card.effects.get("combat_enemy_hp_loss_on_death"):
+                    h.combat_effects["enemy_hp_loss_on_death"] = card.effects[
+                        "combat_enemy_hp_loss_on_death"
+                    ]
+                for ck, cv in card.effects.items():
+                    if ck.startswith("combat_") and ck not in (
+                        "combat_target_def_minus",
+                        "combat_target_dice_plus",
+                        "combat_double_damage",
+                        "combat_enemy_hp_loss_on_death",
+                    ):
+                        h.combat_effects[ck] = cv
+
                 for _ in range(repeat):
                     dmg = 0
                     count, sides = parse_dice(card.dice)
@@ -518,6 +552,7 @@ def run_trials(hero_name: str, n: int) -> None:
                     if target is None:
                         break
                     target_def = target.defense - h.combat_effects.get("combat_enemy_def_minus", 0) - h.exchange_effects.get("exchange_target_def_minus", 0)
+                    target_def -= h.exchange_effects.pop("target_def_minus_next", 0)
                     card_type = card.type
                     if is_web and card.type == "ranged":
                         card_type = "melee"
@@ -527,7 +562,10 @@ def run_trials(hero_name: str, n: int) -> None:
                     card_rerolls += h.combat_effects.get("combat_reroll", 0)
                     card_rerolls += h.exchange_effects.get("exchange_reroll", 0)
                     dice_plus = h.exchange_effects.get("exchange_dice_plus", 0)
-                    dice_plus += h.exchange_effects.get("dice_plus_targets", 0) * (len(alive) if card.effects.get("aoe") else 1)
+                    dice_plus += h.exchange_effects.get("dice_plus_targets", 0) * (
+                        len(alive) if card.effects.get("aoe") else 1
+                    )
+                    dice_plus += getattr(target, "dice_bonus_against", 0)
                     for _ in range(count):
                         result = random.randint(1, sides)
                         if h.combat_effects.get("combat_ones_to_eights") and result == 1:
@@ -598,6 +636,11 @@ def run_trials(hero_name: str, n: int) -> None:
                     dmg += card.effects.get("bonus_damage_per_enemy", 0) * len(alive)
                     dmg += h.exchange_effects.get("exchange_bonus_damage_per_enemy", 0) * len(alive)
 
+                    if card.effects.get("fate_bonus_damage"):
+                        spend = min(h.fate, 5)
+                        h.fate -= spend
+                        dmg += spend * card.effects["fate_bonus_damage"]
+
                     if card.effects.get("discard_damage_per_card"):
                         discarded = h.discard_weakest_cards()
                         dmg += len(discarded) * card.effects["discard_damage_per_card"]
@@ -633,8 +676,15 @@ def run_trials(hero_name: str, n: int) -> None:
                         if h.combat_effects.get("combat_enemy_hp_loss"):
                             if mm.hp > 0:
                                 mm.hp -= h.combat_effects["combat_enemy_hp_loss"]
-                        if prev_hp_t > 0 and mm.hp <= 0 and card.effects.get("fate_on_kill"):
-                            h.fate += card.effects["fate_on_kill"]
+                        if prev_hp_t > 0 and mm.hp <= 0:
+                            if card.effects.get("fate_on_kill"):
+                                h.fate += card.effects["fate_on_kill"]
+                            if card.effects.get("heal_on_kill"):
+                                h.hp += card.effects["heal_on_kill"]
+                            if h.combat_effects.get("enemy_hp_loss_on_death"):
+                                for oth in alive:
+                                    if oth is not mm and oth.hp > 0:
+                                        oth.hp -= h.combat_effects["enemy_hp_loss_on_death"]
 
                         if "Spiked Armor" in mm.abilities and actual >= 3:
                             prev = h.hp
@@ -643,9 +693,16 @@ def run_trials(hero_name: str, n: int) -> None:
                         if "Ephemeral Wings" in mm.abilities and actual > 0:
                             skip_next = True
 
+                        if card.effects.get("combat_target_def_minus"):
+                            mm.defense = max(0, mm.defense - card.effects["combat_target_def_minus"])
+                    if card.effects.get("combat_target_dice_plus"):
+                        mm.dice_bonus_against += card.effects["combat_target_dice_plus"]
+
                     h.exchange_effects["cards_played"] += 1
-                    if card.effects.get("gain_fate_per_card"):
-                        h.fate += card.effects["gain_fate_per_card"] * (h.exchange_effects["cards_played"] - 1)
+                if card.effects.get("exchange_target_def_minus_next"):
+                    h.exchange_effects["target_def_minus_next"] = card.effects["exchange_target_def_minus_next"]
+                if card.effects.get("gain_fate_per_card"):
+                    h.fate += card.effects["gain_fate_per_card"] * (h.exchange_effects["cards_played"] - 1)
                 h.discard.append(card)
                 if card.effects.get("play_drawn_attack_immediately"):
                     h.draw(1)

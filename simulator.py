@@ -4,21 +4,28 @@ from typing import List, Dict, Optional
 
 
 def roll_dice(dice: str) -> int:
-    """Parse a dice string like '2d6' and roll it."""
+    """Roll d8s equal to the count parsed from ``dice``.
+
+    Any sides value present in the string is ignored.
+    """
     try:
-        count, sides = map(int, dice.lower().split("d"))
+        count = int(dice.lower().split("d")[0])
     except Exception:
         return 0
-    return sum(random.randint(1, sides) for _ in range(count))
+    return sum(random.randint(1, 8) for _ in range(count))
 
 
 def parse_dice(dice: str) -> (int, int):
-    """Return (count, sides) for a dice string like '2d6'."""
+    """Return ``(count, 8)`` for a dice string.
+
+    Only the number of dice is taken from ``dice``; the sides portion is
+    ignored since all rolls use d8s.
+    """
     try:
-        count, sides = map(int, dice.lower().split("d"))
+        count = int(dice.lower().split("d")[0])
     except Exception:
         return 0, 0
-    return count, sides
+    return count, 8
 
 
 @dataclass
@@ -235,99 +242,99 @@ class Combat:
 
 
 MERLIN_UPGRADES = [
-    Card("Runic Ray", "ranged", "1d6", rarity="common", upgrade=True),
-    Card("Crystal-Shot Volley", "ranged", "1d6", rarity="common", upgrade=True),
-    Card("Glyph-Marking Bolt", "ranged", "1d6", rarity="common", upgrade=True),
-    Card("Voice of Destiny", "ranged", "1d6", rarity="common", upgrade=True),
-    Card("Druidic Ways", "ranged", "1d6", rarity="common", upgrade=True),
-    Card("Protective Mists", "ranged", "1d6", rarity="common", upgrade=True),
-    Card("Mark of Fated Fall", "melee", "1d6", rarity="common", upgrade=True),
-    Card("Veil-Rain of Chaos", "ranged", "1d6", rarity="common", upgrade=True),
-    Card("Oracle of Avalon", "ranged", "1d6", rarity="common", upgrade=True),
+    Card("Runic Ray", "ranged", "1d8", rarity="common", upgrade=True),
+    Card("Crystal-Shot Volley", "ranged", "1d8", rarity="common", upgrade=True),
+    Card("Glyph-Marking Bolt", "ranged", "1d8", rarity="common", upgrade=True),
+    Card("Voice of Destiny", "ranged", "1d8", rarity="common", upgrade=True),
+    Card("Druidic Ways", "ranged", "1d8", rarity="common", upgrade=True),
+    Card("Protective Mists", "ranged", "1d8", rarity="common", upgrade=True),
+    Card("Mark of Fated Fall", "melee", "1d8", rarity="common", upgrade=True),
+    Card("Veil-Rain of Chaos", "ranged", "1d8", rarity="common", upgrade=True),
+    Card("Oracle of Avalon", "ranged", "1d8", rarity="common", upgrade=True),
 
-    Card("Waves of Destiny", "ranged", "1d6", rarity="uncommon", upgrade=True),
-    Card("Ancestral Echoes", "ranged", "1d6", rarity="uncommon", upgrade=True),
-    Card("Whispers of the Wyrd", "ranged", "1d6", rarity="uncommon", upgrade=True),
-    Card("Nature’s Rebuke", "ranged", "1d6", rarity="uncommon", upgrade=True),
-    Card("Guard from Beyond", "ranged", "1d6", rarity="uncommon", upgrade=True),
-    Card("Sage's Alacrity", "ranged", "1d6", rarity="uncommon", upgrade=True),
-    Card("Charged Spirits", "ranged", "1d6", rarity="uncommon", upgrade=True),
-    Card("Avalon's Light", "ranged", "1d6", rarity="uncommon", upgrade=True),
-    Card("Spiritual Gifts", "ranged", "1d6", rarity="uncommon", upgrade=True),
+    Card("Waves of Destiny", "ranged", "1d8", rarity="uncommon", upgrade=True),
+    Card("Ancestral Echoes", "ranged", "1d8", rarity="uncommon", upgrade=True),
+    Card("Whispers of the Wyrd", "ranged", "1d8", rarity="uncommon", upgrade=True),
+    Card("Nature’s Rebuke", "ranged", "1d8", rarity="uncommon", upgrade=True),
+    Card("Guard from Beyond", "ranged", "1d8", rarity="uncommon", upgrade=True),
+    Card("Sage's Alacrity", "ranged", "1d8", rarity="uncommon", upgrade=True),
+    Card("Charged Spirits", "ranged", "1d8", rarity="uncommon", upgrade=True),
+    Card("Avalon's Light", "ranged", "1d8", rarity="uncommon", upgrade=True),
+    Card("Spiritual Gifts", "ranged", "1d8", rarity="uncommon", upgrade=True),
 
-    Card("Rune Shatter", "ranged", "1d6", rarity="rare", upgrade=True),
-    Card("Sigil of Final Fate", "ranged", "1d6", rarity="rare", upgrade=True),
-    Card("Conflux Lance", "ranged", "1d6", rarity="rare", upgrade=True),
-    Card("Echoes of Guidance", "ranged", "1d6", rarity="rare", upgrade=True),
-    Card("Mercury Guard", "ranged", "1d6", rarity="rare", upgrade=True),
-    Card("Old-Ways Shillelagh", "melee", "1d6", rarity="rare", upgrade=True),
-    Card("Favor of the Druids", "ranged", "1d6", rarity="rare", upgrade=True),
-    Card("Chains of Morrígan", "ranged", "1d6", rarity="rare", upgrade=True),
-    Card("Spirits of the Lands", "ranged", "1d6", rarity="rare", upgrade=True),
+    Card("Rune Shatter", "ranged", "1d8", rarity="rare", upgrade=True),
+    Card("Sigil of Final Fate", "ranged", "1d8", rarity="rare", upgrade=True),
+    Card("Conflux Lance", "ranged", "1d8", rarity="rare", upgrade=True),
+    Card("Echoes of Guidance", "ranged", "1d8", rarity="rare", upgrade=True),
+    Card("Mercury Guard", "ranged", "1d8", rarity="rare", upgrade=True),
+    Card("Old-Ways Shillelagh", "melee", "1d8", rarity="rare", upgrade=True),
+    Card("Favor of the Druids", "ranged", "1d8", rarity="rare", upgrade=True),
+    Card("Chains of Morrígan", "ranged", "1d8", rarity="rare", upgrade=True),
+    Card("Spirits of the Lands", "ranged", "1d8", rarity="rare", upgrade=True),
 ]
 
 HERCULES_UPGRADES = [
-    Card("Bondless Effort", "melee", "1d6", rarity="common", upgrade=True),
-    Card("Colossus Smash", "melee", "1d6", rarity="common", upgrade=True),
-    Card("Olympian Call", "melee", "1d6", rarity="common", upgrade=True),
-    Card("Divine Resilience", "melee", "1d6", rarity="common", upgrade=True),
-    Card("Horde Breaker", "melee", "1d6", rarity="common", upgrade=True),
-    Card("Disorienting Blow", "melee", "1d6", rarity="common", upgrade=True),
-    Card("Piercing Spear", "ranged", "1d6", rarity="common", upgrade=True),
-    Card("Fated War", "melee", "1d6", rarity="common", upgrade=True),
-    Card("Fortune's Throw", "ranged", "1d6", rarity="common", upgrade=True),
+    Card("Bondless Effort", "melee", "1d8", rarity="common", upgrade=True),
+    Card("Colossus Smash", "melee", "1d8", rarity="common", upgrade=True),
+    Card("Olympian Call", "melee", "1d8", rarity="common", upgrade=True),
+    Card("Divine Resilience", "melee", "1d8", rarity="common", upgrade=True),
+    Card("Horde Breaker", "melee", "1d8", rarity="common", upgrade=True),
+    Card("Disorienting Blow", "melee", "1d8", rarity="common", upgrade=True),
+    Card("Piercing Spear", "ranged", "1d8", rarity="common", upgrade=True),
+    Card("Fated War", "melee", "1d8", rarity="common", upgrade=True),
+    Card("Fortune's Throw", "ranged", "1d8", rarity="common", upgrade=True),
 
-    Card("Pain Strike", "melee", "1d6", rarity="uncommon", upgrade=True),
-    Card("Fortifying Attack", "melee", "1d6", rarity="uncommon", upgrade=True),
-    Card("Bone-Splinter Whirl", "melee", "1d6", rarity="uncommon", upgrade=True),
-    Card("Glorious Uproar", "melee", "1d6", rarity="uncommon", upgrade=True),
-    Card("Guided By The Gods", "melee", "1d6", rarity="uncommon", upgrade=True),
-    Card("Chiron's Training", "melee", "1d6", rarity="uncommon", upgrade=True),
-    Card("Once Isn't Enough", "melee", "1d6", rarity="uncommon", upgrade=True),
-    Card("Strength from Anger", "melee", "1d6", rarity="uncommon", upgrade=True),
-    Card("Enduring Wave", "melee", "1d6", rarity="uncommon", upgrade=True),
+    Card("Pain Strike", "melee", "1d8", rarity="uncommon", upgrade=True),
+    Card("Fortifying Attack", "melee", "1d8", rarity="uncommon", upgrade=True),
+    Card("Bone-Splinter Whirl", "melee", "1d8", rarity="uncommon", upgrade=True),
+    Card("Glorious Uproar", "melee", "1d8", rarity="uncommon", upgrade=True),
+    Card("Guided By The Gods", "melee", "1d8", rarity="uncommon", upgrade=True),
+    Card("Chiron's Training", "melee", "1d8", rarity="uncommon", upgrade=True),
+    Card("Once Isn't Enough", "melee", "1d8", rarity="uncommon", upgrade=True),
+    Card("Strength from Anger", "melee", "1d8", rarity="uncommon", upgrade=True),
+    Card("Enduring Wave", "melee", "1d8", rarity="uncommon", upgrade=True),
 
-    Card("Zeus' Wrath", "melee", "1d6", rarity="rare", upgrade=True),
-    Card("Ares' Will", "melee", "1d6", rarity="rare", upgrade=True),
-    Card("True Might of Hercules", "melee", "1d6", rarity="rare", upgrade=True),
-    Card("Athena's Guidance", "melee", "1d6", rarity="rare", upgrade=True),
-    Card("Apollo's Sunburst", "ranged", "1d6", rarity="rare", upgrade=True),
-    Card("Nike's Desire", "melee", "1d6", rarity="rare", upgrade=True),
-    Card("Blessing of Hephaestus", "ranged", "1d6", rarity="rare", upgrade=True),
-    Card("Hermes’ Delivery", "melee", "1d6", rarity="rare", upgrade=True),
-    Card("Eris' Pandemonium", "melee", "1d6", rarity="rare", upgrade=True),
+    Card("Zeus' Wrath", "melee", "1d8", rarity="rare", upgrade=True),
+    Card("Ares' Will", "melee", "1d8", rarity="rare", upgrade=True),
+    Card("True Might of Hercules", "melee", "1d8", rarity="rare", upgrade=True),
+    Card("Athena's Guidance", "melee", "1d8", rarity="rare", upgrade=True),
+    Card("Apollo's Sunburst", "ranged", "1d8", rarity="rare", upgrade=True),
+    Card("Nike's Desire", "melee", "1d8", rarity="rare", upgrade=True),
+    Card("Blessing of Hephaestus", "ranged", "1d8", rarity="rare", upgrade=True),
+    Card("Hermes’ Delivery", "melee", "1d8", rarity="rare", upgrade=True),
+    Card("Eris' Pandemonium", "melee", "1d8", rarity="rare", upgrade=True),
 ]
 
 
 def merlin_base_deck() -> List[Card]:
     """Return Merlin's starting deck of ten cards."""
     return [
-        Card("Arcane Bolt", "ranged", "1d6", {"damage": 1}),
-        Card("Arcane Bolt", "ranged", "1d6", {"damage": 1}),
-        Card("Arcane Bolt", "ranged", "1d6", {"damage": 1}),
-        Card("Arcane Bolt", "ranged", "1d6", {"damage": 1}),
-        Card("Mystic Barrier", "ranged", "1d4", {"armor": 2}),
-        Card("Mystic Barrier", "ranged", "1d4", {"armor": 2}),
-        Card("Staff Strike", "melee", "1d6"),
-        Card("Staff Strike", "melee", "1d6"),
-        Card("Staff Strike", "melee", "1d6"),
-        Card("Staff Strike", "melee", "1d6"),
+        Card("Arcane Bolt", "ranged", "1d8", {"damage": 1}),
+        Card("Arcane Bolt", "ranged", "1d8", {"damage": 1}),
+        Card("Arcane Bolt", "ranged", "1d8", {"damage": 1}),
+        Card("Arcane Bolt", "ranged", "1d8", {"damage": 1}),
+        Card("Mystic Barrier", "ranged", "1d8", {"armor": 2}),
+        Card("Mystic Barrier", "ranged", "1d8", {"armor": 2}),
+        Card("Staff Strike", "melee", "1d8"),
+        Card("Staff Strike", "melee", "1d8"),
+        Card("Staff Strike", "melee", "1d8"),
+        Card("Staff Strike", "melee", "1d8"),
     ]
 
 
 def hercules_base_deck() -> List[Card]:
     """Return Hercules' starting deck of ten cards."""
     return [
-        Card("Slash", "melee", "1d6", {"damage": 1}),
-        Card("Slash", "melee", "1d6", {"damage": 1}),
-        Card("Slash", "melee", "1d6", {"damage": 1}),
-        Card("Slash", "melee", "1d6", {"damage": 1}),
-        Card("Block", "melee", "1d4", {"armor": 2}),
-        Card("Block", "melee", "1d4", {"armor": 2}),
-        Card("Block", "melee", "1d4", {"armor": 2}),
-        Card("Block", "melee", "1d4", {"armor": 2}),
-        Card("Javelin", "ranged", "1d6", {"damage": 1}),
-        Card("Javelin", "ranged", "1d6", {"damage": 1}),
+        Card("Slash", "melee", "1d8", {"damage": 1}),
+        Card("Slash", "melee", "1d8", {"damage": 1}),
+        Card("Slash", "melee", "1d8", {"damage": 1}),
+        Card("Slash", "melee", "1d8", {"damage": 1}),
+        Card("Block", "melee", "1d8", {"armor": 2}),
+        Card("Block", "melee", "1d8", {"armor": 2}),
+        Card("Block", "melee", "1d8", {"armor": 2}),
+        Card("Block", "melee", "1d8", {"armor": 2}),
+        Card("Javelin", "ranged", "1d8", {"damage": 1}),
+        Card("Javelin", "ranged", "1d8", {"damage": 1}),
     ]
 
 

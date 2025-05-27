@@ -813,12 +813,13 @@ def run_trials(hero_name: str, n: int) -> None:
             if idx < len(combat_hps):
                 combat_hps[idx].append(hero.hp)
 
-            et = group[0].type
-            if et not in enemy_totals:
-                enemy_totals[et] = {"damage": 0, "armor": 0, "count": 0}
-            enemy_totals[et]["damage"] += stats["enemy_damage"]
-            enemy_totals[et]["armor"] += stats["enemy_armor"]
-            enemy_totals[et]["count"] += 1
+            ename = group[0].name
+            if ename not in enemy_totals:
+                enemy_totals[ename] = {"damage": 0, "armor": 0, "count": 0, "monsters": 0}
+            enemy_totals[ename]["damage"] += stats["enemy_damage"]
+            enemy_totals[ename]["armor"] += stats["enemy_armor"]
+            enemy_totals[ename]["count"] += 1
+            enemy_totals[ename]["monsters"] += len(group)
 
             if hero.hp <= 0:
                 last_alive = False
@@ -855,11 +856,11 @@ def run_trials(hero_name: str, n: int) -> None:
     print(f"  Armor gained: {hero_armor_total / n:.2f}\n")
 
     print("Enemy type averages:")
-    for etype, vals in enemy_totals.items():
-        count = vals["count"] or 1
-        dmg = vals["damage"] / count
-        arm = vals["armor"] / count
-        print(f"  {etype}: dealt {dmg:.2f} dmg, gained {arm:.2f} armor")
+    for ename, vals in enemy_totals.items():
+        monsters = vals["monsters"] or 1
+        dmg = vals["damage"] / monsters
+        arm = vals["armor"] / monsters
+        print(f"  {ename}: dealt {dmg:.2f} dmg, gained {arm:.2f} armor")
 
     rate = (success / n) * 100 if n else 0
     print(f"\nSuccess rate: {rate:.2f}%\n")

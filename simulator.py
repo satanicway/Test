@@ -431,6 +431,15 @@ def run_trials(hero_name: str, n: int) -> None:
                     dmg += dead
                 enemy_actions[m] = (dmg, arm)
 
+            # Determine which enemy rolled the highest damage for this exchange
+            max_dmg = 0
+            preferred_target = None
+            if enemy_actions:
+                max_dmg = max(v[0] for v in enemy_actions.values())
+                top = [m for m, (d, _) in enemy_actions.items() if d == max_dmg and m.hp > 0]
+                if top:
+                    preferred_target = random.choice(top)
+
             while order:
                 card = order.pop(0)
                 if card.effects.get("execute_twice_next"):
@@ -446,7 +455,7 @@ def run_trials(hero_name: str, n: int) -> None:
                     dice_count += count
                     rerolls = 0
                     hits = 0
-                    target = next((mm for mm in alive if mm.hp > 0), None)
+                    target = preferred_target if preferred_target is not None else next((mm for mm in alive if mm.hp > 0), None)
                     if target is None:
                         break
                     target_def = target.defense - h.combat_effects.get("combat_enemy_def_minus", 0) - h.exchange_effects.get("exchange_target_def_minus", 0)

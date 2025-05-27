@@ -187,3 +187,27 @@ Void Treant81 (A)Divine <D>87Melee4 <A>2 <D> 2 <A>2 <D> 2 <A>5 <D>Roots of Despa
 Void Treant81 (B)Divine <D>87Melee4 <A>2 <D> 2 <A>2 <D> 2 <A>5 <D>Roots of Despair: Whenever a hero miss all dice on an attack card, it loses 1 <HP>.
 Corrupted Angel71 (C)Arcane <A>76Melee<C>2 <D> <P>3 <D> <S>5 <D>Denied Heaven: Reroll all dice whose face is 8 (as many times as necessary).
 Corrupted Angel71 (D)Arcane <A>76Melee<C>2 <D> <P>3 <D> <S>5 <D>Denied Heaven: Reroll all dice whose face is 8 (as many times as necessary).
+
+ELITE ENEMIES 1-2 3-4 5-6 7-8
+Shadow Spinner - 2 <A> 2 <D> 2 <A> 3 <D> <P>
+Shadow Spinner - 2 <A> 2 <D> 2 <A> 3 <D> <P>
+Void Soldier 1 <D> 1 <D> 1 <A> 1 <D> 3 <D> 1 <A>
+Void Soldier 1 <D> 1 <D> 1 <A> 1 <D> 3 <D> 1 <A>
+Priest of Oblivion <DR> 1 <D> 1 <D> 1 <A> 2 <D>
+Priest of Oblivion <DR> 1 <D> 1 <D> 1 <A> 2 <D>
+Corrupted Dryad - 1 <A> 2 <D> <S> 3 <D>
+Corrupted Dryad - 1 <A> 2 <D> <S> 3 <D>
+
+Dark Minotaur - 2 <A> 2 <D> <P> 3 <D>
+Dark Minotaur - 2 <A> 2 <D> <P> 3 <D>
+Dark Wizard <C> 1 <D> 1 <D> 1 <P> 3 <D>
+Dark Wizard <C> 1 <D> 1 <D> 1 <P> 3 <D>
+Shadow Banshee - 2 <A> <DR> 1 <D> 2 <D> <P>
+Shadow Banshee - 2 <A> <DR> 1 <D> 2 <D> <P>
+
+Void Gryphon - 2 <D> 3 <A> 3 <D> 1 <A> 4 <D> <P>
+Void Gryphon - 2 <D> 3 <A> 3 <D> 1 <A> 4 <D> <P>
+Void Treant 4 <A> 2 <D> 2 <A> 2 <D> 2 <A> 5 <D>
+Void Treant 4 <A> 2 <D> 2 <A> 2 <D> 2 <A> 5 <D>
+Corrupted Angel <C> 2 <D> <P> 3 <D> <S> 5 <D>
+Corrupted Angel <C> 2 <D> <P> 3 <D> <S> 5 <D>

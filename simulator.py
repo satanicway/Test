@@ -142,74 +142,144 @@ class Monster:
 # below still mirror the old generic tables and should be updated when
 # clearer data becomes available.
 
-SHADOW_SPINNER_TABLE = [
+BASIC_SHADOW_SPINNER_TABLE = [
     {"damage": 0, "armor": 0},
     {"damage": 0, "armor": 2},
     {"damage": 1, "armor": 2},
     {"damage": 2, "armor": 0, "p": True},
 ]
 
-VOID_SOLDIER_TABLE = [
+BASIC_VOID_SOLDIER_TABLE = [
     {"damage": 0, "armor": 0},
     {"damage": 0, "armor": 1},
     {"damage": 1, "armor": 0},
     {"damage": 2, "armor": 1},
 ]
 
-PRIEST_OF_OBLIVION_TABLE = [
+BASIC_PRIEST_OF_OBLIVION_TABLE = [
     {"damage": 0, "armor": 0, "dr": True},
     {"damage": 0, "armor": 0},
     {"damage": 1, "armor": 0},
     {"damage": 1, "armor": 0},
 ]
 
-CORRUPTED_DRYAD_TABLE = [
+BASIC_CORRUPTED_DRYAD_TABLE = [
     {"damage": 0, "armor": 0},
     {"damage": 0, "armor": 1},
     {"damage": 1, "armor": 0, "s": True},
     {"damage": 2, "armor": 0},
 ]
 
-DARK_MINOTAUR_TABLE = [
+BASIC_DARK_MINOTAUR_TABLE = [
     {"damage": 0, "armor": 1},
     {"damage": 1, "armor": 0},
     {"damage": 1, "armor": 0, "p": True},
     {"damage": 2, "armor": 0},
 ]
 
-DARK_WIZARD_TABLE = [
+BASIC_DARK_WIZARD_TABLE = [
     {"damage": 0, "armor": 0, "c": True},
     {"damage": 1, "armor": 0},
     {"damage": 1, "armor": 1},
     {"damage": 2, "armor": 0},
 ]
 
-SHADOW_BANSHEE_TABLE = [
+BASIC_SHADOW_BANSHEE_TABLE = [
     {"damage": 0, "armor": 3},
     {"damage": 0, "armor": 0, "dr": True},
     {"damage": 1, "armor": 0},
     {"damage": 1, "armor": 0},
 ]
 
-VOID_GRYphon_TABLE = [
+BASIC_VOID_GRYphon_TABLE = [
     {"damage": 0, "armor": 0},
     {"damage": 1, "armor": 1},
     {"damage": 2, "armor": 2},
     {"damage": 3, "armor": 0, "p": True},
 ]
 
-VOID_TREANT_TABLE = [
+BASIC_VOID_TREANT_TABLE = [
     {"damage": 0, "armor": 3},
     {"damage": 1, "armor": 1},
     {"damage": 1, "armor": 1},
     {"damage": 4, "armor": 0},
 ]
 
-CORRUPTED_ANGEL_TABLE = [
+BASIC_CORRUPTED_ANGEL_TABLE = [
     {"damage": 0, "armor": 0},
     {"damage": 1, "armor": 0, "p": True},
     {"damage": 2, "armor": 0, "s": True},
     {"damage": 3, "armor": 2},
+]
+
+ELITE_SHADOW_SPINNER_TABLE = [
+    {"damage": 0, "armor": 0},
+    {"damage": 0, "armor": 2},
+    {"damage": 2, "armor": 2},
+    {"damage": 3, "armor": 0, "p": True},
+]
+
+ELITE_VOID_SOLDIER_TABLE = [
+    {"damage": 1, "armor": 0},
+    {"damage": 1, "armor": 1},
+    {"damage": 1, "armor": 0},
+    {"damage": 3, "armor": 1},
+]
+
+ELITE_PRIEST_OF_OBLIVION_TABLE = [
+    {"damage": 0, "armor": 0, "dr": True},
+    {"damage": 1, "armor": 0},
+    {"damage": 1, "armor": 1},
+    {"damage": 2, "armor": 0},
+]
+
+ELITE_CORRUPTED_DRYAD_TABLE = [
+    {"damage": 0, "armor": 0},
+    {"damage": 0, "armor": 1},
+    {"damage": 2, "armor": 0, "s": True},
+    {"damage": 3, "armor": 0},
+]
+
+ELITE_DARK_MINOTAUR_TABLE = [
+    {"damage": 0, "armor": 0},
+    {"damage": 0, "armor": 2},
+    {"damage": 2, "armor": 0, "p": True},
+    {"damage": 3, "armor": 0},
+]
+
+ELITE_DARK_WIZARD_TABLE = [
+    {"damage": 0, "armor": 0, "c": True},
+    {"damage": 1, "armor": 0},
+    {"damage": 1, "armor": 0, "p": True},
+    {"damage": 3, "armor": 0},
+]
+
+ELITE_SHADOW_BANSHEE_TABLE = [
+    {"damage": 0, "armor": 0},
+    {"damage": 0, "armor": 2},
+    {"damage": 1, "armor": 0, "dr": True},
+    {"damage": 2, "armor": 0, "p": True},
+]
+
+ELITE_VOID_GRYphon_TABLE = [
+    {"damage": 0, "armor": 0},
+    {"damage": 2, "armor": 3},
+    {"damage": 3, "armor": 1},
+    {"damage": 4, "armor": 0, "p": True},
+]
+
+ELITE_VOID_TREANT_TABLE = [
+    {"damage": 0, "armor": 4},
+    {"damage": 2, "armor": 2},
+    {"damage": 2, "armor": 2},
+    {"damage": 5, "armor": 0},
+]
+
+ELITE_CORRUPTED_ANGEL_TABLE = [
+    {"damage": 0, "armor": 0, "c": True},
+    {"damage": 2, "armor": 0, "p": True},
+    {"damage": 3, "armor": 0, "s": True},
+    {"damage": 5, "armor": 0},
 ]
 
 
@@ -225,67 +295,67 @@ class EnemyGroup:
 BASIC_GROUPS: List[EnemyGroup] = [
     EnemyGroup(3, Monster("Shadow Spinner", hp=1, defense=4, type="spiritual",
                           abilities=["Web Slinger"],
-                          action_table=SHADOW_SPINNER_TABLE)),
+                         action_table=BASIC_SHADOW_SPINNER_TABLE)),
     EnemyGroup(3, Monster("Void Soldier", hp=3, defense=5, type="precise",
                           abilities=["Dark Phalanx"],
-                          action_table=VOID_SOLDIER_TABLE)),
+                         action_table=BASIC_VOID_SOLDIER_TABLE)),
     EnemyGroup(3, Monster("Priest of Oblivion", hp=2, defense=3, type="arcane",
                           abilities=["Power of Death"],
-                          action_table=PRIEST_OF_OBLIVION_TABLE)),
+                         action_table=BASIC_PRIEST_OF_OBLIVION_TABLE)),
     EnemyGroup(3, Monster("Corrupted Dryad", hp=3, defense=4, type="brutal",
                           abilities=["Cursed Thorns"],
-                          action_table=CORRUPTED_DRYAD_TABLE)),
+                         action_table=BASIC_CORRUPTED_DRYAD_TABLE)),
     EnemyGroup(2, Monster("Dark Minotaur", hp=5, defense=3, type="precise",
                           abilities=[],
-                          action_table=DARK_MINOTAUR_TABLE)),
+                         action_table=BASIC_DARK_MINOTAUR_TABLE)),
     EnemyGroup(2, Monster("Dark Wizard", hp=4, defense=3, type="brutal",
                           abilities=["Curse of Torment", "Void Barrier"],
-                          action_table=DARK_WIZARD_TABLE)),
+                         action_table=BASIC_DARK_WIZARD_TABLE)),
     EnemyGroup(2, Monster("Shadow Banshee", hp=4, defense=5, type="divine",
                           abilities=["Ghostly"],
-                          action_table=SHADOW_BANSHEE_TABLE)),
+                         action_table=BASIC_SHADOW_BANSHEE_TABLE)),
     EnemyGroup(1, Monster("Void Gryphon", hp=5, defense=5, type="spiritual",
                           abilities=["Aerial Combat"],
-                          action_table=VOID_GRYphon_TABLE)),
+                         action_table=BASIC_VOID_GRYphon_TABLE)),
     EnemyGroup(1, Monster("Void Treant", hp=7, defense=6, type="divine",
                           abilities=["Power Sap"],
-                          action_table=VOID_TREANT_TABLE)),
+                         action_table=BASIC_VOID_TREANT_TABLE)),
     EnemyGroup(1, Monster("Corrupted Angel", hp=6, defense=5, type="arcane",
                           abilities=["Corrupted Destiny"],
-                          action_table=CORRUPTED_ANGEL_TABLE)),
+                         action_table=BASIC_CORRUPTED_ANGEL_TABLE)),
 ]
 
 ELITE_GROUPS: List[EnemyGroup] = [
     EnemyGroup(3, Monster("Shadow Spinner", hp=3, defense=5, type="spiritual",
                           abilities=["Sticky Web"],
-                          action_table=SHADOW_SPINNER_TABLE)),
+                          action_table=ELITE_SHADOW_SPINNER_TABLE)),
     EnemyGroup(3, Monster("Void Soldier", hp=4, defense=6, type="precise",
                           abilities=["Spiked Armor"],
-                          action_table=VOID_SOLDIER_TABLE)),
+                          action_table=ELITE_VOID_SOLDIER_TABLE)),
     EnemyGroup(3, Monster("Priest of Oblivion", hp=4, defense=4, type="arcane",
                           abilities=["Silence"],
-                          action_table=PRIEST_OF_OBLIVION_TABLE)),
+                          action_table=ELITE_PRIEST_OF_OBLIVION_TABLE)),
     EnemyGroup(3, Monster("Corrupted Dryad", hp=4, defense=5, type="brutal",
                           abilities=["Disturbed Flow"],
-                          action_table=CORRUPTED_DRYAD_TABLE)),
+                          action_table=ELITE_CORRUPTED_DRYAD_TABLE)),
     EnemyGroup(2, Monster("Dark Minotaur", hp=6, defense=3, type="precise",
                           abilities=["Enrage"],
-                          action_table=DARK_MINOTAUR_TABLE)),
+                          action_table=ELITE_DARK_MINOTAUR_TABLE)),
     EnemyGroup(2, Monster("Dark Wizard", hp=3, defense=4, type="brutal",
                           abilities=["Void Barrier"],
-                          action_table=DARK_WIZARD_TABLE)),
+                          action_table=ELITE_DARK_WIZARD_TABLE)),
     EnemyGroup(2, Monster("Shadow Banshee", hp=5, defense=5, type="divine",
                           abilities=["Banshee Wail"],
-                          action_table=SHADOW_BANSHEE_TABLE)),
+                          action_table=ELITE_SHADOW_BANSHEE_TABLE)),
     EnemyGroup(1, Monster("Void Gryphon", hp=6, defense=5, type="spiritual",
                           abilities=["Ephemeral Wings"],
-                          action_table=VOID_GRYphon_TABLE)),
+                          action_table=ELITE_VOID_GRYphon_TABLE)),
     EnemyGroup(1, Monster("Void Treant", hp=8, defense=7, type="divine",
                           abilities=["Roots of Despair"],
-                          action_table=VOID_TREANT_TABLE)),
+                          action_table=ELITE_VOID_TREANT_TABLE)),
     EnemyGroup(1, Monster("Corrupted Angel", hp=7, defense=6, type="arcane",
                           abilities=["Denied Heaven"],
-                          action_table=CORRUPTED_ANGEL_TABLE)),
+                          action_table=ELITE_CORRUPTED_ANGEL_TABLE)),
 ]
 
 

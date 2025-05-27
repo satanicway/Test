@@ -464,6 +464,17 @@ def run_trials(hero_name: str, n: int) -> None:
                             if h.combat_effects.get("combat_ones_to_eights") and result == 1:
                                 result = 8
                             result = min(8, result + dice_plus)
+                        while (result < target_def and h.fate > 0 and rerolls < 2 and
+                               target.hp <= 2 and "Disturbed Flow" not in target.abilities):
+                            h.fate -= 1
+                            rerolls += 1
+                            result = random.randint(1, sides)
+                            if h.combat_effects.get("combat_ones_to_eights") and result == 1:
+                                result = 8
+                            result = min(8, result + dice_plus)
+                            while "Denied Heaven" in target.abilities and result == 8:
+                                result = random.randint(1, sides)
+                                result = min(8, result + dice_plus)
                         if result in (1, 2) and "Curse of Torment" in target.abilities:
                             prev = h.hp
                             h.apply_damage(1)

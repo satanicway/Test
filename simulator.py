@@ -694,7 +694,13 @@ def run_trials(hero_name: str, n: int) -> None:
     success = 0
 
     for _ in range(n):
-        hero = Hero(name=hero_name, hp=20,
+        if hero_name.lower() == "merlin":
+            start_hp = 15
+        elif hero_name.lower() == "hercules":
+            start_hp = 25
+        else:
+            start_hp = 20
+        hero = Hero(name=hero_name, hp=start_hp,
                     deck=[Card(c.name, c.type, c.dice, c.effects.copy(), c.rarity, c.upgrade)
                           for c in base_deck_fn()])
         encounters = [Monster(m.name, m.hp, m.defense, m.type,

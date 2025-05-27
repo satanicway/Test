@@ -75,10 +75,7 @@ class Hero:
         self.armor -= block
         dmg -= block
         if dmg > 0:
-            if self.fate > 0:
-                dmg -= 1
-            if dmg > 0:
-                self.hp -= dmg
+            self.hp -= dmg
 
 
 @dataclass
@@ -355,12 +352,9 @@ class Combat:
 
         leftover = self.hero.armor
         if "Power Sap" in self.monster.abilities and self.monster.hp > 0:
-            if self.hero.fate > 0:
-                self.hero.fate -= 1
-                self.monster.hp += 1
-            elif leftover > 0:
-                self.hero.armor = max(0, self.hero.armor - 1)
-                leftover -= 1
+            if self.hero.combat_effects:
+                key = next(iter(self.hero.combat_effects))
+                del self.hero.combat_effects[key]
                 self.monster.hp += 1
         self.hero.reset_armor()
         self.monster.armor = 0
@@ -767,12 +761,9 @@ def run_trials(hero_name: str, n: int) -> None:
             leftover = h.armor
             for mm in alive:
                 if "Power Sap" in mm.abilities and mm.hp > 0:
-                    if h.fate > 0:
-                        h.fate -= 1
-                        mm.hp += 1
-                    elif leftover > 0:
-                        h.armor = max(0, h.armor - 1)
-                        leftover -= 1
+                    if h.combat_effects:
+                        key = next(iter(h.combat_effects))
+                        del h.combat_effects[key]
                         mm.hp += 1
             h.reset_armor()
             for mm in alive:

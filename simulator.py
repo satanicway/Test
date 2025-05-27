@@ -4,7 +4,7 @@ from typing import List, Dict, Optional
 
 
 def roll_dice(dice: str) -> int:
-    """Parse a dice string like '2d6' and roll it."""
+    """Parse a dice string like '2d8' and roll it."""
     try:
         count, sides = map(int, dice.lower().split("d"))
     except Exception:
@@ -13,7 +13,7 @@ def roll_dice(dice: str) -> int:
 
 
 def parse_dice(dice: str) -> (int, int):
-    """Return (count, sides) for a dice string like '2d6'."""
+    """Return (count, sides) for a dice string like '2d8'."""
     try:
         count, sides = map(int, dice.lower().split("d"))
     except Exception:
@@ -352,88 +352,88 @@ class Combat:
 
 MERLIN_UPGRADES = [
     # Common upgrades
-    Card("Runic Ray", "ranged", "1d6", {"damage": 1}, "common", True),
-    Card("Crystal-Shot Volley", "ranged", "1d6", {"damage": 1, "reroll": 1}, "common", True),
-    Card("Glyph-Marking Bolt", "ranged", "1d6", {"damage": 1, "armor": 1}, "common", True),
-    Card("Voice of Destiny", "ranged", "1d6", {"fate": 1}, "common", True),
-    Card("Druidic Ways", "ranged", "1d6", {"armor": 2}, "common", True),
-    Card("Protective Mists", "ranged", "1d6", {"armor": 1}, "common", True),
-    Card("Mark of Fated Fall", "melee", "1d6", {"damage": 1, "fate": 1}, "common", True),
-    Card("Veil-Rain of Chaos", "ranged", "1d6", {"damage": 2}, "common", True),
-    Card("Oracle of Avalon", "ranged", "1d6", {"reroll": 1, "fate": 1}, "common", True),
+    Card("Runic Ray", "ranged", "1d8", {"damage": 1}, "common", True),
+    Card("Crystal-Shot Volley", "ranged", "1d8", {"damage": 1, "reroll": 1}, "common", True),
+    Card("Glyph-Marking Bolt", "ranged", "1d8", {"damage": 1, "armor": 1}, "common", True),
+    Card("Voice of Destiny", "ranged", "1d8", {"fate": 1}, "common", True),
+    Card("Druidic Ways", "ranged", "1d8", {"armor": 2}, "common", True),
+    Card("Protective Mists", "ranged", "1d8", {"armor": 1}, "common", True),
+    Card("Mark of Fated Fall", "melee", "1d8", {"damage": 1, "fate": 1}, "common", True),
+    Card("Veil-Rain of Chaos", "ranged", "1d8", {"damage": 2}, "common", True),
+    Card("Oracle of Avalon", "ranged", "1d8", {"reroll": 1, "fate": 1}, "common", True),
 
     # Uncommon upgrades
-    Card("Waves of Destiny", "ranged", "1d6", {"damage": 2, "reroll": 1}, "uncommon", True),
-    Card("Ancestral Echoes", "ranged", "1d6", {"damage": 1, "armor": 1, "fate": 1}, "uncommon", True),
-    Card("Whispers of the Wyrd", "ranged", "1d6", {"reroll": 2}, "uncommon", True),
-    Card("Nature’s Rebuke", "ranged", "1d6", {"damage": 1, "armor": 2}, "uncommon", True),
-    Card("Guard from Beyond", "ranged", "1d6", {"armor": 3}, "uncommon", True),
-    Card("Sage's Alacrity", "ranged", "1d6", {"damage": 1, "reroll": 2}, "uncommon", True),
-    Card("Charged Spirits", "ranged", "1d6", {"damage": 2, "fate": 1}, "uncommon", True),
-    Card("Avalon's Light", "ranged", "1d6", {"armor": 2, "fate": 1}, "uncommon", True),
-    Card("Spiritual Gifts", "ranged", "1d6", {"reroll": 1, "fate": 2}, "uncommon", True),
+    Card("Waves of Destiny", "ranged", "1d8", {"damage": 2, "reroll": 1}, "uncommon", True),
+    Card("Ancestral Echoes", "ranged", "1d8", {"damage": 1, "armor": 1, "fate": 1}, "uncommon", True),
+    Card("Whispers of the Wyrd", "ranged", "1d8", {"reroll": 2}, "uncommon", True),
+    Card("Nature’s Rebuke", "ranged", "1d8", {"damage": 1, "armor": 2}, "uncommon", True),
+    Card("Guard from Beyond", "ranged", "1d8", {"armor": 3}, "uncommon", True),
+    Card("Sage's Alacrity", "ranged", "1d8", {"damage": 1, "reroll": 2}, "uncommon", True),
+    Card("Charged Spirits", "ranged", "1d8", {"damage": 2, "fate": 1}, "uncommon", True),
+    Card("Avalon's Light", "ranged", "1d8", {"armor": 2, "fate": 1}, "uncommon", True),
+    Card("Spiritual Gifts", "ranged", "1d8", {"reroll": 1, "fate": 2}, "uncommon", True),
 
     # Rare upgrades
-    Card("Rune Shatter", "ranged", "1d6", {"damage": 3}, "rare", True),
-    Card("Sigil of Final Fate", "ranged", "1d6", {"damage": 2, "fate": 2}, "rare", True),
-    Card("Conflux Lance", "ranged", "1d6", {"damage": 2, "reroll": 2}, "rare", True),
-    Card("Echoes of Guidance", "ranged", "1d6", {"reroll": 3}, "rare", True),
-    Card("Mercury Guard", "ranged", "1d6", {"armor": 3, "fate": 1}, "rare", True),
-    Card("Old-Ways Shillelagh", "melee", "1d6", {"damage": 2, "armor": 1}, "rare", True),
-    Card("Favor of the Druids", "ranged", "1d6", {"damage": 1, "armor": 2, "fate": 1}, "rare", True),
-    Card("Chains of Morrígan", "ranged", "1d6", {"damage": 2, "armor": 2}, "rare", True),
-    Card("Spirits of the Lands", "ranged", "1d6", {"damage": 1, "reroll": 1, "fate": 2}, "rare", True),
+    Card("Rune Shatter", "ranged", "1d8", {"damage": 3}, "rare", True),
+    Card("Sigil of Final Fate", "ranged", "1d8", {"damage": 2, "fate": 2}, "rare", True),
+    Card("Conflux Lance", "ranged", "1d8", {"damage": 2, "reroll": 2}, "rare", True),
+    Card("Echoes of Guidance", "ranged", "1d8", {"reroll": 3}, "rare", True),
+    Card("Mercury Guard", "ranged", "1d8", {"armor": 3, "fate": 1}, "rare", True),
+    Card("Old-Ways Shillelagh", "melee", "1d8", {"damage": 2, "armor": 1}, "rare", True),
+    Card("Favor of the Druids", "ranged", "1d8", {"damage": 1, "armor": 2, "fate": 1}, "rare", True),
+    Card("Chains of Morrígan", "ranged", "1d8", {"damage": 2, "armor": 2}, "rare", True),
+    Card("Spirits of the Lands", "ranged", "1d8", {"damage": 1, "reroll": 1, "fate": 2}, "rare", True),
 ]
 
 HERCULES_UPGRADES = [
     # Common upgrades
-    Card("Bondless Effort", "melee", "1d6", {"damage": 1, "armor": 1}, "common", True),
-    Card("Colossus Smash", "melee", "1d6", {"damage": 2}, "common", True),
-    Card("Olympian Call", "melee", "1d6", {"damage": 1, "fate": 1}, "common", True),
-    Card("Divine Resilience", "melee", "1d6", {"armor": 2}, "common", True),
-    Card("Horde Breaker", "melee", "1d6", {"damage": 1, "reroll": 1}, "common", True),
-    Card("Disorienting Blow", "melee", "1d6", {"damage": 1, "armor": 1}, "common", True),
-    Card("Piercing Spear", "ranged", "1d6", {"damage": 2}, "common", True),
-    Card("Fated War", "melee", "1d6", {"damage": 1, "fate": 1}, "common", True),
-    Card("Fortune's Throw", "ranged", "1d6", {"damage": 1, "reroll": 1}, "common", True),
+    Card("Bondless Effort", "melee", "1d8", {"damage": 1, "armor": 1}, "common", True),
+    Card("Colossus Smash", "melee", "1d8", {"damage": 2}, "common", True),
+    Card("Olympian Call", "melee", "1d8", {"damage": 1, "fate": 1}, "common", True),
+    Card("Divine Resilience", "melee", "1d8", {"armor": 2}, "common", True),
+    Card("Horde Breaker", "melee", "1d8", {"damage": 1, "reroll": 1}, "common", True),
+    Card("Disorienting Blow", "melee", "1d8", {"damage": 1, "armor": 1}, "common", True),
+    Card("Piercing Spear", "ranged", "1d8", {"damage": 2}, "common", True),
+    Card("Fated War", "melee", "1d8", {"damage": 1, "fate": 1}, "common", True),
+    Card("Fortune's Throw", "ranged", "1d8", {"damage": 1, "reroll": 1}, "common", True),
 
     # Uncommon upgrades
-    Card("Pain Strike", "melee", "1d6", {"damage": 2}, "uncommon", True),
-    Card("Fortifying Attack", "melee", "1d6", {"damage": 1, "armor": 2}, "uncommon", True),
-    Card("Bone-Splinter Whirl", "melee", "1d6", {"damage": 2, "reroll": 1}, "uncommon", True),
-    Card("Glorious Uproar", "melee", "1d6", {"damage": 1, "fate": 1, "reroll": 1}, "uncommon", True),
-    Card("Guided By The Gods", "melee", "1d6", {"reroll": 2, "fate": 1}, "uncommon", True),
-    Card("Chiron's Training", "melee", "1d6", {"damage": 1, "armor": 1, "reroll": 1}, "uncommon", True),
-    Card("Once Isn't Enough", "melee", "1d6", {"damage": 2, "fate": 1}, "uncommon", True),
-    Card("Strength from Anger", "melee", "1d6", {"damage": 1, "armor": 1, "fate": 1}, "uncommon", True),
-    Card("Enduring Wave", "melee", "1d6", {"armor": 3}, "uncommon", True),
+    Card("Pain Strike", "melee", "1d8", {"damage": 2}, "uncommon", True),
+    Card("Fortifying Attack", "melee", "1d8", {"damage": 1, "armor": 2}, "uncommon", True),
+    Card("Bone-Splinter Whirl", "melee", "1d8", {"damage": 2, "reroll": 1}, "uncommon", True),
+    Card("Glorious Uproar", "melee", "1d8", {"damage": 1, "fate": 1, "reroll": 1}, "uncommon", True),
+    Card("Guided By The Gods", "melee", "1d8", {"reroll": 2, "fate": 1}, "uncommon", True),
+    Card("Chiron's Training", "melee", "1d8", {"damage": 1, "armor": 1, "reroll": 1}, "uncommon", True),
+    Card("Once Isn't Enough", "melee", "1d8", {"damage": 2, "fate": 1}, "uncommon", True),
+    Card("Strength from Anger", "melee", "1d8", {"damage": 1, "armor": 1, "fate": 1}, "uncommon", True),
+    Card("Enduring Wave", "melee", "1d8", {"armor": 3}, "uncommon", True),
 
     # Rare upgrades
-    Card("Zeus' Wrath", "melee", "1d6", {"damage": 3}, "rare", True),
-    Card("Ares' Will", "melee", "1d6", {"damage": 2, "armor": 1}, "rare", True),
-    Card("True Might of Hercules", "melee", "1d6", {"damage": 2, "armor": 1, "reroll": 1}, "rare", True),
-    Card("Athena's Guidance", "melee", "1d6", {"reroll": 3}, "rare", True),
-    Card("Apollo's Sunburst", "ranged", "1d6", {"damage": 2, "fate": 2}, "rare", True),
-    Card("Nike's Desire", "melee", "1d6", {"damage": 1, "reroll": 2, "fate": 1}, "rare", True),
-    Card("Blessing of Hephaestus", "ranged", "1d6", {"damage": 2, "armor": 2}, "rare", True),
-    Card("Hermes’ Delivery", "melee", "1d6", {"damage": 2, "reroll": 1}, "rare", True),
-    Card("Eris' Pandemonium", "melee", "1d6", {"damage": 2, "fate": 1, "reroll": 1}, "rare", True),
+    Card("Zeus' Wrath", "melee", "1d8", {"damage": 3}, "rare", True),
+    Card("Ares' Will", "melee", "1d8", {"damage": 2, "armor": 1}, "rare", True),
+    Card("True Might of Hercules", "melee", "1d8", {"damage": 2, "armor": 1, "reroll": 1}, "rare", True),
+    Card("Athena's Guidance", "melee", "1d8", {"reroll": 3}, "rare", True),
+    Card("Apollo's Sunburst", "ranged", "1d8", {"damage": 2, "fate": 2}, "rare", True),
+    Card("Nike's Desire", "melee", "1d8", {"damage": 1, "reroll": 2, "fate": 1}, "rare", True),
+    Card("Blessing of Hephaestus", "ranged", "1d8", {"damage": 2, "armor": 2}, "rare", True),
+    Card("Hermes’ Delivery", "melee", "1d8", {"damage": 2, "reroll": 1}, "rare", True),
+    Card("Eris' Pandemonium", "melee", "1d8", {"damage": 2, "fate": 1, "reroll": 1}, "rare", True),
 ]
 
 
 def merlin_base_deck() -> List[Card]:
     """Return Merlin's starting deck of ten cards."""
     return [
-        Card("Arcane Volley", "ranged", "1d6", {"damage": 1}),
-        Card("Arcane Volley", "ranged", "1d6", {"damage": 1}),
-        Card("Lady’s Warden", "melee", "1d6", {"damage": 1, "armor": 2}),
-        Card("Lady’s Warden", "melee", "1d6", {"damage": 1, "armor": 2}),
-        Card("Weaver of Fate", "ranged", "1d6", {"damage": 1, "reroll": 2}),
-        Card("Weaver of Fate", "ranged", "1d6", {"damage": 1, "reroll": 2}),
-        Card("Crystal Cave's Staff", "melee", "1d6", {"damage": 1, "armor": 1}),
-        Card("Mists of Time", "ranged", "1d6", {"damage": 1}),
-        Card("Mists of Time", "ranged", "1d6", {"damage": 1}),
-        Card("Circle of Avalon", "ranged", "1d6", {"damage": 1, "reroll": 1}),
+        Card("Arcane Volley", "ranged", "1d8", {"damage": 1}),
+        Card("Arcane Volley", "ranged", "1d8", {"damage": 1}),
+        Card("Lady’s Warden", "melee", "1d8", {"damage": 1, "armor": 2}),
+        Card("Lady’s Warden", "melee", "1d8", {"damage": 1, "armor": 2}),
+        Card("Weaver of Fate", "ranged", "1d8", {"damage": 1, "reroll": 2}),
+        Card("Weaver of Fate", "ranged", "1d8", {"damage": 1, "reroll": 2}),
+        Card("Crystal Cave's Staff", "melee", "1d8", {"damage": 1, "armor": 1}),
+        Card("Mists of Time", "ranged", "1d8", {"damage": 1}),
+        Card("Mists of Time", "ranged", "1d8", {"damage": 1}),
+        Card("Circle of Avalon", "ranged", "1d8", {"damage": 1, "reroll": 1}),
     ]
 
 
@@ -441,23 +441,23 @@ def hercules_base_deck() -> List[Card]:
     """Return Hercules' starting deck of ten cards."""
     return [
         # Crushing attack drawing on Hercules' immense strength
-        Card("Pillar-Breaker Blow", "melee", "1d6", {"damage": 2}),
-        Card("Pillar-Breaker Blow", "melee", "1d6", {"damage": 2}),
+        Card("Pillar-Breaker Blow", "melee", "1d8", {"damage": 2}),
+        Card("Pillar-Breaker Blow", "melee", "1d8", {"damage": 2}),
 
         # Grappling technique used on the Nemean Lion
-        Card("Lion Strangler", "melee", "1d6", {"damage": 1}),
-        Card("Lion Strangler", "melee", "1d6", {"damage": 1}),
+        Card("Lion Strangler", "melee", "1d8", {"damage": 1}),
+        Card("Lion Strangler", "melee", "1d8", {"damage": 1}),
 
         # Brief surge of heroic resilience
-        Card("Demigodly Heroism", "melee", "1d6", {"damage": 1, "armor": 1}),
-        Card("Demigodly Heroism", "melee", "1d6", {"damage": 1, "armor": 1}),
+        Card("Demigodly Heroism", "melee", "1d8", {"damage": 1, "armor": 1}),
+        Card("Demigodly Heroism", "melee", "1d8", {"damage": 1, "armor": 1}),
 
         # Ranged spear toss
-        Card("Herculean Throw", "ranged", "1d6", {"damage": 1}),
-        Card("Herculean Throw", "ranged", "1d6", {"damage": 1}),
+        Card("Herculean Throw", "ranged", "1d8", {"damage": 1}),
+        Card("Herculean Throw", "ranged", "1d8", {"damage": 1}),
 
         # Defensive stance channeling godly endurance
-        Card("Olympian Guard", "melee", "1d6", {"armor": 2}),
+        Card("Olympian Guard", "melee", "1d8", {"armor": 2}),
     ]
 
 

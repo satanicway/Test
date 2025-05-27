@@ -665,10 +665,16 @@ def run_trials(hero_name: str, n: int) -> None:
         last_alive = False
         for idx, group in enumerate(encounters):
             hero.fate += 1
-            stats = run_combat(hero, group)
-            hero_damage_total += stats["hero_damage"]
-            hero_armor_total += stats["hero_armor"]
-            for i, val in enumerate(stats["hero_hp"]):
+            if hero.hp > 0:
+                stats = run_combat(hero, group)
+                hero_damage_total += stats["hero_damage"]
+                hero_armor_total += stats["hero_armor"]
+                hero_hp_data = stats["hero_hp"]
+            else:
+                stats = {"hero_damage": 0, "hero_armor": 0,
+                         "enemy_damage": 0, "enemy_armor": 0}
+                hero_hp_data = [hero.hp]
+            for i, val in enumerate(hero_hp_data):
                 while len(round_hp_lists) <= i:
                     round_hp_lists.append([])
                 round_hp_lists[i].append(val)
@@ -684,8 +690,8 @@ def run_trials(hero_name: str, n: int) -> None:
 
             if hero.hp <= 0:
                 last_alive = False
-                break
-            last_alive = all(m.hp <= 0 for m in group)
+            else:
+                last_alive = all(m.hp <= 0 for m in group)
             if idx < len(encounters) - 1:
                 upgrade = draw_upgrade(hero)
                 hero.deck.append(upgrade)

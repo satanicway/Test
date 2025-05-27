@@ -551,7 +551,6 @@ def run_trials(hero_name: str, n: int) -> None:
                     dmg = 0
                     count, sides = parse_dice(card.dice)
                     count += card.effects.get("extra_dice_per_enemy", 0) * len(alive)
-                    dice_count += count
                     rerolls = 0
                     hits = 0
                     target = preferred_target if preferred_target is not None else next((mm for mm in alive if mm.hp > 0), None)
@@ -572,7 +571,9 @@ def run_trials(hero_name: str, n: int) -> None:
                         len(alive) if card.effects.get("aoe") else 1
                     )
                     dice_plus += getattr(target, "dice_bonus_against", 0)
-                    for _ in range(count):
+                    rolled = 0
+                    while rolled < count:
+                        dice_count += 1
                         result = random.randint(1, sides)
                         if h.combat_effects.get("combat_ones_to_eights") and result == 1:
                             result = 8
@@ -612,9 +613,9 @@ def run_trials(hero_name: str, n: int) -> None:
                             hits += 1
                             if card.effects.get("extra_dice_on_8") and result == 8:
                                 count += 1
-                                dice_count += 1
                             if result >= 7:
                                 h.add_armor(h.combat_effects.get("armor_per_high", 0))
+                        rolled += 1
                     if hits == 0 and any("Roots of Despair" in mm.abilities for mm in alive):
                         prev = h.hp
                         h.apply_damage(1)

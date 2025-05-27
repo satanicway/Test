@@ -714,8 +714,9 @@ def run_trials(hero_name: str, n: int) -> None:
 
                         if card.effects.get("combat_target_def_minus"):
                             mm.defense = max(0, mm.defense - card.effects["combat_target_def_minus"])
-                    if card.effects.get("combat_target_dice_plus"):
-                        mm.dice_bonus_against += card.effects["combat_target_dice_plus"]
+
+                        if card.effects.get("combat_target_dice_plus"):
+                            mm.dice_bonus_against += card.effects["combat_target_dice_plus"]
 
                     h.exchange_effects["cards_played"] += 1
                 if card.effects.get("exchange_target_def_minus_next"):

@@ -64,6 +64,25 @@ class Hero:
         self.discard.append(card)
         return card
 
+    def discard_weakest_cards(self, count: int = 2) -> List[Card]:
+        """Discard the weakest cards currently in hand and return them."""
+        def strength(c: Card) -> int:
+            cnt, sides = parse_dice(c.dice)
+            return cnt * sides
+
+        removed: List[Card] = []
+        for card in sorted(self.hand, key=strength)[:count]:
+            self.hand.remove(card)
+            self.discard.append(card)
+            removed.append(card)
+        return removed
+
+    def discard_card(self, index: int) -> Optional[Card]:
+        """Discard a card from hand by index if possible."""
+        if 0 <= index < len(self.hand):
+            return self.commit_card(index)
+        return None
+
     def add_armor(self, amount: int) -> None:
         self.armor += amount
 
@@ -200,7 +219,7 @@ ELITE_GROUPS: List[EnemyGroup] = [
 
 MERLIN_UPGRADES = [
     # Common upgrades
-    Card("Runic Ray", "ranged", "2d8", {"aoe": True}, "common", True),
+    Card("Runic Ray", "ranged", "2d8", {"aoe": True, "discard_damage_per_card": 2}, "common", True),
     Card("Crystal-Shot Volley", "ranged", "3d8", {"extra_dice_on_8": 1}, "common", True),
     Card("Glyph-Marking Bolt", "ranged", "1d8", {}, "common", True),
     Card("Voice of Destiny", "ranged", "3d8", {"exchange_reroll": 2}, "common", True),
@@ -235,7 +254,7 @@ MERLIN_UPGRADES = [
 
 HERCULES_UPGRADES = [
     # Common upgrades
-    Card("Bondless Effort", "melee", "3d8", {}, "common", True),
+    Card("Bondless Effort", "melee", "3d8", {"discard_damage_per_card": 3}, "common", True),
     Card("Colossus Smash", "melee", "3d8", {"armor": 1}, "common", True),
     Card("Olympian Call", "melee", "1d8", {"combat_reroll": 1}, "common", True),
     Card("Divine Resilience", "melee", "1d8", {"armor": 1, "per_enemy_armor": 1}, "common", True),
@@ -261,10 +280,10 @@ HERCULES_UPGRADES = [
     Card("Ares' Will", "melee", "1d8", {"combat_enemy_hp_loss": 2}, "rare", True),
     Card("True Might of Hercules", "melee", "8d8", {}, "rare", True),
     Card("Athena's Guidance", "melee", "0d8", {"combat_double_damage": 1}, "rare", True),
-    Card("Apollo's Sunburst", "ranged", "3d8", {"aoe": True}, "rare", True),
+    Card("Apollo's Sunburst", "ranged", "3d8", {"aoe": True, "discard_damage_per_card": 3}, "rare", True),
     Card("Nike's Desire", "melee", "1d8", {}, "rare", True),
     Card("Blessing of Hephaestus", "ranged", "0d8", {"armor": 5}, "rare", True),
-    Card("Hermes’ Delivery", "melee", "3d8", {}, "rare", True),
+    Card("Hermes’ Delivery", "melee", "3d8", {"play_drawn_attack_immediately": 1}, "rare", True),
     Card("Eris' Pandemonium", "melee", "0d8", {"exchange_bonus_damage_per_enemy": 1}, "rare", True),
 ]
 
@@ -488,6 +507,16 @@ def run_trials(hero_name: str, n: int) -> None:
                     stats["hero_armor"] += gained
 
                     dmg += h.combat_effects.get("combat_damage_bonus", 0) + h.exchange_effects.get("exchange_damage_bonus", 0)
+                    dmg += card.effects.get("bonus_damage_per_enemy", 0) * len(alive)
+                    dmg += h.exchange_effects.get("exchange_bonus_damage_per_enemy", 0) * len(alive)
+
+                    if card.effects.get("discard_damage_per_card"):
+                        discarded = h.discard_weakest_cards()
+                        dmg += len(discarded) * card.effects["discard_damage_per_card"]
+
+                    if card.effects.get("combat_double_damage"):
+                        h.discard_weakest_cards(1)
+                        h.combat_effects["combat_double_damage"] = 1
 
                     if skip_next:
                         dmg = 0
@@ -508,6 +537,8 @@ def run_trials(hero_name: str, n: int) -> None:
                         if "Dark Phalanx" in mm.abilities and card.effects.get("aoe") and actual > 0:
                             if sum(1 for x in alive if "Dark Phalanx" in x.abilities and x.hp > 0) > 1:
                                 actual = max(1, actual - 1)
+                        if h.combat_effects.get("combat_double_damage"):
+                            actual *= 2
                         prev_hp_t = mm.hp
                         mm.hp -= actual
                         stats["hero_damage"] += actual
@@ -528,6 +559,10 @@ def run_trials(hero_name: str, n: int) -> None:
                     if card.effects.get("gain_fate_per_card"):
                         h.fate += card.effects["gain_fate_per_card"] * (h.exchange_effects["cards_played"] - 1)
                 h.discard.append(card)
+                if card.effects.get("play_drawn_attack_immediately"):
+                    h.draw(1)
+                    if h.hand:
+                        order.insert(0, h.hand.pop())
 
             for mm in alive:
                 if "Banshee Wail" in mm.abilities and mm.hp > 0:

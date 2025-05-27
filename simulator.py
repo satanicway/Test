@@ -99,7 +99,7 @@ class Hero:
             self.hp -= dmg
 
 
-@dataclass
+@dataclass(eq=False)
 class Monster:
     name: str
     hp: int

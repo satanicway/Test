@@ -810,6 +810,16 @@ def run_trials(hero_name: str, n: int) -> None:
                 h.apply_damage(leftover)
                 stats["enemy_damage"] += prev_hp - h.hp
 
+            if round_num >= 5:
+                prev_hp = h.hp
+                h.apply_damage(h.max_hp // 2)
+                stats["enemy_damage"] += prev_hp - h.hp
+                for mm in alive:
+                    mm.hp = 0
+                alive = [mm for mm in alive if mm.hp > 0]
+                hero_hp.append(h.hp)
+                break
+
             if no_draw_streak >= 2:
                 prev_hp = h.hp
                 damage = h.hp // 2

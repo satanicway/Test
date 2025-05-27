@@ -470,6 +470,7 @@ def run_trials(hero_name: str, n: int) -> None:
         stats = {"hero_damage": 0, "hero_armor": 0, "enemy_damage": 0, "enemy_armor": 0}
         round_num = 0
         hero_hp: List[int] = []
+        no_draw_streak = 0
         h.combat_effects.clear()
         alive = [m for m in monsters if m.hp > 0]
         no_draw_turns = 0
@@ -792,6 +793,7 @@ def run_trials(hero_name: str, n: int) -> None:
                         key = next(iter(h.combat_effects))
                         del h.combat_effects[key]
                         mm.hp += 1
+            drawn = 0
             if round_num <= len(draw_seq):
                 drawn = h.draw(draw_amt)
             else:
@@ -807,6 +809,17 @@ def run_trials(hero_name: str, n: int) -> None:
                 prev_hp = h.hp
                 h.apply_damage(leftover)
                 stats["enemy_damage"] += prev_hp - h.hp
+
+            if no_draw_streak >= 2:
+                prev_hp = h.hp
+                damage = h.hp // 2
+                h.apply_damage(damage)
+                stats["enemy_damage"] += prev_hp - h.hp
+                for mm in alive:
+                    mm.hp = 0
+                alive = [mm for mm in alive if mm.hp > 0]
+                hero_hp.append(h.hp)
+                break
 
             alive = [mm for mm in alive if mm.hp > 0]
             hero_hp.append(h.hp)

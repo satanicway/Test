@@ -281,7 +281,10 @@ class Combat:
                 if result in (1, 2) and "Curse of Torment" in self.monster.abilities:
                     self.hero.apply_damage(1)
                 if result >= target_def:
-                    hit = 2 if random.random() < 0.2 else 1
+                    if result == 8:
+                        hit = 2
+                    else:
+                        hit = 2 if random.random() < 0.2 else 1
                     dmg += hit
                     hits += 1
             if hits == 0 and "Roots of Despair" in self.monster.abilities:
@@ -651,7 +654,10 @@ def run_trials(hero_name: str, n: int) -> None:
                             h.apply_damage(1)
                             stats["enemy_damage"] += prev - h.hp
                         if result >= target_def:
-                            hit = 2 if random.random() < 0.2 else 1
+                            if result == 8:
+                                hit = 2
+                            else:
+                                hit = 2 if random.random() < 0.2 else 1
                             if result == 8 and h.combat_effects.get("combat_crit_damage"):
                                 hit = h.combat_effects["combat_crit_damage"]
                             dmg += hit

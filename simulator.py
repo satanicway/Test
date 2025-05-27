@@ -100,8 +100,6 @@ class Monster:
         entry = self.action_table[min(idx, len(self.action_table) - 1)]
         damage = entry.get("damage", 0)
         armor = entry.get("armor", 0)
-        if "tough" in self.abilities:
-            armor += 1
         return damage, armor
 
 
@@ -145,7 +143,7 @@ BASIC_GROUPS: List[EnemyGroup] = [
                           abilities=["Cursed Thorns"],
                           action_table=BASIC_ACTION_TABLE)),
     EnemyGroup(2, Monster("Dark Minotaur", hp=6, defense=3, type="precise",
-                          abilities=["Cleaving and Stomping"],
+                          abilities=[],
                           action_table=BASIC_ACTION_TABLE)),
     EnemyGroup(2, Monster("Dark Wizard", hp=4, defense=3, type="brutal",
                           abilities=["Curse of Torment", "Void Barrier"],
@@ -198,178 +196,6 @@ ELITE_GROUPS: List[EnemyGroup] = [
 ]
 
 
-class Combat:
-    """Run a combat between a hero and a monster."""
-
-    def __init__(self, hero: Hero, monster: Monster):
-        self.hero = hero
-        self.monster = monster
-        self.round = 0
-
-    def exchange(self) -> bool:
-        """Run a single exchange. Return True if both combatants live."""
-        draw_seq = [3, 2, 1, 0]
-        draw_amt = draw_seq[self.round] if self.round < len(draw_seq) else 0
-        if "Sticky Web" in self.monster.abilities:
-            draw_amt = max(0, draw_amt - 1)
-        if "Corrupted Destiny" in self.monster.abilities:
-            self.hero.fate = max(0, self.hero.fate - 2)
-        if "Ghostly" in self.monster.abilities and self.round >= 3:
-            return False
-        if self.round < len(draw_seq):
-            self.hero.draw(draw_amt)
-        self.round += 1
-
-        is_web = "Web Slinger" in self.monster.abilities
-
-        ranged = [c for c in self.hero.hand if c.type == "ranged"]
-        melee = [c for c in self.hero.hand if c.type == "melee"]
-        order = melee + ranged if is_web else ranged + melee
-        # remaining cards are processed sequentially and can be removed by
-        # abilities like Disrupt
-        # use the same list so discarded cards disappear from the hand
-        self.hero.hand = order
-
-        cancel_next = "cancel" in self.monster.abilities
-
-        dice_count = 0
-        skip_next = False
-        void_type = None
-
-        # Process cards sequentially
-        while order:
-            card = order.pop(0)
-            if cancel_next:
-                cancel_next = False
-                self.hero.discard.append(card)
-                continue
-
-            if "disrupt" in self.monster.abilities and order:
-                idx = random.randrange(len(order))
-                self.hero.discard.append(order.pop(idx))
-
-            dmg = 0
-            count, sides = parse_dice(card.dice)
-            dice_count += count
-            rerolls = 0
-            hits = 0
-            target_def = self.monster.defense
-            card_type = card.type
-            if is_web and card.type == "ranged":
-                card_type = "melee"
-            if "Aerial Combat" in self.monster.abilities and card_type == "melee":
-                target_def += 1
-            card_rerolls = card.effects.get("reroll", 0)
-            for _ in range(count):
-                result = random.randint(1, sides)
-                while "Denied Heaven" in self.monster.abilities and result == 8:
-                    result = random.randint(1, sides)
-                while (result < target_def and card_rerolls > 0 and
-                       "Disturbed Flow" not in self.monster.abilities):
-                    card_rerolls -= 1
-                    result = random.randint(1, sides)
-                    while "Denied Heaven" in self.monster.abilities and result == 8:
-                        result = random.randint(1, sides)
-                while (result < target_def and self.hero.fate > 0 and
-                       rerolls < 2 and self.monster.hp <= 2 and
-                       "Disturbed Flow" not in self.monster.abilities):
-                    self.hero.fate -= 1
-                    rerolls += 1
-                    result = random.randint(1, sides)
-                    while "Denied Heaven" in self.monster.abilities and result == 8:
-                        result = random.randint(1, sides)
-                if result in (1, 2) and "Curse of Torment" in self.monster.abilities:
-                    self.hero.apply_damage(1)
-                if result >= target_def:
-                    if result == 8:
-                        hit = 2
-                    else:
-                        hit = 2 if random.random() < 0.2 else 1
-                    dmg += hit
-                    hits += 1
-            if hits == 0 and "Roots of Despair" in self.monster.abilities:
-                self.hero.apply_damage(1)
-
-            if "Silence" not in self.monster.abilities:
-                dmg += card.effects.get("damage", 0)
-                arm = card.effects.get("armor", 0)
-                per_hit = card.effects.get("armor_per_hit", 0)
-            else:
-                arm = 0
-                per_hit = 0
-            self.hero.add_armor(arm + per_hit * hits)
-            self.hero.fate += card.effects.get("fate", 0)
-
-            if skip_next:
-                dmg = 0
-                skip_next = False
-
-            actual = max(0, dmg - self.monster.armor)
-            self.monster.armor = max(0, self.monster.armor - dmg)
-
-            if "Void Barrier" in self.monster.abilities:
-                if void_type is None and actual > 0:
-                    void_type = card_type
-                elif void_type is not None and card_type != void_type:
-                    actual = 0
-
-            if ("Dark Phalanx" in self.monster.abilities and
-                    getattr(self.monster, "allies_alive", 1) > 1 and
-                    actual > 0):
-                actual = max(1, actual - 1)
-
-            self.monster.hp -= actual
-
-            if "Spiked Armor" in self.monster.abilities and actual >= 3:
-                self.hero.apply_damage(1)
-
-            if "shot" in self.monster.abilities and card_type == "ranged" and self.monster.hp > 0:
-                self.hero.apply_damage(1)
-
-            if "Ephemeral Wings" in self.monster.abilities and actual > 0:
-                skip_next = True
-
-            self.hero.discard.append(card)
-
-        if "Banshee Wail" in self.monster.abilities:
-            self.hero.apply_damage(dice_count // 3)
-
-        dmg, arm = self.monster.roll_action()
-        if "Power of Death" in self.monster.abilities:
-            dmg += getattr(self.monster, "dead_allies", 0)
-        if "Enrage" in self.monster.abilities and self.monster.hp <= 3:
-            extra_dmg, extra_arm = self.monster.roll_action()
-            dmg += extra_dmg
-            arm += extra_arm
-        self.monster.armor += arm
-        if self.monster.hp > 0:
-            if "pierce" in self.monster.abilities:
-                saved = self.hero.armor
-                self.hero.armor = 0
-                self.hero.apply_damage(dmg)
-                self.hero.armor = saved
-            else:
-                self.hero.apply_damage(dmg)
-            if "poison" in self.monster.abilities:
-                self.hero.apply_damage(1)
-
-        leftover = self.hero.armor
-        if "Power Sap" in self.monster.abilities and self.monster.hp > 0:
-            if self.hero.combat_effects:
-                key = next(iter(self.hero.combat_effects))
-                del self.hero.combat_effects[key]
-                self.monster.hp += 1
-        self.hero.reset_armor()
-        self.monster.armor = 0
-        if "Cursed Thorns" in self.monster.abilities and leftover > 0:
-            self.hero.apply_damage(leftover)
-        return self.hero.hp > 0 and self.monster.hp > 0
-
-    def run(self) -> None:
-        while self.hero.hp > 0 and self.monster.hp > 0:
-            alive = self.exchange()
-            if not alive:
-                break
 
 
 MERLIN_UPGRADES = [
@@ -500,25 +326,6 @@ def draw_upgrade(hero: Hero) -> Card:
     return Card(chosen.name, chosen.type, chosen.dice, chosen.effects.copy(), chosen.rarity, True)
 
 
-def run_encounter(hero: Hero, encounters: List[List[Monster]]) -> None:
-    """Run a sequence of combats applying upgrade logic against groups."""
-    hero.deck = hero.deck[:10]
-    hero.hand.clear()
-    hero.discard.clear()
-    hero.draw(4)
-
-    for idx, group in enumerate(encounters):
-        hero.fate += 1
-        combat = Combat(hero, group[0])  # use first monster for abilities
-        combat.run()
-        if hero.hp <= 0:
-            break
-        if idx < len(encounters) - 1:
-            upgrade = draw_upgrade(hero)
-            hero.deck.append(upgrade)
-            hero.hand.append(upgrade)
-            hero.draw(3)
-
 
 def run_trials(hero_name: str, n: int) -> None:
     """Run ``n`` full encounters consisting of six combats each.
@@ -591,8 +398,6 @@ def run_trials(hero_name: str, n: int) -> None:
             order = melee + ranged if is_web else ranged + melee
             h.hand = order
 
-            cancel_next = any("cancel" in m.abilities for m in alive)
-
             dice_count = 0
             skip_next = False
             for m in alive:
@@ -606,14 +411,7 @@ def run_trials(hero_name: str, n: int) -> None:
                     h.discard.append(card)
                     continue
                 repeat = 2 if h.exchange_effects.pop("execute_twice_next", False) else 1
-                if cancel_next:
-                    cancel_next = False
-                    h.discard.append(card)
-                    continue
 
-                if any("disrupt" in m.abilities for m in alive) and order:
-                    idx = random.randrange(len(order))
-                    h.discard.append(order.pop(idx))
                 for _ in range(repeat):
                     dmg = 0
                     count, sides = parse_dice(card.dice)
@@ -723,10 +521,6 @@ def run_trials(hero_name: str, n: int) -> None:
                             prev = h.hp
                             h.apply_damage(1)
                             stats["enemy_damage"] += prev - h.hp
-                        if "shot" in mm.abilities and card_type == "ranged" and mm.hp > 0:
-                            prev_hp = h.hp
-                            h.apply_damage(1)
-                            stats["enemy_damage"] += prev_hp - h.hp
                         if "Ephemeral Wings" in mm.abilities and actual > 0:
                             skip_next = True
 
@@ -754,15 +548,7 @@ def run_trials(hero_name: str, n: int) -> None:
                 stats["enemy_armor"] += arm
                 if mm.hp > 0:
                     prev_hp = h.hp
-                    if "pierce" in mm.abilities:
-                        saved = h.armor
-                        h.armor = 0
-                        h.apply_damage(dmg)
-                        h.armor = saved
-                    else:
-                        h.apply_damage(dmg)
-                    if "poison" in mm.abilities:
-                        h.apply_damage(1)
+                    h.apply_damage(dmg)
                     stats["enemy_damage"] += prev_hp - h.hp
             leftover = h.armor
             for mm in alive:

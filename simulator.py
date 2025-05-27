@@ -521,9 +521,6 @@ def run_trials(hero_name: str, n: int) -> None:
 
     avg_hp = sum(final_hps) / n if n else 0
     avg_round_hp = sum(round_hps) / len(round_hps) if round_hps else 0
-    print("Final HP per run:")
-    for i, hp in enumerate(final_hps, 1):
-        print(f"  Run {i}: {hp}")
     print(f"Average final HP: {avg_hp:.2f}")
     print(f"Average HP per round: {avg_round_hp:.2f}\n")
 

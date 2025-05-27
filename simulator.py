@@ -1,6 +1,6 @@
 import random
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 
 
 def roll_dice(dice: str) -> int:
@@ -433,18 +433,24 @@ def run_trials(hero_name: str, n: int) -> None:
 
     base_deck_fn = merlin_base_deck if hero_name.lower() == "merlin" else hercules_base_deck
 
-    def encounter_list() -> List[List[Monster]]:
+    def encounter_list() -> List[Tuple[List[Monster], str]]:
         """Pick three basic and three elite enemy groups for this run.
 
         Each group spawns ``EnemyGroup.count`` identical ``Monster`` instances
-        that will be fought simultaneously in a single combat."""
+        that will be fought simultaneously in a single combat.  The returned
+        list pairs each monster group with the string ``"basic"`` or ``"elite"``
+        indicating its type."""
 
         basic = random.sample(BASIC_GROUPS, 3)
         elite = random.sample(ELITE_GROUPS, 3)
-        groups = basic + elite
+        groups: List[Tuple[EnemyGroup, str]] = [
+            (g, "basic") for g in basic
+        ] + [
+            (g, "elite") for g in elite
+        ]
 
-        encounters: List[List[Monster]] = []
-        for g in groups:
+        encounters: List[Tuple[List[Monster], str]] = []
+        for g, kind in groups:
             monsters = [
                 Monster(
                     g.monster.name,
@@ -456,7 +462,7 @@ def run_trials(hero_name: str, n: int) -> None:
                 )
                 for _ in range(g.count)
             ]
-            encounters.append(monsters)
+            encounters.append((monsters, kind))
         return encounters
 
     def run_combat(h: Hero, monsters: List[Monster], run_idx: int, combat_idx: int) -> Dict[str, int]:
@@ -843,7 +849,8 @@ def run_trials(hero_name: str, n: int) -> None:
     round_hp_lists: List[List[int]] = []
     hero_damage_total = 0
     hero_armor_total = 0
-    enemy_totals: Dict[str, Dict[str, float]] = {}
+    enemy_totals_basic: Dict[str, Dict[str, float]] = {}
+    enemy_totals_elite: Dict[str, Dict[str, float]] = {}
     success = 0
 
     for run_idx in range(n):
@@ -859,12 +866,21 @@ def run_trials(hero_name: str, n: int) -> None:
                     deck=[Card(c.name, c.type, c.dice, c.effects.copy(), c.rarity, c.upgrade)
                           for c in base_deck_fn()])
         encounters = [
-            [
-                Monster(mon.name, mon.hp, mon.defense, mon.type,
-                        mon.abilities.copy(), mon.action_table[:])
-                for mon in group
-            ]
-            for group in encounter_list()
+            (
+                [
+                    Monster(
+                        mon.name,
+                        mon.hp,
+                        mon.defense,
+                        mon.type,
+                        mon.abilities.copy(),
+                        mon.action_table[:],
+                    )
+                    for mon in group
+                ],
+                kind,
+            )
+            for group, kind in encounter_list()
         ]
 
         hero.deck = hero.deck[:10]
@@ -874,7 +890,7 @@ def run_trials(hero_name: str, n: int) -> None:
         hero.draw(4)
 
         last_alive = False
-        for idx, group in enumerate(encounters):
+        for idx, (group, kind) in enumerate(encounters):
             hero.fate += 1
             stats = run_combat(hero, group, run_idx, idx)
             hero_damage_total += stats["hero_damage"]
@@ -888,12 +904,20 @@ def run_trials(hero_name: str, n: int) -> None:
                 combat_hps[idx].append(hero.hp)
 
             ename = group[0].name
-            if ename not in enemy_totals:
-                enemy_totals[ename] = {"damage": 0, "armor": 0, "count": 0, "monsters": 0}
-            enemy_totals[ename]["damage"] += stats["enemy_damage"]
-            enemy_totals[ename]["armor"] += stats["enemy_armor"]
-            enemy_totals[ename]["count"] += 1
-            enemy_totals[ename]["monsters"] += len(group)
+            target_totals = (
+                enemy_totals_basic if kind == "basic" else enemy_totals_elite
+            )
+            if ename not in target_totals:
+                target_totals[ename] = {
+                    "damage": 0,
+                    "armor": 0,
+                    "count": 0,
+                    "monsters": 0,
+                }
+            target_totals[ename]["damage"] += stats["enemy_damage"]
+            target_totals[ename]["armor"] += stats["enemy_armor"]
+            target_totals[ename]["count"] += 1
+            target_totals[ename]["monsters"] += len(group)
 
             if hero.hp <= 0:
                 last_alive = False
@@ -930,8 +954,15 @@ def run_trials(hero_name: str, n: int) -> None:
     print(f"  Damage dealt: {hero_damage_total / n:.2f}")
     print(f"  Armor gained: {hero_armor_total / n:.2f}\n")
 
-    print("Enemy type averages:")
-    for ename, vals in enemy_totals.items():
+    print("Enemy type averages (basic):")
+    for ename, vals in enemy_totals_basic.items():
+        monsters = vals["monsters"] or 1
+        dmg = vals["damage"] / monsters
+        arm = vals["armor"] / monsters
+        print(f"  {ename}: dealt {dmg:.2f} dmg, gained {arm:.2f} armor")
+
+    print("Enemy type averages (elite):")
+    for ename, vals in enemy_totals_elite.items():
         monsters = vals["monsters"] or 1
         dmg = vals["damage"] / monsters
         arm = vals["armor"] / monsters

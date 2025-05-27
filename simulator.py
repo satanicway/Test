@@ -393,7 +393,7 @@ def run_trials(hero_name: str, n: int) -> None:
         hero_hp: List[int] = []
         h.combat_effects.clear()
         alive = [m for m in monsters if m.hp > 0]
-        while h.hp > 0 and alive:
+        while alive:
             h.exchange_effects = {"cards_played": 0}
             draw_seq = [3, 2, 1, 0]
             draw_amt = draw_seq[round_num] if round_num < len(draw_seq) else 0
@@ -668,7 +668,8 @@ def run_trials(hero_name: str, n: int) -> None:
             stats = run_combat(hero, group)
             hero_damage_total += stats["hero_damage"]
             hero_armor_total += stats["hero_armor"]
-            for i, val in enumerate(stats["hero_hp"]):
+            hero_hp_data = stats["hero_hp"]
+            for i, val in enumerate(hero_hp_data):
                 while len(round_hp_lists) <= i:
                     round_hp_lists.append([])
                 round_hp_lists[i].append(val)
@@ -684,8 +685,8 @@ def run_trials(hero_name: str, n: int) -> None:
 
             if hero.hp <= 0:
                 last_alive = False
-                break
-            last_alive = all(m.hp <= 0 for m in group)
+            else:
+                last_alive = all(m.hp <= 0 for m in group)
             if idx < len(encounters) - 1:
                 upgrade = draw_upgrade(hero)
                 hero.deck.append(upgrade)

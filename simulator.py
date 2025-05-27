@@ -47,7 +47,9 @@ class Hero:
     combat_effects: Dict[str, int] = field(default_factory=dict)
     exchange_effects: Dict[str, int] = field(default_factory=dict)
 
-    def draw(self, count: int = 1) -> None:
+    def draw(self, count: int = 1) -> int:
+        """Draw ``count`` cards and return the number actually drawn."""
+        drawn = 0
         for _ in range(count):
             if not self.deck and self.discard:
                 random.shuffle(self.discard)
@@ -55,9 +57,11 @@ class Hero:
                 self.discard.clear()
             if self.deck:
                 self.hand.append(self.deck.pop(0))
+                drawn += 1
             if len(self.hand) > 7:
                 idx = next((i for i, c in enumerate(self.hand) if not c.upgrade), 0)
                 self.discard.append(self.hand.pop(idx))
+        return drawn
 
     def commit_card(self, index: int) -> Card:
         card = self.hand.pop(index)
@@ -462,6 +466,7 @@ def run_trials(hero_name: str, n: int) -> None:
         stats = {"hero_damage": 0, "hero_armor": 0, "enemy_damage": 0, "enemy_armor": 0}
         round_num = 0
         hero_hp: List[int] = []
+        no_draw_streak = 0
         h.combat_effects.clear()
         alive = [m for m in monsters if m.hp > 0]
         while alive:
@@ -775,8 +780,13 @@ def run_trials(hero_name: str, n: int) -> None:
                         key = next(iter(h.combat_effects))
                         del h.combat_effects[key]
                         mm.hp += 1
+            drawn = 0
             if round_num <= len(draw_seq):
-                h.draw(draw_amt)
+                drawn = h.draw(draw_amt)
+            if drawn == 0 and round_num <= len(draw_seq):
+                no_draw_streak += 1
+            else:
+                no_draw_streak = 0
             h.reset_armor()
             for mm in alive:
                 mm.armor = 0
@@ -784,6 +794,17 @@ def run_trials(hero_name: str, n: int) -> None:
                 prev_hp = h.hp
                 h.apply_damage(leftover)
                 stats["enemy_damage"] += prev_hp - h.hp
+
+            if no_draw_streak >= 2:
+                prev_hp = h.hp
+                damage = h.hp // 2
+                h.apply_damage(damage)
+                stats["enemy_damage"] += prev_hp - h.hp
+                for mm in alive:
+                    mm.hp = 0
+                alive = [mm for mm in alive if mm.hp > 0]
+                hero_hp.append(h.hp)
+                break
 
             alive = [mm for mm in alive if mm.hp > 0]
             hero_hp.append(h.hp)

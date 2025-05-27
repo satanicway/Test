@@ -39,6 +39,7 @@ class Card:
 class Hero:
     name: str
     hp: int
+    max_hp: int = 0
     deck: List[Card] = field(default_factory=list)
     hand: List[Card] = field(default_factory=list)
     discard: List[Card] = field(default_factory=list)
@@ -47,8 +48,11 @@ class Hero:
     combat_effects: Dict[str, int] = field(default_factory=dict)
     exchange_effects: Dict[str, int] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        if self.max_hp == 0:
+            self.max_hp = self.hp
+
     def draw(self, count: int = 1) -> int:
-        """Draw ``count`` cards and return the number actually drawn."""
         drawn = 0
         for _ in range(count):
             if not self.deck and self.discard:
@@ -469,7 +473,16 @@ def run_trials(hero_name: str, n: int) -> None:
         no_draw_streak = 0
         h.combat_effects.clear()
         alive = [m for m in monsters if m.hp > 0]
+        no_draw_turns = 0
         while alive:
+            if no_draw_turns >= 2:
+                prev_hp = h.hp
+                h.apply_damage(h.max_hp // 2)
+                stats["enemy_damage"] += prev_hp - h.hp
+                for mm in alive:
+                    mm.hp = 0
+                hero_hp.append(h.hp)
+                break
             h.exchange_effects = {"cards_played": 0}
             draw_seq = [3, 2, 1, 0]
             draw_amt = draw_seq[round_num] if round_num < len(draw_seq) else 0
@@ -783,10 +796,12 @@ def run_trials(hero_name: str, n: int) -> None:
             drawn = 0
             if round_num <= len(draw_seq):
                 drawn = h.draw(draw_amt)
-            if drawn == 0 and round_num <= len(draw_seq):
-                no_draw_streak += 1
             else:
-                no_draw_streak = 0
+                drawn = 0
+            if drawn == 0 and not h.hand and not h.deck and not h.discard:
+                no_draw_turns += 1
+            else:
+                no_draw_turns = 0
             h.reset_armor()
             for mm in alive:
                 mm.armor = 0

@@ -399,8 +399,6 @@ def run_trials(hero_name: str, n: int) -> None:
             draw_amt = draw_seq[round_num] if round_num < len(draw_seq) else 0
             if any("Sticky Web" in m.abilities for m in alive):
                 draw_amt = max(0, draw_amt - 1)
-            if round_num < len(draw_seq):
-                h.draw(draw_amt)
             for m in alive:
                 if "Corrupted Destiny" in m.abilities:
                     h.fate = max(0, h.fate - 2)
@@ -592,6 +590,8 @@ def run_trials(hero_name: str, n: int) -> None:
                         key = next(iter(h.combat_effects))
                         del h.combat_effects[key]
                         mm.hp += 1
+            if round_num <= len(draw_seq):
+                h.draw(draw_amt)
             h.reset_armor()
             for mm in alive:
                 mm.armor = 0

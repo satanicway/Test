@@ -228,19 +228,10 @@ class Combat:
         return self.hero.hp > 0 and self.monster.hp > 0
 
     def run(self) -> None:
-        round_num = 1
         while self.hero.hp > 0 and self.monster.hp > 0:
-            print(f"-- Round {round_num} --")
             alive = self.exchange()
-            print(f"Hero HP: {self.hero.hp}")
-            print(f"Monster HP: {self.monster.hp}\n")
             if not alive:
                 break
-            round_num += 1
-        if self.hero.hp <= 0:
-            print(f"{self.hero} was defeated by {self.monster.name}!")
-        else:
-            print(f"{self.monster.name} was defeated!")
 
 
 MERLIN_UPGRADES = [
@@ -380,6 +371,7 @@ def run_trials(hero_name: str, n: int) -> None:
 
     Statistics collected:
     - Final hero HP after each run and the overall average.
+    - Hero HP after every combat round and the overall average HP.
     - Average total damage dealt and armor gained by the hero.
     - Average damage taken from and armor gained by each enemy type.
     - Percentage of runs where the hero defeated the final foe while alive.
@@ -405,6 +397,7 @@ def run_trials(hero_name: str, n: int) -> None:
         """Simulate a combat without printing and return statistics."""
         stats = {"hero_damage": 0, "hero_armor": 0, "enemy_damage": 0, "enemy_armor": 0}
         round_num = 0
+        hero_hp: List[int] = []
         while h.hp > 0 and m.hp > 0:
             draw_seq = [3, 2, 1, 0]
             if round_num < len(draw_seq):
@@ -474,9 +467,12 @@ def run_trials(hero_name: str, n: int) -> None:
 
             h.reset_armor()
             m.armor = 0
+            hero_hp.append(h.hp)
+        stats["hero_hp"] = hero_hp
         return stats
 
     final_hps: List[int] = []
+    round_hps: List[int] = []
     hero_damage_total = 0
     hero_armor_total = 0
     enemy_totals: Dict[str, Dict[str, float]] = {}
@@ -500,6 +496,7 @@ def run_trials(hero_name: str, n: int) -> None:
             stats = run_combat(hero, monster)
             hero_damage_total += stats["hero_damage"]
             hero_armor_total += stats["hero_armor"]
+            round_hps.extend(stats["hero_hp"])
 
             et = monster.type
             if et not in enemy_totals:
@@ -523,10 +520,12 @@ def run_trials(hero_name: str, n: int) -> None:
             success += 1
 
     avg_hp = sum(final_hps) / n if n else 0
+    avg_round_hp = sum(round_hps) / len(round_hps) if round_hps else 0
     print("Final HP per run:")
     for i, hp in enumerate(final_hps, 1):
         print(f"  Run {i}: {hp}")
-    print(f"Average final HP: {avg_hp:.2f}\n")
+    print(f"Average final HP: {avg_hp:.2f}")
+    print(f"Average HP per round: {avg_round_hp:.2f}\n")
 
     print("Average hero totals per run:")
     print(f"  Damage dealt: {hero_damage_total / n:.2f}")

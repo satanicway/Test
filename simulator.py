@@ -304,7 +304,7 @@ MERLIN_UPGRADES = [
     Card("Sage's Alacrity", "ranged", "2d8", {"combat_reroll": 2}, "uncommon", True),
     Card("Charged Spirits", "ranged", "2d8", {"aoe": True, "fate_bonus_damage": 1}, "uncommon", True),
     Card("Avalon's Light", "ranged", "3d8", {"combat_crit_damage": 4}, "uncommon", True),
-    Card("Spiritual Gifts", "ranged", "4d8", {}, "uncommon", True),
+    Card("Spiritual Gifts", "ranged", "4d8", {"discard_gain_fate": 2, "discard_draw": 1}, "uncommon", True),
 
     # Rare upgrades
     Card("Rune Shatter", "ranged", "3d8", {"aoe": True, "exchange_target_def_minus": 1}, "rare", True),
@@ -313,7 +313,7 @@ MERLIN_UPGRADES = [
     Card("Echoes of Guidance", "ranged", "0d8", {"execute_twice_next": 1}, "rare", True),
     Card("Mercury Guard", "ranged", "0d8", {"combat_mercury_guard": 1}, "rare", True),
     Card("Old-Ways Shillelagh", "melee", "3d8", {"armor_per_hit": 1}, "rare", True),
-    Card("Favor of the Druids", "ranged", "1d8", {}, "rare", True),
+    Card("Favor of the Druids", "ranged", "1d8", {"draw": 1}, "rare", True),
     Card("Chains of Morrígan", "ranged", "0d8", {"exchange_dice_plus_targets": 1}, "rare", True),
     Card("Spirits of the Lands", "ranged", "4d8", {"gain_fate_per_card": 1}, "rare", True),
 ]
@@ -328,10 +328,10 @@ HERCULES_UPGRADES = [
     Card("Disorienting Blow", "melee", "2d8", {"exchange_target_def_minus_next": 3}, "common", True),
     Card("Piercing Spear", "ranged", "2d8", {"combat_target_def_minus": 1}, "common", True),
     Card("Fated War", "melee", "2d8", {"aoe": True, "gain_fate_per_enemy": 1}, "common", True),
-    Card("Fortune's Throw", "ranged", "2d8", {"gain_fate": 2}, "common", True),
+    Card("Fortune's Throw", "ranged", "2d8", {"gain_fate": 2, "armor": 2}, "common", True),
 
     # Uncommon upgrades
-    Card("Pain Strike", "melee", "4d8", {}, "uncommon", True),
+    Card("Pain Strike", "melee", "4d8", {"hp_for_damage": 6}, "uncommon", True),
     Card("Fortifying Attack", "melee", "0d8", {"armor": 2}, "uncommon", True),
     Card("Bone-Splinter Whirl", "melee", "3d8", {"aoe": True, "combat_enemy_def_minus": 1}, "uncommon", True),
     Card("Glorious Uproar", "melee", "1d8", {"aoe": True, "bonus_damage_per_enemy": 1}, "uncommon", True),
@@ -347,7 +347,7 @@ HERCULES_UPGRADES = [
     Card("True Might of Hercules", "melee", "8d8", {}, "rare", True),
     Card("Athena's Guidance", "melee", "0d8", {"combat_double_damage": 1}, "rare", True),
     Card("Apollo's Sunburst", "ranged", "3d8", {"aoe": True, "discard_damage_per_card": 3}, "rare", True),
-    Card("Nike's Desire", "melee", "1d8", {}, "rare", True),
+    Card("Nike's Desire", "melee", "1d8", {"draw": 1, "bonus_draw_if_fate": 1}, "rare", True),
     Card("Blessing of Hephaestus", "ranged", "0d8", {"armor": 5}, "rare", True),
     Card("Hermes’ Delivery", "melee", "3d8", {"play_drawn_attack_immediately": 1}, "rare", True),
     Card("Eris' Pandemonium", "melee", "0d8", {"exchange_bonus_damage_per_enemy": 1}, "rare", True),
@@ -637,11 +637,23 @@ def run_trials(hero_name: str, n: int) -> None:
                         h.hp += card.effects["heal"]
                     if card.effects.get("gain_fate"):
                         h.fate += card.effects["gain_fate"]
+                    if card.effects.get("discard_gain_fate"):
+                        if h.hand:
+                            h.discard_weakest_cards(1)
+                            h.fate += card.effects["discard_gain_fate"]
+                            if card.effects.get("discard_draw"):
+                                h.draw(card.effects["discard_draw"])
                     stats["hero_armor"] += gained
 
                     dmg += h.combat_effects.get("combat_damage_bonus", 0) + h.exchange_effects.get("exchange_damage_bonus", 0)
                     dmg += card.effects.get("bonus_damage_per_enemy", 0) * len(alive)
                     dmg += h.exchange_effects.get("exchange_bonus_damage_per_enemy", 0) * len(alive)
+
+                    if card.effects.get("hp_for_damage"):
+                        spend = min(h.hp - 1, card.effects["hp_for_damage"])
+                        if spend > 0:
+                            h.hp -= spend
+                            dmg += spend
 
                     if card.effects.get("fate_bonus_damage"):
                         spend = min(h.fate, 5)
@@ -711,6 +723,11 @@ def run_trials(hero_name: str, n: int) -> None:
                 if card.effects.get("gain_fate_per_card"):
                     h.fate += card.effects["gain_fate_per_card"] * (h.exchange_effects["cards_played"] - 1)
                 h.discard.append(card)
+                if card.effects.get("draw"):
+                    h.draw(card.effects["draw"])
+                if card.effects.get("bonus_draw_if_fate") and h.fate >= 1:
+                    h.fate -= 1
+                    h.draw(card.effects["bonus_draw_if_fate"])
                 if card.effects.get("play_drawn_attack_immediately"):
                     h.draw(1)
                     if h.hand:

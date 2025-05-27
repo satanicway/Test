@@ -19,29 +19,29 @@ def scale_table(table: List[Dict[str, int]], factor: float) -> List[Dict[str, in
 # Percent changes for basic and elite enemies.
 # Each tuple is (hp_factor, damage_factor)
 BASIC_MODS: Dict[str, tuple] = {
-    "Shadow Spinner": (3.0, 1 + 7.5),
-    "Void Soldier": (1.3, 1 + 1.0),
-    "Priest of Oblivion": (1.5, 1 + 6.0),
-    "Corrupted Dryad": (1.3, 1 + 0.2),
-    "Dark Minotaur": (1.2, 1 + 1.5),
-    "Dark Wizard": (1.25, 1 + 0.6),
-    "Shadow Banshee": (1.25, 1 + 12.0),
-    "Void Gryphon": (1.2, 1 + 0.9),
-    "Void Treant": (0.85, 1 - 0.125),
-    "Corrupted Angel": (1.0, 1 + 1.3),
+    "Shadow Spinner": (3.0, 7.8),
+    "Void Soldier": (1.3, 2.1),
+    "Priest of Oblivion": (1.5, 10.6),
+    "Corrupted Dryad": (1.3, 1.2),
+    "Dark Minotaur": (1.2, 3.4),
+    "Dark Wizard": (1.25, 1.6),
+    "Shadow Banshee": (1.25, 8.1),
+    "Void Gryphon": (1.2, 1.9),
+    "Void Treant": (0.85, 0.84),
+    "Corrupted Angel": (1.0, 2.73),
 }
 
 ELITE_MODS: Dict[str, tuple] = {
-    "Shadow Spinner": (1.3, 1 + 0.7),
-    "Void Soldier": (1.25, 1 + 0.7),
-    "Priest of Oblivion": (1.25, 1 + 2.5),
-    "Corrupted Dryad": (1.25, 1 + 1.85),
-    "Dark Minotaur": (1.0, 1 + 3.25),
-    "Dark Wizard": (1.33, 1 + 8.5),
-    "Shadow Banshee": (1.2, 1 + 1.75),
-    "Void Gryphon": (1.0, 1 + 1.5),
-    "Void Treant": (0.88, 1 - 0.175),
-    "Corrupted Angel": (1.0, 1 + 0.45),
+    "Shadow Spinner": (1.3, 1.7),
+    "Void Soldier": (1.25, 1.7),
+    "Priest of Oblivion": (1.25, 3.88),
+    "Corrupted Dryad": (1.25, 2.85),
+    "Dark Minotaur": (1.0, 5.67),
+    "Dark Wizard": (1.33, 6.1),
+    "Shadow Banshee": (1.2, 3.67),
+    "Void Gryphon": (1.0, 2.57),
+    "Void Treant": (0.88, 0.52),
+    "Corrupted Angel": (1.0, 1.45),
 }
 
 

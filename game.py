@@ -62,22 +62,25 @@ class Deck:
 
 
 class Hero:
-    """Hero with HP, armor and a hand of Time cards."""
+    """Hero with HP, armor and a fixed starting hand."""
 
     def __init__(self, deck: Deck):
         self.hp = 15
         self.deck = deck
-        self.hand = deck.draw(7)
+        # Start with the first set of cards in order
+        self.hand = list(range(1, 8))
         self.armor = 1
+
+        # The deck should contain a shuffled second set of cards
+        deck.cards = deque(random.sample(list(CARDS.keys()), len(CARDS)))
 
     def draw(self, n):
         self.hand.extend(self.deck.draw(n))
 
-    def discard_used(self, cards):
-        for c in cards:
-            if c in self.hand:
-                self.hand.remove(c)
-            self.deck.return_to_bottom(c)
+    def use_card(self, card: int) -> None:
+        if card in self.hand:
+            self.hand.remove(card)
+            self.deck.return_to_bottom(card)
 
 
 class Enemy:
@@ -147,7 +150,6 @@ def main():
         e_time, e_dmg = enemy.next_attack()
         print(f"Enemy will attack at time {e_time} for {e_dmg} damage")
 
-        used = []
         actions = []
         while True:
             cmd = input("Action (fast x | strong x y z | roll x y z | parry x | done): ").strip()
@@ -182,10 +184,11 @@ def main():
                 print("Unknown action")
                 continue
 
-            if not all(t in hero.hand and t not in used for t in times):
-                print("You don't have those cards or they're already used")
+            if not all(t in hero.hand for t in times):
+                print("You don't have those cards")
                 continue
-            used.extend(times)
+            for t in times:
+                hero.use_card(t)
             actions.append((kind, times))
 
         roll_times = set()
@@ -262,16 +265,8 @@ def main():
 
         double_next = False
 
-        hero.discard_used(used)
-
-        hero_attacked = any(k in {"fast", "strong"} for k, _ in actions)
-        hero_defended = any(k in {"roll", "parry"} for k, _ in actions)
-
-        draw_count = 5 if (not hero_attacked and not hero_defended) else (
-            3 if not hero_attacked else 2
-        )
-
-        hero.draw(draw_count)
+        # Draw two new cards at the end of the round
+        hero.draw(2)
         enemy.advance()
 
         if enemy.hp <= 0:

@@ -81,14 +81,21 @@ CARDS: Dict[int, Card] = _generate_cards()
 
 
 def format_card(card_id: int) -> str:
-    """Return a short description of the card's actions."""
+    """Return a user friendly description of the card's actions."""
     card = CARDS[card_id]
 
-    def fmt(name: str) -> str:
-        times = "-".join(str(t) for t in card.actions[name])
-        return f"{name[0].upper()}({times})"
+    ability_names = [
+        ("A", "Heavy Attack", "strong"),
+        ("B", "Quick Attack", "quick"),
+        ("C", "Dodge", "dodge"),
+        ("D", "Parry", "parry"),
+    ]
 
-    parts = [fmt("strong"), fmt("quick"), fmt("dodge"), fmt("parry")]
+    parts = []
+    for letter, display, key in ability_names:
+        times = "-".join(str(t) for t in card.actions[key])
+        parts.append(f"{letter}) {display} ({times})")
+
     return f"{card_id}: " + " ".join(parts)
 
 
@@ -179,15 +186,22 @@ def choose_enemy():
 
 
 def parse_action(cmd):
-    parts = cmd.split()
-    if len(parts) != 2:
+    """Parse an action in the form '<card>-<letter>'."""
+    if "-" not in cmd:
         return None
-    ability, card_str = parts
-    if ability not in {"quick", "strong", "dodge", "parry"}:
-        return None
+    card_str, option = cmd.split("-", 1)
     if not card_str.isdigit():
         return None
-    return ability, int(card_str)
+    option = option.strip().upper()
+    mapping = {
+        "A": "strong",
+        "B": "quick",
+        "C": "dodge",
+        "D": "parry",
+    }
+    if option not in mapping:
+        return None
+    return mapping[option], int(card_str)
 
 
 def main():
@@ -197,15 +211,17 @@ def main():
 
     while hero.hp > 0:
         print(f"\nHero HP: {hero.hp}\tEnemy {enemy.name} HP: {enemy.hp}")
-        print("Hand:", " ".join(format_card(cid) for cid in sorted(hero.hand)))
+        print("Hand:")
+        for cid in sorted(hero.hand):
+            print(" ", format_card(cid))
         e_time, e_dmg = enemy.next_attack()
         print(f"Enemy will attack at time {e_time} for {e_dmg} damage")
 
-        actions = []
+        actions = []  # list of (card_id, ability, times)
         times_used = set()
         resting = False
         while True:
-            cmd = input("Action (quick n | strong n | dodge n | parry n | rest | done): ").strip()
+            cmd = input("Action (<card>-<option> | rest | done): ").strip()
             if cmd == "done":
                 break
             if cmd == "rest":
@@ -227,17 +243,37 @@ def main():
                 print("That card can't perform that ability")
                 continue
             times = card.actions[ability]
-            if any(t in times_used for t in times):
-                print("One of those times is already used this round")
+            conflict = sorted(t for t in times if t in times_used)
+            if conflict:
+                print(f"Time conflict at {conflict}")
                 continue
             times_used.update(times)
             hero.use_card(card_id)
-            actions.append((ability, times))
+            actions.append((card_id, ability, times))
+
+            # Show state after selection
+            print("Remaining cards:")
+            for cid in sorted(hero.hand):
+                print(" ", format_card(cid))
+
+            pending_temp = []
+            for _, ab, ts in actions:
+                if ab == "quick":
+                    pending_temp.append((ts[0], "Quick Attack"))
+                elif ab == "strong":
+                    pending_temp.append((ts[-1], "Heavy Attack"))
+                elif ab == "dodge":
+                    pending_temp.append((ts[-1], "Dodge"))
+                elif ab == "parry":
+                    pending_temp.append((ts[0], "Parry"))
+            pending_temp.sort(key=lambda x: x[0])
+            sequence = ", ".join(f"{name} @ {t}" for t, name in pending_temp)
+            print("Current sequence:", sequence or "(none)")
 
         dodge_times = set()
         parry_times = set()
         pending = []
-        for kind, times in actions:
+        for _, kind, times in actions:
             if kind == "quick":
                 pending.append(Action(times[0], "hero", "quick", 1, times=times))
             elif kind == "strong":

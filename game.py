@@ -25,47 +25,23 @@ def _generate_cards() -> Dict[int, Card]:
     """Manually construct the seven default cards."""
     cards: Dict[int, Card] = {}
 
-    cards[1] = Card(1, {
-        "parry": [1],
-        "dodge": [1, 2],
-        "strong": [1, 2, 3],
-    })
+    for cid in range(1, 8):
+        actions: Dict[str, List[int]] = {}
 
-    cards[2] = Card(2, {
-        "parry": [2],
-        "dodge": [2, 3],
-        "quick": [1, 2],
-    })
+        # Each card has a two-slot quick window starting at its ID
+        actions["quick"] = [cid, (cid % 7) + 1]
 
-    cards[3] = Card(3, {
-        "parry": [3],
-        "dodge": [3, 4],
-        "strong": [3, 4, 5],
-    })
+        if cid % 2 == 1:  # odd cards use parry and have strong attacks
+            actions["parry"] = [cid]
+            actions["strong"] = [
+                cid,
+                (cid % 7) + 1,
+                ((cid + 1) % 7) + 1,
+            ]
+        else:  # even cards use dodge
+            actions["dodge"] = [cid]
 
-    cards[4] = Card(4, {
-        "parry": [4],
-        "dodge": [4, 5],
-        "quick": [3, 4],
-    })
-
-    cards[5] = Card(5, {
-        "parry": [5],
-        "dodge": [5, 6],
-        "strong": [5, 6, 7],
-    })
-
-    cards[6] = Card(6, {
-        "parry": [6],
-        "dodge": [6, 7],
-        "quick": [5, 6],
-    })
-
-    cards[7] = Card(7, {
-        "parry": [7],
-        "dodge": [7],
-        "quick": [7],
-    })
+        cards[cid] = Card(cid, actions)
 
     return cards
 

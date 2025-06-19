@@ -1,5 +1,6 @@
 import random
 from dataclasses import dataclass
+from typing import List, Optional
 
 
 @dataclass
@@ -8,6 +9,7 @@ class Action:
     actor: str  # 'hero' or 'enemy'
     kind: str
     damage: int = 0
+    times: Optional[List[int]] = None
 
 
 class Deck:
@@ -165,22 +167,23 @@ def main():
             used.extend(times)
             actions.append((kind, times))
 
+        roll_times = set()
+        parry_times = set()
         pending = []
         for kind, times in actions:
             if kind == "fast":
-                pending.append(Action(times[0], "hero", "fast", 1))
+                pending.append(Action(times[0], "hero", "fast", 1, times=times))
             elif kind == "strong":
-                pending.append(Action(times[-1], "hero", "strong", 4))
+                pending.append(Action(times[-1], "hero", "strong", 4, times=times))
             elif kind == "roll":
-                pending.append(Action(times[-2], "hero", "roll"))
-                pending.append(Action(times[-1], "hero", "roll"))
+                roll_times.update(times[-2:])
+                pending.append(Action(times[-1], "hero", "roll", times=times))
             elif kind == "parry":
-                pending.append(Action(times[0], "hero", "parry"))
-        pending.append(Action(e_time, "enemy", "attack", e_dmg))
+                parry_times.add(times[0])
+                pending.append(Action(times[0], "hero", "parry", times=times))
+        pending.append(Action(e_time, "enemy", "attack", e_dmg, times=[e_time]))
         pending.sort(key=lambda a: (a.time, 0 if (a.actor == "hero" and a.kind in {"roll", "parry"}) else 1))
 
-        roll_times = set()
-        parry_times = set()
         double_next = False
         for act in pending:
             if act.actor == "hero":
@@ -201,10 +204,8 @@ def main():
                     enemy.hp -= dmg
                     print(f"Hero strong attacks for {dmg} damage")
                 elif act.kind == "roll":
-                    roll_times.add(act.time)
-                    print(f"Hero prepares to roll at {act.time}")
+                    print(f"Hero prepares to roll ending at {act.time}")
                 elif act.kind == "parry":
-                    parry_times.add(act.time)
                     print(f"Hero prepares to parry at {act.time}")
             else:  # enemy action
                 if enemy.hp <= 0:

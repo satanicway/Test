@@ -153,9 +153,16 @@ def main():
         actions = []
         used_cards = []
         times_used = set()
+        resting = False
         while True:
-            cmd = input("Action (quick n | strong n | dodge n | parry n | done): ").strip()
+            cmd = input("Action (quick n | strong n | dodge n | parry n | rest | done): ").strip()
             if cmd == "done":
+                break
+            if cmd == "rest":
+                if actions:
+                    print("Cannot rest after selecting other actions")
+                    continue
+                resting = True
                 break
             parsed = parse_action(cmd)
             if not parsed:
@@ -256,8 +263,11 @@ def main():
             deck.return_to_bottom(c)
         used_cards.clear()
 
-        # Draw two new cards at the end of the round
-        hero.draw(2)
+        # Draw new cards at the end of the round
+        if resting:
+            hero.draw(5)
+        else:
+            hero.draw(2)
         enemy.advance()
 
         if enemy.hp <= 0:

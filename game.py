@@ -182,44 +182,62 @@ def main():
                 parry_times.add(times[0])
                 pending.append(Action(times[0], "hero", "parry", times=times))
         pending.append(Action(e_time, "enemy", "attack", e_dmg, times=[e_time]))
-        pending.sort(key=lambda a: (a.time, 0 if (a.actor == "hero" and a.kind in {"roll", "parry"}) else 1))
+        pending.sort(key=lambda a: a.time)
 
         double_next = False
-        for act in pending:
-            if act.actor == "hero":
-                if act.kind == "fast":
-                    dmg = act.damage
-                    if double_next:
-                        dmg *= 2
-                        double_next = False
-                        print("Hero's attack deals double damage!")
-                    enemy.hp -= dmg
-                    print(f"Hero fast attacks for {dmg} damage")
-                elif act.kind == "strong":
-                    dmg = act.damage
-                    if double_next:
-                        dmg *= 2
-                        double_next = False
-                        print("Hero's attack deals double damage!")
-                    enemy.hp -= dmg
-                    print(f"Hero strong attacks for {dmg} damage")
-                elif act.kind == "roll":
+        i = 0
+        while i < len(pending):
+            t = pending[i].time
+            group = []
+            while i < len(pending) and pending[i].time == t:
+                group.append(pending[i])
+                i += 1
+
+            # Resolve hero defensive moves first
+            for act in group:
+                if act.actor == "hero" and act.kind == "roll":
                     print(f"Hero prepares to roll ending at {act.time}")
-                elif act.kind == "parry":
+                elif act.actor == "hero" and act.kind == "parry":
                     print(f"Hero prepares to parry at {act.time}")
-            else:  # enemy action
-                if enemy.hp <= 0:
-                    continue
-                print(f"Enemy attacks for {act.damage} damage at {act.time}")
-                if act.time in roll_times:
-                    print("Hero rolls and avoids the attack")
-                elif act.time in parry_times:
-                    double_next = True
-                    print("Hero parries! Next attack will deal double damage")
-                else:
-                    dmg = max(act.damage - hero.armor, 0)
-                    hero.hp -= dmg
-                    print(f"Hero takes {dmg} damage (after armor)")
+
+            hero_damage = 0
+            enemy_damage = 0
+
+            # Collect hero attacks
+            for act in group:
+                if act.actor == "hero" and act.kind in {"fast", "strong"}:
+                    dmg = act.damage
+                    if double_next:
+                        dmg *= 2
+                        double_next = False
+                        print("Hero's attack deals double damage!")
+                    hero_damage += dmg
+                    if act.kind == "fast":
+                        print(f"Hero fast attacks for {dmg} damage")
+                    else:
+                        print(f"Hero strong attacks for {dmg} damage")
+
+            # Collect enemy attacks
+            for act in group:
+                if act.actor == "enemy":
+                    print(f"Enemy attacks for {act.damage} damage at {act.time}")
+                    if act.time in roll_times:
+                        print("Hero rolls and avoids the attack")
+                    elif act.time in parry_times:
+                        double_next = True
+                        print("Hero parries! Next attack will deal double damage")
+                    else:
+                        dmg = max(act.damage - hero.armor, 0)
+                        enemy_damage += dmg
+                        print(f"Hero takes {dmg} damage (after armor)")
+
+            # Apply damage simultaneously
+            enemy.hp -= hero_damage
+            hero.hp -= enemy_damage
+
+            # Stop round early if someone dies
+            if hero.hp <= 0 or enemy.hp <= 0:
+                break
 
         double_next = False
 

@@ -41,6 +41,18 @@ def _generate_cards() -> Dict[int, Card]:
 CARDS: Dict[int, Card] = _generate_cards()
 
 
+def format_card(card_id: int) -> str:
+    """Return a short description of the card's actions."""
+    card = CARDS[card_id]
+
+    def fmt(name: str) -> str:
+        times = "-".join(str(t) for t in card.actions[name])
+        return f"{name[0].upper()}({times})"
+
+    parts = [fmt("strong"), fmt("quick"), fmt("dodge"), fmt("parry")]
+    return f"{card_id}: " + " ".join(parts)
+
+
 class Deck:
     """Deck of Time card IDs managed in a deque."""
 
@@ -146,7 +158,7 @@ def main():
 
     while hero.hp > 0:
         print(f"\nHero HP: {hero.hp}\tEnemy {enemy.name} HP: {enemy.hp}")
-        print("Hand:", " ".join(map(str, sorted(hero.hand))))
+        print("Hand:", " ".join(format_card(cid) for cid in sorted(hero.hand)))
         e_time, e_dmg = enemy.next_attack()
         print(f"Enemy will attack at time {e_time} for {e_dmg} damage")
 

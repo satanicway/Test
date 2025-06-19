@@ -75,7 +75,6 @@ class Deck:
 
     def __init__(self):
         ids = list(CARDS.keys())
-        random.shuffle(ids)
         self.cards = deque(ids)
 
     def draw(self, n: int) -> List[int]:
@@ -91,15 +90,14 @@ class Deck:
 
 
 class Hero:
-    """Hero with HP, armor and an initial random hand."""
+    """Hero with HP, armor and a starting hand drawn in order."""
 
     def __init__(self, deck: Deck):
         self.hp = 15
         self.deck = deck
         self.armor = 1
 
-        # Shuffle the deck and draw the starting hand
-        deck.cards = deque(random.sample(list(CARDS.keys()), len(CARDS)))
+        # Draw the starting hand
         self.hand = deck.draw(4)
 
     def draw(self, n):

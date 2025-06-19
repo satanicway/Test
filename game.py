@@ -129,14 +129,14 @@ def choose_enemy():
 
 def parse_action(cmd):
     parts = cmd.split()
-    if not parts:
+    if len(parts) != 2:
         return None
-    kind = parts[0]
-    try:
-        times = list(map(int, parts[1:]))
-    except ValueError:
+    ability, card_str = parts
+    if ability not in {"quick", "strong", "dodge", "parry"}:
         return None
-    return kind, times
+    if not card_str.isdigit():
+        return None
+    return ability, int(card_str)
 
 
 def main():
@@ -151,57 +151,44 @@ def main():
         print(f"Enemy will attack at time {e_time} for {e_dmg} damage")
 
         actions = []
+        used_cards = []
+        times_used = set()
         while True:
-            cmd = input("Action (fast x | strong x y z | roll x y z | parry x | done): ").strip()
+            cmd = input("Action (quick n | strong n | dodge n | parry n | done): ").strip()
             if cmd == "done":
                 break
             parsed = parse_action(cmd)
             if not parsed:
                 print("Invalid command")
                 continue
-            kind, times = parsed
-            if kind == "strong":
-                if len(times) != 3:
-                    print("Strong attack requires exactly three time cards")
-                    continue
-                times.sort()
-                if any(times[i] + 1 != times[i+1] for i in range(2)):
-                    print("Strong attack requires three consecutive times")
-                    continue
-            elif kind == "roll":
-                if len(times) != 3:
-                    print("Roll requires exactly three time cards")
-                    continue
-                times.sort()
-                if any(times[i] + 1 != times[i+1] for i in range(2)):
-                    print("Roll requires three consecutive times")
-                    continue
-            elif kind in {"fast", "parry"}:
-                if len(times) != 1:
-                    print("This action uses exactly one time card")
-                    continue
-            else:
-                print("Unknown action")
+            ability, card_id = parsed
+            if card_id not in hero.hand:
+                print("You don't have that card")
                 continue
-
-            if not all(t in hero.hand for t in times):
-                print("You don't have those cards")
+            card = CARDS[card_id]
+            if ability not in card.actions:
+                print("That card can't perform that ability")
                 continue
-            for t in times:
-                hero.use_card(t)
-            actions.append((kind, times))
+            times = card.actions[ability]
+            if any(t in times_used for t in times):
+                print("One of those times is already used this round")
+                continue
+            times_used.update(times)
+            hero.hand.remove(card_id)
+            used_cards.append(card_id)
+            actions.append((ability, times))
 
-        roll_times = set()
+        dodge_times = set()
         parry_times = set()
         pending = []
         for kind, times in actions:
-            if kind == "fast":
-                pending.append(Action(times[0], "hero", "fast", 1, times=times))
+            if kind == "quick":
+                pending.append(Action(times[0], "hero", "quick", 1, times=times))
             elif kind == "strong":
                 pending.append(Action(times[-1], "hero", "strong", 4, times=times))
-            elif kind == "roll":
-                roll_times.update(times[-2:])
-                pending.append(Action(times[-1], "hero", "roll", times=times))
+            elif kind == "dodge":
+                dodge_times.update(times[-2:])
+                pending.append(Action(times[-1], "hero", "dodge", times=times))
             elif kind == "parry":
                 parry_times.add(times[0])
                 pending.append(Action(times[0], "hero", "parry", times=times))
@@ -219,8 +206,8 @@ def main():
 
             # Resolve hero defensive moves first
             for act in group:
-                if act.actor == "hero" and act.kind == "roll":
-                    print(f"Hero prepares to roll ending at {act.time}")
+                if act.actor == "hero" and act.kind == "dodge":
+                    print(f"Hero prepares to dodge ending at {act.time}")
                 elif act.actor == "hero" and act.kind == "parry":
                     print(f"Hero prepares to parry at {act.time}")
 
@@ -229,15 +216,15 @@ def main():
 
             # Collect hero attacks
             for act in group:
-                if act.actor == "hero" and act.kind in {"fast", "strong"}:
+                if act.actor == "hero" and act.kind in {"quick", "strong"}:
                     dmg = act.damage
                     if double_next:
                         dmg *= 2
                         double_next = False
                         print("Hero's attack deals double damage!")
                     hero_damage += dmg
-                    if act.kind == "fast":
-                        print(f"Hero fast attacks for {dmg} damage")
+                    if act.kind == "quick":
+                        print(f"Hero quick attacks for {dmg} damage")
                     else:
                         print(f"Hero strong attacks for {dmg} damage")
 
@@ -245,8 +232,8 @@ def main():
             for act in group:
                 if act.actor == "enemy":
                     print(f"Enemy attacks for {act.damage} damage at {act.time}")
-                    if act.time in roll_times:
-                        print("Hero rolls and avoids the attack")
+                    if act.time in dodge_times:
+                        print("Hero dodges and avoids the attack")
                     elif act.time in parry_times:
                         double_next = True
                         print("Hero parries! Next attack will deal double damage")
@@ -264,6 +251,10 @@ def main():
                 break
 
         double_next = False
+
+        for c in used_cards:
+            deck.return_to_bottom(c)
+        used_cards.clear()
 
         # Draw two new cards at the end of the round
         hero.draw(2)

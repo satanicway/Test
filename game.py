@@ -1,0 +1,204 @@
+import random
+from dataclasses import dataclass
+
+
+@dataclass
+class Action:
+    time: int
+    actor: str  # 'hero' or 'enemy'
+    kind: str
+    damage: int = 0
+
+
+class Deck:
+    """Deck of Time cards 1..7 with discard and reshuffle."""
+
+    def __init__(self):
+        self.cards = list(range(1, 8))
+        random.shuffle(self.cards)
+        self.discard_pile = []
+
+    def reshuffle(self):
+        if self.discard_pile:
+            self.cards = self.discard_pile
+            self.discard_pile = []
+            random.shuffle(self.cards)
+
+    def draw(self, n):
+        result = []
+        for _ in range(n):
+            if not self.cards:
+                self.reshuffle()
+                if not self.cards:
+                    break
+            result.append(self.cards.pop())
+        return result
+
+    def discard(self, cards):
+        self.discard_pile.extend(cards)
+
+
+class Hero:
+    """Hero with HP, armor and a hand of Time cards."""
+
+    def __init__(self, deck: Deck):
+        self.hp = 15
+        self.deck = deck
+        self.hand = deck.draw(7)
+        self.armor = 1
+
+    def draw(self, n):
+        self.hand.extend(self.deck.draw(n))
+
+    def discard_used(self, cards):
+        for c in cards:
+            if c in self.hand:
+                self.hand.remove(c)
+        self.deck.discard(cards)
+
+
+class Enemy:
+    """Base enemy with name, hp and attack sequence."""
+
+    def __init__(self, name, hp, attacks):
+        self.name = name
+        self.max_hp = hp
+        self.hp = hp
+        self.attacks = attacks  # list of (time, dmg)
+        self.index = 0
+
+    def next_attack(self):
+        return self.attacks[self.index]
+
+    def advance(self):
+        self.index = (self.index + 1) % len(self.attacks)
+
+
+class EnemySamurai(Enemy):
+    def __init__(self):
+        attacks = [(2, 3), (4, 4), (6, 5)]
+        super().__init__("Samurai", 10, attacks)
+
+
+class EnemyOni(Enemy):
+    def __init__(self):
+        attacks = [(3, 4), (5, 6), (7, 6)]
+        super().__init__("Oni", 12, attacks)
+
+
+def choose_enemy():
+    return random.choice([EnemySamurai(), EnemyOni()])
+
+
+def parse_action(cmd):
+    parts = cmd.split()
+    if not parts:
+        return None
+    kind = parts[0]
+    try:
+        times = list(map(int, parts[1:]))
+    except ValueError:
+        return None
+    return kind, times
+
+
+def main():
+    deck = Deck()
+    hero = Hero(deck)
+    enemy = choose_enemy()
+
+    while hero.hp > 0:
+        print(f"\nHero HP: {hero.hp}\tEnemy {enemy.name} HP: {enemy.hp}")
+        print("Hand:", " ".join(map(str, sorted(hero.hand))))
+        e_time, e_dmg = enemy.next_attack()
+        print(f"Enemy will attack at time {e_time} for {e_dmg} damage")
+
+        used = []
+        actions = []
+        while True:
+            cmd = input("Action (fast x | strong x y | roll x | parry x | done): ").strip()
+            if cmd == "done":
+                break
+            parsed = parse_action(cmd)
+            if not parsed:
+                print("Invalid command")
+                continue
+            kind, times = parsed
+            if kind == "strong" and len(times) >= 2:
+                times.sort()
+                if any(times[i] + 1 != times[i+1] for i in range(len(times)-1)):
+                    print("Strong attack requires consecutive times")
+                    continue
+            elif kind in {"fast", "roll", "parry"}:
+                if len(times) != 1:
+                    print("This action uses exactly one time card")
+                    continue
+            else:
+                print("Unknown action")
+                continue
+
+            if not all(t in hero.hand and t not in used for t in times):
+                print("You don't have those cards or they're already used")
+                continue
+            used.extend(times)
+            actions.append((kind, times))
+
+        pending = []
+        for kind, times in actions:
+            if kind == "fast":
+                pending.append(Action(times[0], "hero", "fast", 2))
+            elif kind == "strong":
+                pending.append(Action(times[0], "hero", "strong", 5))
+            elif kind == "roll":
+                pending.append(Action(times[0], "hero", "roll"))
+            elif kind == "parry":
+                pending.append(Action(times[0], "hero", "parry", 2))
+        pending.append(Action(e_time, "enemy", "attack", e_dmg))
+        pending.sort(key=lambda a: (a.time, 0 if (a.actor == "hero" and a.kind in {"roll", "parry"}) else 1))
+
+        roll_times = set()
+        parry = {}
+        for act in pending:
+            if act.actor == "hero":
+                if act.kind == "fast":
+                    enemy.hp -= act.damage
+                    print(f"Hero fast attacks for {act.damage} damage")
+                elif act.kind == "strong":
+                    enemy.hp -= act.damage
+                    print(f"Hero strong attacks for {act.damage} damage")
+                elif act.kind == "roll":
+                    roll_times.add(act.time)
+                    print(f"Hero prepares to roll at {act.time}")
+                elif act.kind == "parry":
+                    parry[act.time] = act.damage
+                    print(f"Hero prepares to parry at {act.time}")
+            else:  # enemy action
+                if enemy.hp <= 0:
+                    continue
+                print(f"Enemy attacks for {act.damage} damage at {act.time}")
+                if act.time in roll_times:
+                    print("Hero rolls and avoids the attack")
+                elif act.time in parry:
+                    dmg = parry[act.time] * 2
+                    enemy.hp -= dmg
+                    print(f"Hero parries! Enemy takes {dmg} damage")
+                else:
+                    dmg = max(act.damage - hero.armor, 0)
+                    hero.hp -= dmg
+                    print(f"Hero takes {dmg} damage (after armor)")
+
+        hero.discard_used(used)
+        hero.draw(len(used))
+        enemy.advance()
+
+        if enemy.hp <= 0:
+            print(f"Enemy {enemy.name} defeated!")
+            hero.draw(3)
+            enemy = choose_enemy()
+            print(f"A new {enemy.name} appears!")
+
+    print("Hero has fallen. Game over.")
+
+
+if __name__ == "__main__":
+    main()

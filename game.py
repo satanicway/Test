@@ -116,7 +116,7 @@ def main():
         used = []
         actions = []
         while True:
-            cmd = input("Action (fast x | strong x y z | roll x | parry x | done): ").strip()
+            cmd = input("Action (fast x | strong x y z | roll x y z | parry x | done): ").strip()
             if cmd == "done":
                 break
             parsed = parse_action(cmd)
@@ -132,7 +132,15 @@ def main():
                 if any(times[i] + 1 != times[i+1] for i in range(2)):
                     print("Strong attack requires three consecutive times")
                     continue
-            elif kind in {"fast", "roll", "parry"}:
+            elif kind == "roll":
+                if len(times) != 3:
+                    print("Roll requires exactly three time cards")
+                    continue
+                times.sort()
+                if any(times[i] + 1 != times[i+1] for i in range(2)):
+                    print("Roll requires three consecutive times")
+                    continue
+            elif kind in {"fast", "parry"}:
                 if len(times) != 1:
                     print("This action uses exactly one time card")
                     continue
@@ -153,27 +161,39 @@ def main():
             elif kind == "strong":
                 pending.append(Action(times[-1], "hero", "strong", 4))
             elif kind == "roll":
-                pending.append(Action(times[0], "hero", "roll"))
+                pending.append(Action(times[-2], "hero", "roll"))
+                pending.append(Action(times[-1], "hero", "roll"))
             elif kind == "parry":
-                pending.append(Action(times[0], "hero", "parry", 2))
+                pending.append(Action(times[0], "hero", "parry"))
         pending.append(Action(e_time, "enemy", "attack", e_dmg))
         pending.sort(key=lambda a: (a.time, 0 if (a.actor == "hero" and a.kind in {"roll", "parry"}) else 1))
 
         roll_times = set()
-        parry = {}
+        parry_times = set()
+        double_next = False
         for act in pending:
             if act.actor == "hero":
                 if act.kind == "fast":
-                    enemy.hp -= act.damage
-                    print(f"Hero fast attacks for {act.damage} damage")
+                    dmg = act.damage
+                    if double_next:
+                        dmg *= 2
+                        double_next = False
+                        print("Hero's attack deals double damage!")
+                    enemy.hp -= dmg
+                    print(f"Hero fast attacks for {dmg} damage")
                 elif act.kind == "strong":
-                    enemy.hp -= act.damage
-                    print(f"Hero strong attacks for {act.damage} damage")
+                    dmg = act.damage
+                    if double_next:
+                        dmg *= 2
+                        double_next = False
+                        print("Hero's attack deals double damage!")
+                    enemy.hp -= dmg
+                    print(f"Hero strong attacks for {dmg} damage")
                 elif act.kind == "roll":
                     roll_times.add(act.time)
                     print(f"Hero prepares to roll at {act.time}")
                 elif act.kind == "parry":
-                    parry[act.time] = act.damage
+                    parry_times.add(act.time)
                     print(f"Hero prepares to parry at {act.time}")
             else:  # enemy action
                 if enemy.hp <= 0:
@@ -181,14 +201,15 @@ def main():
                 print(f"Enemy attacks for {act.damage} damage at {act.time}")
                 if act.time in roll_times:
                     print("Hero rolls and avoids the attack")
-                elif act.time in parry:
-                    dmg = parry[act.time] * 2
-                    enemy.hp -= dmg
-                    print(f"Hero parries! Enemy takes {dmg} damage")
+                elif act.time in parry_times:
+                    double_next = True
+                    print("Hero parries! Next attack will deal double damage")
                 else:
                     dmg = max(act.damage - hero.armor, 0)
                     hero.hp -= dmg
                     print(f"Hero takes {dmg} damage (after armor)")
+
+        double_next = False
 
         hero.discard_used(used)
         hero.draw(len(used))

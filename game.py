@@ -211,43 +211,45 @@ def main():
                 group.append(pending[i])
                 i += 1
 
-            # Resolve hero defensive moves first
-            for act in group:
-                if act.actor == "hero" and act.kind == "dodge":
+            hero_defenses = [a for a in group if a.actor == "hero" and a.kind in {"dodge", "parry"}]
+            hero_attacks = [a for a in group if a.actor == "hero" and a.kind in {"quick", "strong"}]
+            enemy_actions = [a for a in group if a.actor == "enemy"]
+
+            # Announce hero defensive moves
+            for act in hero_defenses:
+                if act.kind == "dodge":
                     print(f"Hero prepares to dodge ending at {act.time}")
-                elif act.actor == "hero" and act.kind == "parry":
+                else:
                     print(f"Hero prepares to parry at {act.time}")
 
             hero_damage = 0
             enemy_damage = 0
 
-            # Collect hero attacks
-            for act in group:
-                if act.actor == "hero" and act.kind in {"quick", "strong"}:
-                    dmg = act.damage
-                    if double_next:
-                        dmg *= 2
-                        double_next = False
-                        print("Hero's attack deals double damage!")
-                    hero_damage += dmg
-                    if act.kind == "quick":
-                        print(f"Hero quick attacks for {dmg} damage")
-                    else:
-                        print(f"Hero strong attacks for {dmg} damage")
+            # Evaluate enemy attacks with defenses active
+            for act in enemy_actions:
+                print(f"Enemy attacks for {act.damage} damage at {act.time}")
+                if act.time in dodge_times:
+                    print("Hero dodges and avoids the attack")
+                elif act.time in parry_times:
+                    double_next = True
+                    print("Hero parries! Next attack will deal double damage")
+                else:
+                    dmg = max(act.damage - hero.armor, 0)
+                    enemy_damage += dmg
+                    print(f"Hero takes {dmg} damage (after armor)")
 
-            # Collect enemy attacks
-            for act in group:
-                if act.actor == "enemy":
-                    print(f"Enemy attacks for {act.damage} damage at {act.time}")
-                    if act.time in dodge_times:
-                        print("Hero dodges and avoids the attack")
-                    elif act.time in parry_times:
-                        double_next = True
-                        print("Hero parries! Next attack will deal double damage")
-                    else:
-                        dmg = max(act.damage - hero.armor, 0)
-                        enemy_damage += dmg
-                        print(f"Hero takes {dmg} damage (after armor)")
+            # Resolve hero attacks after defenses
+            for act in hero_attacks:
+                dmg = act.damage
+                if double_next:
+                    dmg *= 2
+                    double_next = False
+                    print("Hero's attack deals double damage!")
+                hero_damage += dmg
+                if act.kind == "quick":
+                    print(f"Hero quick attacks for {dmg} damage")
+                else:
+                    print(f"Hero strong attacks for {dmg} damage")
 
             # Apply damage simultaneously
             enemy.hp -= hero_damage

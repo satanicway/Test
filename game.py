@@ -187,12 +187,11 @@ def main():
     while hero.hp > 0:
         print(f"\nHero HP: {hero.hp}\tEnemy {enemy.name} HP: {enemy.hp}")
         hero.draw(max(0, 4 - len(hero.hand)))
-        print("Hand:")
+        print("Hand (max 4 cards):")
         for cid in sorted(hero.hand):
             print(" ", format_card(cid))
         e_time, e_dmg = enemy.next_attack()
         print(f"Enemy will attack at time {e_time} for {e_dmg} damage")
-        print("(Draws: attack+defense=0, single type=1, quick only=2, none=3)")
 
         actions = []  # list of (card_id, ability, times)
         times_used = set()

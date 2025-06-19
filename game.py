@@ -85,6 +85,10 @@ class Deck:
             result.append(self.cards.popleft())
         return result
 
+    def peek(self, n: int = 3) -> List[int]:
+        """Return the next ``n`` card IDs without removing them."""
+        return list(self.cards)[:n]
+
     def return_to_bottom(self, card: int) -> None:
         self.cards.append(card)
 
@@ -188,6 +192,11 @@ def main():
         print("Hand (max 4 cards):")
         for cid in sorted(hero.hand):
             print(" ", format_card(cid))
+        upcoming = hero.deck.peek(3)
+        if upcoming:
+            print("Upcoming:")
+            for cid in upcoming:
+                print(" ", format_card(cid))
         e_time, e_dmg = enemy.next_attack()
         print(f"Enemy will attack at time {e_time} for {e_dmg} damage")
 

@@ -76,14 +76,25 @@ class Enemy:
 
 class EnemySamurai(Enemy):
     def __init__(self):
-        attacks = [(2, 3), (4, 4), (6, 5)]
-        super().__init__("Samurai", 10, attacks)
+        attacks = [
+            (1, 4),
+            (3, 5),
+            (4, 6),
+            (6, 5),
+            (7, 4),
+        ]
+        super().__init__("Samurai", 6, attacks)
 
 
 class EnemyOni(Enemy):
     def __init__(self):
-        attacks = [(3, 4), (5, 6), (7, 6)]
-        super().__init__("Oni", 12, attacks)
+        attacks = [
+            (1, 2),
+            (3, 4),
+            (5, 6),
+            (7, 8),
+        ]
+        super().__init__("Oni", 10, attacks)
 
 
 def choose_enemy():

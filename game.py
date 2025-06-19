@@ -149,7 +149,7 @@ def main():
         pending = []
         for kind, times in actions:
             if kind == "fast":
-                pending.append(Action(times[0], "hero", "fast", 2))
+                pending.append(Action(times[0], "hero", "fast", 1))
             elif kind == "strong":
                 pending.append(Action(times[-1], "hero", "strong", 4))
             elif kind == "roll":

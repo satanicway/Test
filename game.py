@@ -87,8 +87,10 @@ def format_card(card_id: int) -> str:
 
     parts = []
     for letter, display, key in ability_names:
-        times = "-".join(str(t) for t in card.actions[key])
-        parts.append(f"{letter}) {display} ({times})")
+        times = card.actions.get(key)
+        if not times:
+            continue  # this card lacks the ability
+        parts.append(f"{letter}) {display} ({'-'.join(map(str, times))})")
 
     return f"{card_id}: " + " ".join(parts)
 

@@ -261,7 +261,7 @@ def main():
         pending.append(Action(e_time, "enemy", "attack", e_dmg, times=[e_time]))
         pending.sort(key=lambda a: a.time)
 
-        double_next = False
+        bonus_heavy = False
         i = 0
         while i < len(pending):
             t = pending[i].time
@@ -290,8 +290,8 @@ def main():
                 if act.time in dodge_times:
                     print("Hero dodges and avoids the attack")
                 elif act.time in parry_times:
-                    double_next = True
-                    print("Hero parries! Next attack will deal double damage")
+                    bonus_heavy = True
+                    print("Hero parries! Next heavy attack will deal double damage")
                 else:
                     dmg = max(act.damage - hero.armor, 0)
                     enemy_damage += dmg
@@ -300,15 +300,16 @@ def main():
             # Resolve hero attacks after defenses
             for act in hero_attacks:
                 dmg = act.damage
-                if double_next:
-                    dmg *= 2
-                    double_next = False
-                    print("Hero's attack deals double damage!")
-                hero_damage += dmg
-                if act.kind == "quick":
-                    print(f"Hero quick attacks for {dmg} damage")
-                else:
+                if act.kind == "strong":
+                    if bonus_heavy:
+                        dmg *= 2
+                        bonus_heavy = False
+                        print("Hero's strong attack deals double damage!")
+                    hero_damage += dmg
                     print(f"Hero strong attacks for {dmg} damage")
+                else:
+                    hero_damage += dmg
+                    print(f"Hero quick attacks for {dmg} damage")
 
             # Apply damage simultaneously
             enemy.hp -= hero_damage
@@ -318,7 +319,7 @@ def main():
             if hero.hp <= 0 or enemy.hp <= 0:
                 break
 
-        double_next = False
+        bonus_heavy = False
 
         # Refill the hero's hand to four cards
         hero.draw(max(0, 4 - len(hero.hand)))

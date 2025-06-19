@@ -203,12 +203,12 @@ def main():
         actions = []  # list of (card_id, ability, times)
         times_used = set()
         while True:
-            cmd = input("Action (<card>-<option> | rest | done): ").strip()
+            cmd = input("Action (<card>-<option> | hold | done): ").strip()
             if cmd == "done":
                 break
-            if cmd == "rest":
+            if cmd == "hold":
                 if actions:
-                    print("Cannot rest after selecting other actions")
+                    print("Cannot hold after selecting other actions")
                     continue
                 break
             parsed = parse_action(cmd)

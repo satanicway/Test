@@ -35,7 +35,6 @@ def _generate_cards() -> Dict[int, Card]:
     cards[2] = Card(2, {
         "strong": [2, 3, 4],
         "quick": [2],
-        "dodge": [2, 3, 4],
         "parry": [1],
     })
 
@@ -43,35 +42,30 @@ def _generate_cards() -> Dict[int, Card]:
         "strong": [3, 4, 5],
         "quick": [3],
         "dodge": [3, 4, 5],
-        "parry": [2],
+        "parry": [5],
     })
 
     cards[4] = Card(4, {
         "strong": [4, 5, 6],
         "quick": [4],
-        "dodge": [4, 5, 6],
-        "parry": [4],
+        "parry": [2],
     })
 
     cards[5] = Card(5, {
         "strong": [5, 6, 7],
         "quick": [5],
         "dodge": [5, 6, 7],
-        "parry": [5],
+        "parry": [7],
     })
 
     cards[6] = Card(6, {
-        "strong": [6, 7, 1],
         "quick": [6],
-        "dodge": [6, 7, 1],
         "parry": [6],
     })
 
     cards[7] = Card(7, {
-        "strong": [7, 1, 2],
         "quick": [7],
-        "dodge": [7, 1, 2],
-        "parry": [7],
+        "parry": [4],
     })
 
     return cards

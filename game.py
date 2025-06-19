@@ -156,11 +156,13 @@ class Enemy:
 class EnemySamurai(Enemy):
     def __init__(self):
         attacks = [
-            (1, 4),
-            (3, 5),
-            (4, 6),
-            (6, 5),
-            (7, 4),
+            (1, 4),  # round 1
+            (4, 5),  # round 2
+            (6, 4),  # round 3
+            (2, 4),  # round 4
+            (5, 6),  # round 5
+            (7, 4),  # round 6
+            (3, 5),  # round 7
         ]
         super().__init__("Samurai", 6, attacks)
 
@@ -168,10 +170,13 @@ class EnemySamurai(Enemy):
 class EnemyOni(Enemy):
     def __init__(self):
         attacks = [
-            (1, 2),
-            (3, 4),
-            (5, 6),
-            (7, 8),
+            (2, 3),  # round 1
+            (4, 5),  # round 2
+            (6, 7),  # round 3
+            (1, 3),  # round 4
+            (5, 5),  # round 5
+            (3, 4),  # round 6
+            (7, 6),  # round 7
         ]
         super().__init__("Oni", 10, attacks)
 

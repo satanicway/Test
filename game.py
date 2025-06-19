@@ -202,7 +202,6 @@ def main():
         print(f"Enemy will attack at time {e_time} for {e_dmg} damage")
 
         actions = []
-        used_cards = []
         times_used = set()
         resting = False
         while True:
@@ -232,8 +231,7 @@ def main():
                 print("One of those times is already used this round")
                 continue
             times_used.update(times)
-            hero.hand.remove(card_id)
-            used_cards.append(card_id)
+            hero.use_card(card_id)
             actions.append((ability, times))
 
         dodge_times = set()
@@ -311,10 +309,6 @@ def main():
                 break
 
         double_next = False
-
-        for c in used_cards:
-            deck.return_to_bottom(c)
-        used_cards.clear()
 
         # Draw new cards at the end of the round
         if resting:

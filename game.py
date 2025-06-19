@@ -1,6 +1,7 @@
 import random
+from collections import deque
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 
 @dataclass
@@ -12,32 +13,52 @@ class Action:
     times: Optional[List[int]] = None
 
 
+@dataclass
+class Card:
+    """Defines what actions a card can perform at which times."""
+
+    id: int
+    actions: Dict[str, List[int]]
+
+
+def _generate_cards() -> Dict[int, Card]:
+    """Generate the seven default cards with rotating times."""
+    cards: Dict[int, Card] = {}
+    for i in range(1, 8):
+        strong = [((i + j - 1) % 7) + 1 for j in range(3)]
+        quick = [i]
+        dodge = strong.copy()
+        parry = [strong[-1]]
+        cards[i] = Card(i, {
+            "strong": strong,
+            "quick": quick,
+            "dodge": dodge,
+            "parry": parry,
+        })
+    return cards
+
+
+CARDS: Dict[int, Card] = _generate_cards()
+
+
 class Deck:
-    """Deck of Time cards 1..7 with discard and reshuffle."""
+    """Deck of Time card IDs managed in a deque."""
 
     def __init__(self):
-        self.cards = list(range(1, 8))
-        random.shuffle(self.cards)
-        self.discard_pile = []
+        ids = list(CARDS.keys())
+        random.shuffle(ids)
+        self.cards = deque(ids)
 
-    def reshuffle(self):
-        if self.discard_pile:
-            self.cards = self.discard_pile
-            self.discard_pile = []
-            random.shuffle(self.cards)
-
-    def draw(self, n):
+    def draw(self, n: int) -> List[int]:
         result = []
         for _ in range(n):
             if not self.cards:
-                self.reshuffle()
-                if not self.cards:
-                    break
-            result.append(self.cards.pop())
+                break
+            result.append(self.cards.popleft())
         return result
 
-    def discard(self, cards):
-        self.discard_pile.extend(cards)
+    def return_to_bottom(self, card: int) -> None:
+        self.cards.append(card)
 
 
 class Hero:
@@ -56,7 +77,7 @@ class Hero:
         for c in cards:
             if c in self.hand:
                 self.hand.remove(c)
-        self.deck.discard(cards)
+            self.deck.return_to_bottom(c)
 
 
 class Enemy:

@@ -212,7 +212,15 @@ def main():
         double_next = False
 
         hero.discard_used(used)
-        hero.draw(len(used))
+
+        hero_attacked = any(k in {"fast", "strong"} for k, _ in actions)
+        hero_defended = any(k in {"roll", "parry"} for k, _ in actions)
+
+        draw_count = 5 if (not hero_attacked and not hero_defended) else (
+            3 if not hero_attacked else 2
+        )
+
+        hero.draw(draw_count)
         enemy.advance()
 
         if enemy.hp <= 0:

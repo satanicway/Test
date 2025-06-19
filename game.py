@@ -91,17 +91,16 @@ class Deck:
 
 
 class Hero:
-    """Hero with HP, armor and a fixed starting hand."""
+    """Hero with HP, armor and an initial random hand."""
 
     def __init__(self, deck: Deck):
         self.hp = 15
         self.deck = deck
-        # Start with the first set of cards in order
-        self.hand = list(range(1, 8))
         self.armor = 1
 
-        # The deck should contain a shuffled second set of cards
+        # Shuffle the deck and draw the starting hand
         deck.cards = deque(random.sample(list(CARDS.keys()), len(CARDS)))
+        self.hand = deck.draw(4)
 
     def draw(self, n):
         self.hand.extend(self.deck.draw(n))
@@ -187,6 +186,7 @@ def main():
 
     while hero.hp > 0:
         print(f"\nHero HP: {hero.hp}\tEnemy {enemy.name} HP: {enemy.hp}")
+        hero.draw(max(0, 4 - len(hero.hand)))
         print("Hand:")
         for cid in sorted(hero.hand):
             print(" ", format_card(cid))
@@ -244,25 +244,6 @@ def main():
             pending_temp.sort(key=lambda x: x[0])
             sequence = ", ".join(f"{name} @ {t}" for t, name in pending_temp)
             print("Current sequence:", sequence or "(none)")
-
-        # Determine what types of actions the hero performed
-        has_quick = any(k == "quick" for _, k, _ in actions)
-        has_strong = any(k == "strong" for _, k, _ in actions)
-        has_defense = any(k in {"dodge", "parry"} for _, k, _ in actions)
-        has_attack = has_quick or has_strong
-
-        # Determine how many cards to draw based on those actions
-        if not has_attack and not has_defense:
-            draw_count = 3
-        elif has_attack and has_defense:
-            draw_count = 0
-        elif has_attack and not has_defense:
-            if has_quick and not has_strong:
-                draw_count = 2
-            else:
-                draw_count = 1
-        else:
-            draw_count = 1
 
         dodge_times = set()
         parry_times = set()
@@ -340,17 +321,13 @@ def main():
 
         double_next = False
 
-        # Draw new cards at the end of the round based on actions
-        # 0: both attack and defense
-        # 1: only attack or only defense
-        # 2: only quick attack
-        # 3: no action
-        hero.draw(draw_count)
+        # Refill the hero's hand to four cards
+        hero.draw(max(0, 4 - len(hero.hand)))
         enemy.advance()
 
         if enemy.hp <= 0:
             print(f"Enemy {enemy.name} defeated!")
-            hero.draw(2)
+            hero.draw(max(0, 4 - len(hero.hand)))
             enemy = choose_enemy()
             print(f"A new {enemy.name} appears!")
 

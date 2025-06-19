@@ -116,7 +116,7 @@ def main():
         used = []
         actions = []
         while True:
-            cmd = input("Action (fast x | strong x y | roll x | parry x | done): ").strip()
+            cmd = input("Action (fast x | strong x y z | roll x | parry x | done): ").strip()
             if cmd == "done":
                 break
             parsed = parse_action(cmd)
@@ -124,10 +124,13 @@ def main():
                 print("Invalid command")
                 continue
             kind, times = parsed
-            if kind == "strong" and len(times) >= 2:
+            if kind == "strong":
+                if len(times) != 3:
+                    print("Strong attack requires exactly three time cards")
+                    continue
                 times.sort()
-                if any(times[i] + 1 != times[i+1] for i in range(len(times)-1)):
-                    print("Strong attack requires consecutive times")
+                if any(times[i] + 1 != times[i+1] for i in range(2)):
+                    print("Strong attack requires three consecutive times")
                     continue
             elif kind in {"fast", "roll", "parry"}:
                 if len(times) != 1:
@@ -148,7 +151,7 @@ def main():
             if kind == "fast":
                 pending.append(Action(times[0], "hero", "fast", 2))
             elif kind == "strong":
-                pending.append(Action(times[0], "hero", "strong", 5))
+                pending.append(Action(times[-1], "hero", "strong", 4))
             elif kind == "roll":
                 pending.append(Action(times[0], "hero", "roll"))
             elif kind == "parry":

@@ -268,7 +268,7 @@ def main():
         pending.append(Action(e_time, "enemy", "attack", e_dmg, times=[e_time]))
         pending.sort(key=lambda a: a.time)
 
-        bonus_heavy = False
+        bonus_heavy = 0
         i = 0
         while i < len(pending):
             t = pending[i].time
@@ -297,8 +297,8 @@ def main():
                 if act.time in dodge_times:
                     print("Hero dodges and avoids the attack")
                 elif act.time in parry_times:
-                    bonus_heavy = True
-                    print("Hero parries! Next heavy attack will deal double damage")
+                    bonus_heavy += 1
+                    print("Hero parries! Next heavy attack gains +1 damage.")
                 else:
                     dmg = max(act.damage - hero.armor, 0)
                     enemy_damage += dmg
@@ -308,10 +308,10 @@ def main():
             for act in hero_attacks:
                 dmg = act.damage
                 if act.kind == "strong":
-                    if bonus_heavy:
-                        dmg *= 2
-                        bonus_heavy = False
-                        print("Hero's strong attack deals double damage!")
+                    if bonus_heavy > 0:
+                        dmg += bonus_heavy
+                        print(f"Hero's strong attack gains +{bonus_heavy} damage!")
+                        bonus_heavy = 0
                     hero_damage += dmg
                     print(f"Hero strong attacks for {dmg} damage")
                 else:
@@ -326,7 +326,7 @@ def main():
             if hero.hp <= 0 or enemy.hp <= 0:
                 break
 
-        bonus_heavy = False
+        bonus_heavy = 0
 
         # Refill the hero's hand to four cards
         hero.draw(max(0, 4 - len(hero.hand)))

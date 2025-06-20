@@ -72,6 +72,16 @@ class TestGameMechanics(unittest.TestCase):
         expected = hp_before - ((atk.damage - hero.armor) * 2)
         self.assertEqual(hero.hp, expected)
 
+    def test_leap_crush_area_on_target(self):
+        deck = create_samurai_deck(DEFAULT_ORDER)
+        hero = Hero(deck)
+        enemy = EnemyOni()
+        atk = OniPatternDeck[1]  # Leap Crush
+        hp_before = hero.hp
+        apply_enemy_attack(hero, hero.hand[0], atk, False, enemy)
+        expected = hp_before - (atk.damage - hero.armor)
+        self.assertEqual(hero.hp, expected)
+
     def test_recuperate_buffs_next_attack(self):
         deck = create_samurai_deck(DEFAULT_ORDER)
         hero = Hero(deck)

@@ -599,6 +599,15 @@ def battle() -> None:
         enemy.advance()
         round_no += 1
 
+    if hero.hp > 0 and enemy.hp <= 0:
+        print(f"You defeated the {enemy.name}!")
+    elif hero.hp <= 0 and enemy.hp > 0:
+        print("You were defeated.")
+    elif hero.hp <= 0 and enemy.hp <= 0:
+        print("Both combatants fell.")
+    else:
+        print("The battle ended in a draw.")
+
     print("Battle ended.")
 
 

@@ -5,6 +5,7 @@ from game import (
     EnemyOni,
     EnemySamurai,
     apply_enemy_attack,
+    apply_hero_card,
     resolve_turn,
     OniPatternDeck,
     SamuraiPatternDeck,
@@ -100,6 +101,50 @@ class TestGameMechanics(unittest.TestCase):
         apply_enemy_attack(hero, hero.hand[0], strike, False, enemy)
         expected_dmg = strike.damage + 4 - hero.armor
         self.assertEqual(hero.hp, hp_before - expected_dmg)
+
+    def test_ki_focus_refreshes_cooldown(self):
+        deck = create_samurai_deck(DEFAULT_ORDER)
+        hero = Hero(deck)
+        enemy = EnemyOni()
+
+        used = hero.play_card(hero.hand[0].id)
+        self.assertIn(used, hero.cooldown[0])
+
+        hero.draw(4)  # bring Ki Focus (id 8) into hand
+        ki_focus = hero.play_card(8)
+        apply_hero_card(hero, enemy, ki_focus)
+
+        self.assertNotIn(used, hero.cooldown[0])
+        self.assertIs(hero.deck.cards[-1], used)
+        self.assertIn(ki_focus, hero.cooldown[0])
+
+    def test_parry_counter_buff_applied_then_used(self):
+        deck = create_samurai_deck(DEFAULT_ORDER)
+        hero = Hero(deck)
+        enemy = EnemySamurai()
+
+        parry_counter = SamuraiPatternDeck[3]
+        strike = SamuraiPatternDeck[4]
+
+        apply_enemy_attack(hero, hero.hand[0], parry_counter, False, enemy)
+        self.assertEqual(enemy.next_damage_bonus, 4)
+
+        hp_before = hero.hp
+        apply_enemy_attack(hero, hero.hand[0], strike, False, enemy)
+        expected_dmg = strike.damage + 4 - hero.armor
+        self.assertEqual(hero.hp, hp_before - expected_dmg)
+        self.assertEqual(enemy.next_damage_bonus, 0)
+
+    def test_cross_step_fails_if_still_in_area(self):
+        deck = create_samurai_deck(DEFAULT_ORDER)
+        hero = Hero(deck)
+        enemy = EnemyOni()
+        atk = OniPatternDeck[3]  # Double Swipe 180 deg front arc
+        card = next(c for c in hero.hand if c.id == 3)
+        resolve_turn(hero, enemy, card, atk)
+        self.assertEqual(hero.position.as_tuple(), (-1, 1))
+        expected_hp = 15 - ((atk.damage - hero.armor) * 2)
+        self.assertEqual(hero.hp, expected_hp)
 
     def test_cross_step_moves_and_dodges(self):
         deck = create_samurai_deck(DEFAULT_ORDER)

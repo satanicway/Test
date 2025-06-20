@@ -16,6 +16,15 @@ class CardType(Enum):
     Utility = auto()
 
 
+class TargetToken(Enum):
+    """Possible targeting tokens used by the enemy."""
+
+    A = "A"
+    B = "B"
+    C = "C"
+    D = "D"
+
+
 @dataclass
 class Card:
     """Single action card."""
@@ -216,21 +225,34 @@ def choose_enemy() -> Enemy:
     return random.choice([EnemySamurai(), EnemyOni()])
 
 
+def draw_target() -> TargetToken:
+    """Randomly choose a target token each round."""
+    return random.choice(list(TargetToken))
+
+
 def battle() -> None:
-    """Simple command line battle showcasing card resolution by speed."""
+    """Simple command line battle following the five-phase loop."""
     hero = Hero(create_samurai_deck(list(range(1, 13))))
     enemy = choose_enemy()
 
     print(f"An enemy {enemy.name} approaches!\n")
 
+    MAX_ROUNDS = 10
     round_no = 1
-    while hero.hp > 0 and enemy.hp > 0:
+    while hero.hp > 0 and enemy.hp > 0 and round_no <= MAX_ROUNDS:
         print(f"-- Round {round_no} --")
+
+        # Phase 1: telegraph the next enemy card
         atk = enemy.telegraph()
         print(
             f"Enemy plays: {atk.attack} (Speed {atk.speed}, Dmg {atk.damage})"
         )
 
+        # Phase 2: draw a target token
+        token = draw_target()
+        print(f"Target token drawn: {token.value}")
+
+        # Phase 3: hero selects a card
         print(f"Stamina: {hero.stamina}")
         print("Hand:")
         for card in hero.hand:
@@ -238,17 +260,57 @@ def battle() -> None:
 
         choice = input("Choose card id: ")
         try:
-            card = parse_action(hero, choice)
-        except Exception as exc:
-            print(f"Invalid card: {exc}\n")
+            card_id = int(choice)
+        except ValueError:
+            print("Invalid input\n")
             continue
+        if not hero.can_play(card_id):
+            print("Cannot play that card\n")
+            continue
+        card = hero.play_card(card_id)
 
-        if card.speed >= atk.speed:
-            first, second = card.name, atk.attack
+        # Phase 4: resolve by speed
+        hero_first = card.speed >= atk.speed
+        damage = max(0, atk.damage - hero.armor)
+        hero_damage = 4 if card.card_type == CardType.HeavyAtk else 2 if card.card_type == CardType.LightAtk else 0
+
+        def resolve_enemy() -> None:
+            nonlocal damage
+            if card.card_type == CardType.Dodge and card.speed >= atk.speed:
+                print("You dodge the attack!")
+                return
+            if card.card_type == CardType.Parry and card.speed == atk.speed:
+                print("Parry successful!")
+                return
+            actual = damage
+            if card.card_type == CardType.Block:
+                actual = max(0, actual - 2)
+            hero.hp -= actual
+            print(f"Enemy hits you for {actual} damage. HP now {hero.hp}")
+
+        def resolve_hero() -> None:
+            if hero_damage:
+                enemy.hp -= hero_damage
+                print(f"You hit enemy for {hero_damage} damage. Enemy HP {enemy.hp}")
+            elif card.card_type == CardType.Dodge:
+                print("You attempt a dodge...")
+            elif card.card_type == CardType.Parry:
+                print("You attempt a parry...")
+            else:
+                print("You perform the action.")
+
+        if hero_first:
+            resolve_hero()
+            if enemy.hp > 0:
+                resolve_enemy()
         else:
-            first, second = atk.attack, card.name
-        print(f"Resolution order: {first} then {second}\n")
+            resolve_enemy()
+            if hero.hp > 0:
+                resolve_hero()
 
+        print()
+
+        # Phase 5: cooldown and draw
         hero.end_round()
         enemy.advance()
         round_no += 1

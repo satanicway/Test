@@ -234,6 +234,28 @@ def select_card(hero: "Hero") -> Card:
         return hero.play_card(card_id)
 
 
+def prompt_refresh_choice(hero: "Hero") -> tuple[int | None, int | None]:
+    """Prompt for which cooldown card to refresh.
+
+    Returns a tuple ``(card_id, slot)`` where only one element is not ``None``.
+    """
+
+    while True:
+        print("Cooldown:")
+        for i, slot in enumerate(hero.cooldown):
+            names = ", ".join(f"{c.id}:{c.name}" for c in slot) or "Empty"
+            print(f"  Slot {i}: {names}")
+        text = input("Refresh which card? Enter id or slot (0/1): ")
+        try:
+            val = int(text)
+        except ValueError:
+            print("Invalid input\n")
+            continue
+        if val in (0, 1):
+            return (None, val)
+        return (val, None)
+
+
 class Hero:
     """Hero with HP, armor and a starting hand drawn in order."""
 
@@ -294,13 +316,40 @@ class Hero:
                 return card
         raise ValueError("Card not in hand")
 
-    def refresh_cooldown(self) -> None:
-        """Return one card from cooldown to the deck if possible."""
-        for slot in [1, 0]:
-            if self.cooldown[slot]:
-                card = self.cooldown[slot].pop(0)
-                self.deck.return_to_bottom(card)
-                break
+    def refresh_cooldown(
+        self, card_id: int | None = None, slot: int | None = None
+    ) -> Card | None:
+        """Return a card from cooldown to the bottom of the deck.
+
+        ``card_id`` takes precedence if provided and will refresh that specific
+        card regardless of the slot it's in.  If ``slot`` is given instead, the
+        first card in that cooldown slot is refreshed.  With no arguments the
+        earliest card is refreshed (slot 1 first then slot 0).
+        Returns the card that was refreshed or ``None`` if no card was found.
+        """
+
+        if card_id is not None:
+            for s in [0, 1]:
+                for i, c in enumerate(self.cooldown[s]):
+                    if c.id == card_id:
+                        self.cooldown[s].pop(i)
+                        self.deck.return_to_bottom(c)
+                        return c
+            return None
+
+        if slot is not None:
+            if 0 <= slot < len(self.cooldown) and self.cooldown[slot]:
+                c = self.cooldown[slot].pop(0)
+                self.deck.return_to_bottom(c)
+                return c
+            return None
+
+        for s in [1, 0]:
+            if self.cooldown[s]:
+                c = self.cooldown[s].pop(0)
+                self.deck.return_to_bottom(c)
+                return c
+        return None
 
     def end_round(self) -> None:
         """Advance cooldown slots, refresh stamina and redraw up to 4 cards."""
@@ -436,7 +485,10 @@ def apply_enemy_attack(
     print(f"Enemy hits you for {total} damage. HP now {hero.hp}")
 
 
-def apply_hero_card(hero: "Hero", enemy: Enemy, card: Card) -> None:
+def apply_hero_card(
+    hero: "Hero", enemy: Enemy, card: Card,
+    refresh_target: int | None = None, refresh_slot: int | None = None
+) -> None:
     """Apply the effects of ``card`` when used by ``hero``."""
     if card.card_type == CardType.HeavyAtk:
         base = 4
@@ -473,7 +525,7 @@ def apply_hero_card(hero: "Hero", enemy: Enemy, card: Card) -> None:
         print("You brace for impact...")
     elif card.card_type == CardType.Utility:
         if card.id == 8:
-            hero.refresh_cooldown()
+            hero.refresh_cooldown(card_id=refresh_target, slot=refresh_slot)
             print("You center your ki and refresh a card.")
         elif card.id == 10:
             hero.priority_target = True
@@ -489,17 +541,20 @@ def apply_hero_card(hero: "Hero", enemy: Enemy, card: Card) -> None:
         print("You perform the action.")
 
 
-def resolve_turn(hero: "Hero", enemy: Enemy, card: Card, atk: EnemyCard) -> None:
+def resolve_turn(
+    hero: "Hero", enemy: Enemy, card: Card, atk: EnemyCard,
+    refresh_target: int | None = None, refresh_slot: int | None = None
+) -> None:
     """Resolve one turn comparing ``card`` speed against ``atk`` speed."""
     hero_first = card.speed >= atk.speed
     if hero_first:
-        apply_hero_card(hero, enemy, card)
+        apply_hero_card(hero, enemy, card, refresh_target, refresh_slot)
         if enemy.hp > 0:
             apply_enemy_attack(hero, card, atk, True, enemy)
     else:
         apply_enemy_attack(hero, card, atk, False, enemy)
         if hero.hp > 0:
-            apply_hero_card(hero, enemy, card)
+            apply_hero_card(hero, enemy, card, refresh_target, refresh_slot)
 
 
 def battle() -> None:
@@ -529,9 +584,13 @@ def battle() -> None:
 
         # Phase 3: hero selects a card
         card = select_card(hero)
+        refresh_target = None
+        refresh_slot = None
+        if card.id == 8:
+            refresh_target, refresh_slot = prompt_refresh_choice(hero)
 
         # Phase 4: resolve actions
-        resolve_turn(hero, enemy, card, atk)
+        resolve_turn(hero, enemy, card, atk, refresh_target, refresh_slot)
 
         print()
 

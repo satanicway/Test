@@ -117,15 +117,38 @@ class TestGameMechanics(unittest.TestCase):
         hero = Hero(deck)
         enemy = EnemyOni()
 
-        used = hero.play_card(hero.hand[0].id)
-        self.assertIn(used, hero.cooldown[0])
+        first = hero.play_card(hero.hand[0].id)
+        hero.end_round()
+        second = hero.play_card(hero.hand[0].id)
+        self.assertIn(first, hero.cooldown[1])
+        self.assertIn(second, hero.cooldown[0])
 
         hero.draw(4)  # bring Ki Focus (id 8) into hand
         ki_focus = hero.play_card(8)
-        apply_hero_card(hero, enemy, ki_focus)
+        apply_hero_card(hero, enemy, ki_focus, refresh_target=first.id)
 
-        self.assertNotIn(used, hero.cooldown[0])
-        self.assertIs(hero.deck.cards[-1], used)
+        self.assertNotIn(first, hero.cooldown[1])
+        self.assertIs(hero.deck.cards[-1], first)
+        self.assertIn(ki_focus, hero.cooldown[0])
+        self.assertIn(second, hero.cooldown[0])
+
+    def test_ki_focus_refresh_by_slot(self):
+        deck = create_samurai_deck(DEFAULT_ORDER)
+        hero = Hero(deck)
+        enemy = EnemyOni()
+
+        first = hero.play_card(hero.hand[0].id)
+        second = hero.play_card(hero.hand[0].id)
+        self.assertIn(first, hero.cooldown[0])
+        self.assertIn(second, hero.cooldown[0])
+
+        hero.draw(4)
+        ki_focus = hero.play_card(8)
+        apply_hero_card(hero, enemy, ki_focus, refresh_slot=0)
+
+        self.assertNotIn(first, hero.cooldown[0])
+        self.assertIs(hero.deck.cards[-1], first)
+        self.assertIn(second, hero.cooldown[0])
         self.assertIn(ki_focus, hero.cooldown[0])
 
     def test_parry_counter_buff_applied_then_used(self):

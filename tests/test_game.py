@@ -197,5 +197,39 @@ class TestGameMechanics(unittest.TestCase):
         self.assertEqual(hero.position.as_tuple(), (-1, -1))
         self.assertEqual(hero.hp, 15)
 
+    def test_guarded_stance_reduces_next_hit(self):
+        deck = create_samurai_deck(DEFAULT_ORDER)
+        hero = Hero(deck)
+        enemy = EnemyOni()
+        hero.draw(3)  # bring Guarded Stance (id 7) into hand
+        card = hero.play_card(7)
+        atk = OniPatternDeck[0]  # Club Sweep dmg 4
+
+        hp_before = hero.hp
+        resolve_turn(hero, enemy, card, atk)
+        expected_dmg = atk.damage - hero.armor - 2
+        self.assertEqual(hero.hp, hp_before - expected_dmg)
+        self.assertEqual(hero.damage_reduction, 2)
+
+        hp_before = hero.hp
+        next_card = hero.hand[0]
+        resolve_turn(hero, enemy, next_card, atk)
+        expected_dmg = atk.damage - hero.armor - 2
+        self.assertEqual(hero.hp, hp_before - expected_dmg)
+        self.assertEqual(hero.damage_reduction, 0)
+
+    def test_zen_recovery_gains_stamina_no_damage(self):
+        deck = create_samurai_deck(DEFAULT_ORDER)
+        hero = Hero(deck)
+        enemy = EnemyOni()
+        hero.draw(7)  # draw cards up to Zen Recovery (id 11)
+        hero.stamina = hero.max_stamina - 2
+        card = hero.play_card(11)
+        hp_before = enemy.hp
+        apply_hero_card(hero, enemy, card)
+
+        self.assertEqual(hero.stamina, hero.max_stamina - 1)
+        self.assertEqual(enemy.hp, hp_before)
+
 if __name__ == '__main__':
     unittest.main()

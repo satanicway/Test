@@ -2,7 +2,7 @@ import random
 from collections import deque
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Dict, List
+from typing import Dict, List, Set, Tuple
 
 
 class CardType(Enum):
@@ -38,6 +38,23 @@ class Card:
 
 
 @dataclass
+class Position:
+    """Simple 2D grid position."""
+
+    x: int
+    y: int
+
+    def __add__(self, other: Tuple[int, int]) -> "Position":
+        return Position(self.x + other[0], self.y + other[1])
+
+    def __hash__(self) -> int:
+        return hash((self.x, self.y))
+
+    def as_tuple(self) -> Tuple[int, int]:
+        return (self.x, self.y)
+
+
+@dataclass
 class EnemyCard:
     """Single enemy pattern card."""
 
@@ -66,6 +83,25 @@ SamuraiPatternDeck: List[EnemyCard] = [
     EnemyCard("Rising Strike", 1, 6, "Single", "Target from Parry buff"),
     EnemyCard("Focused Stare", 0, 0, "", "Switch stance → restart at 1"),
 ]
+
+
+# Relative coordinate sets for basic attack areas (enemy faces +y)
+AREA_MAP: Dict[str, Set[Tuple[int, int]]] = {
+    "Single hex": {(0, 1)},
+    "Single": {(0, 1)},
+    "Adjacent hexes": {(0, 1), (1, 0), (-1, 0), (0, -1)},
+    "Self": {(0, 0)},
+    "90\u00b0 front arc": {(0, 1), (1, 1)},
+    "180\u00b0 front arc": {(-1, 1), (0, 1), (1, 1), (-1, 0), (1, 0)},
+}
+
+
+def attack_area(enemy: "Enemy", atk: EnemyCard) -> Set[Tuple[int, int]] | None:
+    """Return absolute board coordinates affected by ``atk``."""
+    if atk.area == "Global":
+        return None
+    rel = AREA_MAP.get(atk.area, set())
+    return {(enemy.position.x + dx, enemy.position.y + dy) for dx, dy in rel}
 
 
 def format_card(card: Card) -> str:
@@ -199,6 +235,7 @@ class Hero:
         self.armor = 1
         self.max_stamina = 6
         self.stamina = 6
+        self.position = Position(0, 1)  # start one hex in front of enemy
         self.cooldown: List[List[Card]] = [[], []]
         self.heavy_bonus = 0
         # temporary round flags
@@ -276,6 +313,7 @@ class Enemy:
         self.hp = hp
         self.pattern = pattern
         self.index = 0
+        self.position = Position(0, 0)
         self.target_token: TargetToken | None = None
         # Buff applied to the next damaging attack
         self.next_damage_bonus = 0
@@ -348,12 +386,18 @@ def apply_enemy_attack(
     damage_reduction = hero.damage_reduction
     hero.damage_reduction = 0
 
+    area = attack_area(enemy, atk)
+    in_area = True if area is None else hero.position.as_tuple() in area
+
     if hero_card.card_type == CardType.Dodge and hero_card.speed >= atk.speed:
-        moved = input("Did you move out of the danger area? (y/n): ")
-        if moved.lower().startswith("y"):
+        if not in_area:
             print("You dodge the attack!")
             return
         print("Dodge failed!")
+
+    if area is not None and not in_area:
+        print("Enemy attack misses you.")
+        return
 
     parry_card = hero_card.card_type == CardType.Parry or (
         hero_card.id == 6 and hero_first
@@ -410,6 +454,12 @@ def apply_hero_card(hero: "Hero", enemy: Enemy, card: Card) -> None:
     elif card.card_type in (CardType.Dodge, CardType.Parry):
         action = "dodge" if card.card_type == CardType.Dodge else "parry"
         print(f"You attempt a {action}...")
+        if card.id == 3:
+            # Cross-Step moves one hex to the left before resolving
+            hero.position = hero.position + (-1, 0)
+        if card.id == 9:
+            # Shadow Step teleports to a back hex (behind enemy)
+            hero.position = enemy.position + (-1, -1)
         if card.id == 7:
             hero.damage_reduction = 2
     elif card.card_type == CardType.Block:
@@ -419,8 +469,6 @@ def apply_hero_card(hero: "Hero", enemy: Enemy, card: Card) -> None:
         if card.id == 8:
             hero.refresh_cooldown()
             print("You center your ki and refresh a card.")
-        elif card.id == 9:
-            print("You vanish into the shadows and reposition.")
         elif card.id == 10:
             hero.priority_target = True
             enemy.hp -= 2  # base light attack effect

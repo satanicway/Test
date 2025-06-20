@@ -409,6 +409,31 @@ def draw_target() -> TargetToken:
     return random.choice(list(TargetToken))
 
 
+def render_board(hero: "Hero", enemy: "Enemy", size: int = 3) -> None:
+    """Print a small grid showing the positions of ``hero`` and ``enemy``.
+
+    The enemy is always rendered at ``(0, 0)`` and the hero at their current
+    :class:`Position`. The grid defaults to 3×3 with coordinates ranging from
+    ``-1`` to ``1``.  Cells outside that range are ignored.
+    """
+
+    half = size // 2
+    hx, hy = hero.position.as_tuple()
+    ex, ey = enemy.position.as_tuple()
+
+    for y in range(half, -half - 1, -1):
+        row: List[str] = []
+        for x in range(-half, half + 1):
+            if (x, y) == (ex, ey):
+                row.append("E")
+            elif (x, y) == (hx, hy):
+                row.append("H")
+            else:
+                row.append(".")
+        print(" ".join(row))
+    print()
+
+
 def apply_enemy_attack(
     hero: "Hero", hero_card: Card, atk: EnemyCard, hero_first: bool, enemy: Enemy
 ) -> None:
@@ -576,6 +601,7 @@ def battle() -> None:
         print(
             f"Enemy plays: {atk.attack} (Speed {atk.speed}, Dmg {atk.damage})"
         )
+        render_board(hero, enemy)
 
         # Phase 2: draw a target token
         token = draw_target()
@@ -592,6 +618,7 @@ def battle() -> None:
 
         # Phase 4: resolve actions
         resolve_turn(hero, enemy, card, atk, refresh_target, refresh_slot)
+        render_board(hero, enemy)
 
         print()
 

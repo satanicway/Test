@@ -311,6 +311,7 @@ class Hero:
                 if self.stamina < card.stamina:
                     raise ValueError("Cannot play card")
                 self.stamina -= card.stamina
+                print(f"Stamina remaining: {self.stamina}")
                 self.hand.pop(idx)
                 self.cooldown[0].append(card)
                 return card

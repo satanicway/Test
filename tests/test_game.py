@@ -5,6 +5,7 @@ from game import (
     EnemyOni,
     EnemySamurai,
     apply_enemy_attack,
+    resolve_turn,
     OniPatternDeck,
     SamuraiPatternDeck,
 )
@@ -99,6 +100,29 @@ class TestGameMechanics(unittest.TestCase):
         apply_enemy_attack(hero, hero.hand[0], strike, False, enemy)
         expected_dmg = strike.damage + 4 - hero.armor
         self.assertEqual(hero.hp, hp_before - expected_dmg)
+
+    def test_cross_step_moves_and_dodges(self):
+        deck = create_samurai_deck(DEFAULT_ORDER)
+        hero = Hero(deck)
+        enemy = EnemyOni()
+        atk = OniPatternDeck[0]  # Club Sweep 90 deg front arc speed 2
+        card = next(c for c in hero.hand if c.id == 3)
+        resolve_turn(hero, enemy, card, atk)
+        # After cross-step hero should have moved left and dodged attack
+        self.assertEqual(hero.position.as_tuple(), (-1, 1))
+        self.assertEqual(hero.hp, 15)
+
+    def test_shadow_step_teleports_and_dodges(self):
+        deck = create_samurai_deck(DEFAULT_ORDER)
+        hero = Hero(deck)
+        enemy = EnemyOni()
+        atk = OniPatternDeck[3]  # Double Swipe 180 deg front arc speed 2
+        # Ensure shadow step card is drawn; it is card 9 not in starting hand so draw more
+        hero.draw(5)  # draw remaining cards until we get card 9
+        card = next(c for c in hero.hand if c.id == 9)
+        resolve_turn(hero, enemy, card, atk)
+        self.assertEqual(hero.position.as_tuple(), (-1, -1))
+        self.assertEqual(hero.hp, 15)
 
 if __name__ == '__main__':
     unittest.main()

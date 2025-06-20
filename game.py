@@ -32,9 +32,31 @@ class Card:
 class EnemyCard:
     """Single enemy pattern card."""
 
-    name: str
+    attack: str
     speed: int
-    dmg: int
+    damage: int
+    area: str
+    target_logic: str
+
+
+# Pre-built enemy pattern decks following the design document
+OniPatternDeck: List[EnemyCard] = [
+    EnemyCard("Club Sweep", 2, 4, "90° front arc", "Random hero in arc"),
+    EnemyCard("Leap Crush", 1, 6, "Impact hex + adj.", "Farthest hero ≤ 3"),
+    EnemyCard("Rage Roar", 3, 0, "Global", "All heroes lose 1 Stamina"),
+    EnemyCard("Double Swipe", 2, 3, "180° front arc", "Two random heroes hit once"),
+    EnemyCard("Overhead Smash", 1, 8, "Single hex", "Random hero ≤ 1"),
+    EnemyCard("Recuperate", 0, 0, "", "Oni gains +1 dmg next card"),
+]
+
+SamuraiPatternDeck: List[EnemyCard] = [
+    EnemyCard("Iaido Draw", 3, 4, "Single", "Hero with most HP"),
+    EnemyCard("Feint & Thrust", 2, 3, "Single", "Random hero ≤ 2"),
+    EnemyCard("Whirlwind Slashes", 2, 2, "Adjacent hexes", "All adjacent heroes"),
+    EnemyCard("Parry Counter", 3, 0, "Self", "Gains 'next attack +4 dmg'"),
+    EnemyCard("Rising Strike", 1, 6, "Single", "Target from Parry buff"),
+    EnemyCard("Focused Stare", 0, 0, "", "Switch stance → restart at 1"),
+]
 
 
 def format_card(card: Card) -> str:
@@ -170,37 +192,23 @@ class Enemy:
         self.pattern = pattern
         self.index = 0
 
-    def next_attack(self) -> EnemyCard:
+    def telegraph(self) -> EnemyCard:
+        """Return the upcoming card without advancing the deck."""
         return self.pattern[self.index]
 
     def advance(self) -> None:
+        """Move to the next card, looping back to the start when needed."""
         self.index = (self.index + 1) % len(self.pattern)
 
 
 class EnemySamurai(Enemy):
     def __init__(self):
-        pattern = [
-            EnemyCard("Iaido Draw", 3, 4),
-            EnemyCard("Feint & Thrust", 2, 3),
-            EnemyCard("Whirlwind Slashes", 2, 2),
-            EnemyCard("Parry Counter", 3, 0),
-            EnemyCard("Rising Strike", 1, 6),
-            EnemyCard("Focused Stare", 0, 0),
-        ]
-        super().__init__("Samurai", 6, pattern)
+        super().__init__("Samurai", 6, SamuraiPatternDeck)
 
 
 class EnemyOni(Enemy):
     def __init__(self):
-        pattern = [
-            EnemyCard("Club Sweep", 2, 4),
-            EnemyCard("Leap Crush", 1, 6),
-            EnemyCard("Rage Roar", 3, 0),
-            EnemyCard("Double Swipe", 2, 3),
-            EnemyCard("Overhead Smash", 1, 8),
-            EnemyCard("Recuperate", 0, 0),
-        ]
-        super().__init__("Oni", 10, pattern)
+        super().__init__("Oni", 10, OniPatternDeck)
 
 
 def choose_enemy() -> Enemy:
@@ -218,8 +226,10 @@ def battle() -> None:
     round_no = 1
     while hero.hp > 0 and enemy.hp > 0:
         print(f"-- Round {round_no} --")
-        atk = enemy.next_attack()
-        print(f"Enemy plays: {atk.name} (Speed {atk.speed}, Dmg {atk.dmg})")
+        atk = enemy.telegraph()
+        print(
+            f"Enemy plays: {atk.attack} (Speed {atk.speed}, Dmg {atk.damage})"
+        )
 
         print(f"Stamina: {hero.stamina}")
         print("Hand:")
@@ -234,9 +244,9 @@ def battle() -> None:
             continue
 
         if card.speed >= atk.speed:
-            first, second = card.name, atk.name
+            first, second = card.name, atk.attack
         else:
-            first, second = atk.name, card.name
+            first, second = atk.attack, card.name
         print(f"Resolution order: {first} then {second}\n")
 
         hero.end_round()

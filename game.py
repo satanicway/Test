@@ -124,23 +124,30 @@ class Hero:
     def draw(self, n: int) -> None:
         self.hand.extend(self.deck.draw(n))
 
-    def play_card(self, card_id: int) -> Card:
-        """Remove a card from hand and pay its stamina cost."""
+    def can_play(self, card_id: int) -> bool:
+        """Return ``True`` if the card is in hand and stamina is sufficient."""
         if card_id not in self.hand:
-            raise ValueError("Card not in hand")
+            return False
         card = self.deck.card(card_id)
-        if self.stamina < card.stamina:
-            raise ValueError("Not enough stamina")
+        return self.stamina >= card.stamina
+
+    def play_card(self, card_id: int) -> Card:
+        """Remove a card from hand, pay its stamina cost and start cooldown."""
+        if not self.can_play(card_id):
+            raise ValueError("Cannot play card")
+        card = self.deck.card(card_id)
         self.stamina -= card.stamina
         self.hand.remove(card_id)
+        self.cooldown[0].append(card_id)
         return card
 
-    def end_round(self, played: List[int]) -> None:
-        """Advance cooldown slots and redraw to a hand of 4."""
-        expired = self.cooldown.pop(0)
+    def end_round(self) -> None:
+        """Advance cooldown slots, refresh stamina and redraw up to 4 cards."""
+        expired = self.cooldown.pop()
         for cid in expired:
             self.deck.return_to_bottom(cid)
-        self.cooldown.append(played)
+        self.cooldown.insert(0, [])
+        self.stamina = self.max_stamina
         self.draw(4 - len(self.hand))
 
 
@@ -223,7 +230,7 @@ def battle() -> None:
             first, second = atk.name, card.name
         print(f"Resolution order: {first} then {second}\n")
 
-        hero.end_round([card.id])
+        hero.end_round()
         enemy.advance()
         round_no += 1
 

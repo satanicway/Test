@@ -28,6 +28,15 @@ class Card:
     extra_rule: str = ""
 
 
+@dataclass
+class EnemyCard:
+    """Single enemy pattern card."""
+
+    name: str
+    speed: int
+    dmg: int
+
+
 def format_card(card: Card) -> str:
     """Return a user friendly description of the card."""
     extra = f" - {card.extra_rule}" if card.extra_rule else ""
@@ -91,6 +100,13 @@ def create_samurai_deck(order: List[int]) -> Deck:
     return Deck(order, cards)
 
 
+def parse_action(hero: 'Hero', text: str) -> Card:
+    """Parse a user's card selection and return the ``Card`` object."""
+    card_id = int(text)
+    card = hero.play_card(card_id)
+    return card
+
+
 class Hero:
     """Hero with HP, armor and a starting hand drawn in order."""
 
@@ -98,62 +114,77 @@ class Hero:
         self.hp = 15
         self.deck = deck
         self.armor = 1
+        self.max_stamina = 6
+        self.stamina = 6
+        self.cooldown: List[List[int]] = [[], []]
 
         # Draw the starting hand
         self.hand = deck.draw(4)
 
-    def draw(self, n):
+    def draw(self, n: int) -> None:
         self.hand.extend(self.deck.draw(n))
 
-    def use_card(self, card: int) -> None:
-        if card in self.hand:
-            self.hand.remove(card)
-            self.deck.return_to_bottom(card)
+    def play_card(self, card_id: int) -> Card:
+        """Remove a card from hand and pay its stamina cost."""
+        if card_id not in self.hand:
+            raise ValueError("Card not in hand")
+        card = self.deck.card(card_id)
+        if self.stamina < card.stamina:
+            raise ValueError("Not enough stamina")
+        self.stamina -= card.stamina
+        self.hand.remove(card_id)
+        return card
+
+    def end_round(self, played: List[int]) -> None:
+        """Advance cooldown slots and redraw to a hand of 4."""
+        expired = self.cooldown.pop(0)
+        for cid in expired:
+            self.deck.return_to_bottom(cid)
+        self.cooldown.append(played)
+        self.draw(4 - len(self.hand))
 
 
 class Enemy:
-    """Base enemy with name, hp and attack sequence."""
+    """Enemy using a deterministic pattern deck."""
 
-    def __init__(self, name, hp, attacks):
+    def __init__(self, name: str, hp: int, pattern: List[EnemyCard]):
         self.name = name
         self.max_hp = hp
         self.hp = hp
-        self.attacks = attacks  # list of (time, dmg)
+        self.pattern = pattern
         self.index = 0
 
-    def next_attack(self):
-        return self.attacks[self.index]
+    def next_attack(self) -> EnemyCard:
+        return self.pattern[self.index]
 
-    def advance(self):
-        self.index = (self.index + 1) % len(self.attacks)
+    def advance(self) -> None:
+        self.index = (self.index + 1) % len(self.pattern)
 
 
 class EnemySamurai(Enemy):
     def __init__(self):
-        attacks = [
-            (1, 4),  # round 1
-            (4, 5),  # round 2
-            (6, 4),  # round 3
-            (2, 4),  # round 4
-            (5, 6),  # round 5
-            (7, 4),  # round 6
-            (3, 5),  # round 7
+        pattern = [
+            EnemyCard("Iaido Draw", 3, 4),
+            EnemyCard("Feint & Thrust", 2, 3),
+            EnemyCard("Whirlwind Slashes", 2, 2),
+            EnemyCard("Parry Counter", 3, 0),
+            EnemyCard("Rising Strike", 1, 6),
+            EnemyCard("Focused Stare", 0, 0),
         ]
-        super().__init__("Samurai", 6, attacks)
+        super().__init__("Samurai", 6, pattern)
 
 
 class EnemyOni(Enemy):
     def __init__(self):
-        attacks = [
-            (2, 3),  # round 1
-            (4, 5),  # round 2
-            (6, 7),  # round 3
-            (1, 3),  # round 4
-            (5, 5),  # round 5
-            (3, 4),  # round 6
-            (7, 6),  # round 7
+        pattern = [
+            EnemyCard("Club Sweep", 2, 4),
+            EnemyCard("Leap Crush", 1, 6),
+            EnemyCard("Rage Roar", 3, 0),
+            EnemyCard("Double Swipe", 2, 3),
+            EnemyCard("Overhead Smash", 1, 8),
+            EnemyCard("Recuperate", 0, 0),
         ]
-        super().__init__("Oni", 10, attacks)
+        super().__init__("Oni", 10, pattern)
 
 
 def choose_enemy() -> Enemy:
@@ -161,13 +192,47 @@ def choose_enemy() -> Enemy:
     return random.choice([EnemySamurai(), EnemyOni()])
 
 
+def battle() -> None:
+    """Simple command line battle showcasing card resolution by speed."""
+    hero = Hero(create_samurai_deck(list(range(1, 13))))
+    enemy = choose_enemy()
+
+    print(f"An enemy {enemy.name} approaches!\n")
+
+    round_no = 1
+    while hero.hp > 0 and enemy.hp > 0:
+        print(f"-- Round {round_no} --")
+        atk = enemy.next_attack()
+        print(f"Enemy plays: {atk.name} (Speed {atk.speed}, Dmg {atk.dmg})")
+
+        print(f"Stamina: {hero.stamina}")
+        print("Hand:")
+        for cid in hero.hand:
+            print("  ", format_card(hero.deck.card(cid)))
+
+        choice = input("Choose card id: ")
+        try:
+            card = parse_action(hero, choice)
+        except Exception as exc:
+            print(f"Invalid card: {exc}\n")
+            continue
+
+        if card.speed >= atk.speed:
+            first, second = card.name, atk.name
+        else:
+            first, second = atk.name, card.name
+        print(f"Resolution order: {first} then {second}\n")
+
+        hero.end_round([card.id])
+        enemy.advance()
+        round_no += 1
+
+    print("Battle ended.")
+
+
 def main() -> None:
-    """Display all Samurai cards in the provided order."""
-    order = list(range(1, 13))
-    deck = create_samurai_deck(order)
-    print("Available cards:")
-    for cid in order:
-        print(" ", format_card(deck.card(cid)))
+    """Run a minimal battle demo."""
+    battle()
 
 
 if __name__ == "__main__":

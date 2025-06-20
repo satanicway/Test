@@ -201,17 +201,37 @@ class Hero:
         self.stamina = 6
         self.cooldown: List[List[Card]] = [[], []]
         self.heavy_bonus = 0
+        # temporary round flags
+        self.was_targeted = False
+        self.priority_target = False
+        self.damage_reduction = 0
 
         # Draw the starting hand
         self.hand = deck.draw(4)
 
+    def start_round(self, targeted: bool) -> None:
+        """Record whether the hero was targeted this round."""
+        self.was_targeted = targeted or self.priority_target
+        self.priority_target = False
+
     def draw(self, n: int) -> None:
         self.hand.extend(self.deck.draw(n))
+
+    def play_card_free(self, card_id: int) -> Card:
+        """Play ``card_id`` without paying stamina."""
+        for idx, card in enumerate(self.hand):
+            if card.id == card_id:
+                self.hand.pop(idx)
+                self.cooldown[0].append(card)
+                return card
+        raise ValueError("Card not in hand")
 
     def can_play(self, card_id: int) -> bool:
         """Return ``True`` if ``card_id`` is in hand and stamina suffices."""
         for card in self.hand:
             if card.id == card_id:
+                if card.id == 5 and self.stamina <= 2:
+                    return False
                 return self.stamina >= card.stamina
         return False
 
@@ -219,6 +239,8 @@ class Hero:
         """Remove a card from hand, pay its stamina cost and start cooldown."""
         for idx, card in enumerate(self.hand):
             if card.id == card_id:
+                if card.id == 5 and self.stamina <= 2:
+                    raise ValueError("Cannot play card")
                 if self.stamina < card.stamina:
                     raise ValueError("Cannot play card")
                 self.stamina -= card.stamina
@@ -226,6 +248,14 @@ class Hero:
                 self.cooldown[0].append(card)
                 return card
         raise ValueError("Card not in hand")
+
+    def refresh_cooldown(self) -> None:
+        """Return one card from cooldown to the deck if possible."""
+        for slot in [1, 0]:
+            if self.cooldown[slot]:
+                card = self.cooldown[slot].pop(0)
+                self.deck.return_to_bottom(card)
+                break
 
     def end_round(self) -> None:
         """Advance cooldown slots, refresh stamina and redraw up to 4 cards."""
@@ -281,23 +311,37 @@ def draw_target() -> TargetToken:
     return random.choice(list(TargetToken))
 
 
-def apply_enemy_attack(hero: "Hero", hero_card: Card, atk: EnemyCard) -> None:
+def apply_enemy_attack(
+    hero: "Hero", hero_card: Card, atk: EnemyCard, hero_first: bool
+) -> None:
     """Resolve the enemy's attack against ``hero`` given the played card."""
     damage = max(0, atk.damage - hero.armor)
+
+    if hero.damage_reduction:
+        damage = max(0, damage - hero.damage_reduction)
+        hero.damage_reduction = 0
+
     if hero_card.card_type == CardType.Dodge and hero_card.speed >= atk.speed:
         moved = input("Did you move out of the danger area? (y/n): ")
         if moved.lower().startswith("y"):
             print("You dodge the attack!")
             return
         print("Dodge failed!")
-    if hero_card.card_type == CardType.Parry:
+
+    parry_card = hero_card.card_type == CardType.Parry or (
+        hero_card.id == 6 and hero_first
+    )
+    if parry_card:
         if hero_card.speed == atk.speed:
             print("Parry successful!")
             hero.heavy_bonus += 2
             return
-        print("Parry failed!")
+        if hero_card.card_type == CardType.Parry or hero_card.id == 6:
+            print("Parry failed!")
+
     if hero_card.card_type == CardType.Block:
         damage = max(0, damage - 2)
+
     hero.hp -= damage
     print(f"Enemy hits you for {damage} damage. HP now {hero.hp}")
 
@@ -305,18 +349,50 @@ def apply_enemy_attack(hero: "Hero", hero_card: Card, atk: EnemyCard) -> None:
 def apply_hero_card(hero: "Hero", enemy: Enemy, card: Card) -> None:
     """Apply the effects of ``card`` when used by ``hero``."""
     if card.card_type == CardType.HeavyAtk:
-        dmg = 4 + hero.heavy_bonus
+        base = 4
+        if card.id == 5:
+            base = 5
+        dmg = base + hero.heavy_bonus
         hero.heavy_bonus = 0
         enemy.hp -= dmg
         print(f"You hit enemy for {dmg} damage. Enemy HP {enemy.hp}")
     elif card.card_type == CardType.LightAtk:
-        enemy.hp -= 2
-        print(f"You hit enemy for 2 damage. Enemy HP {enemy.hp}")
+        dmg = 2
+        if card.id == 1 and not hero.was_targeted:
+            dmg += 1
+        enemy.hp -= dmg
+        print(f"You hit enemy for {dmg} damage. Enemy HP {enemy.hp}")
+        if card.id == 4:
+            # Twin Strikes chain
+            for c in hero.hand:
+                if c.id == 6:
+                    chained = hero.play_card_free(6)
+                    apply_hero_card(hero, enemy, chained)
+                    break
     elif card.card_type in (CardType.Dodge, CardType.Parry):
         action = "dodge" if card.card_type == CardType.Dodge else "parry"
         print(f"You attempt a {action}...")
+        if card.id == 7:
+            hero.damage_reduction = 2
     elif card.card_type == CardType.Block:
+        hero.damage_reduction = 2
         print("You brace for impact...")
+    elif card.card_type == CardType.Utility:
+        if card.id == 8:
+            hero.refresh_cooldown()
+            print("You center your ki and refresh a card.")
+        elif card.id == 9:
+            print("You vanish into the shadows and reposition.")
+        elif card.id == 10:
+            hero.priority_target = True
+            enemy.hp -= 2  # base light attack effect
+            print("You flaunt your skill, drawing aggro.")
+            print(f"Enemy HP {enemy.hp}")
+        elif card.id == 11:
+            hero.stamina = min(hero.max_stamina, hero.stamina + 1)
+            print("You breathe and regain stamina, skipping your attack.")
+        else:
+            print("You perform the action.")
     else:
         print("You perform the action.")
 
@@ -327,9 +403,9 @@ def resolve_turn(hero: "Hero", enemy: Enemy, card: Card, atk: EnemyCard) -> None
     if hero_first:
         apply_hero_card(hero, enemy, card)
         if enemy.hp > 0:
-            apply_enemy_attack(hero, card, atk)
+            apply_enemy_attack(hero, card, atk, True)
     else:
-        apply_enemy_attack(hero, card, atk)
+        apply_enemy_attack(hero, card, atk, False)
         if hero.hp > 0:
             apply_hero_card(hero, enemy, card)
 
@@ -356,6 +432,7 @@ def battle() -> None:
         # Phase 2: draw a target token
         token = draw_target()
         enemy.set_target(token)
+        hero.start_round(True)
         print(f"Target token drawn: {token.value}. You are targeted.")
 
         # Phase 3: hero selects a card

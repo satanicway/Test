@@ -93,15 +93,23 @@ AREA_MAP: Dict[str, Set[Tuple[int, int]]] = {
     "Self": {(0, 0)},
     "90\u00b0 front arc": {(0, 1), (1, 1)},
     "180\u00b0 front arc": {(-1, 1), (0, 1), (1, 1), (-1, 0), (1, 0)},
+    "Impact hex + adj.": {(0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)},
 }
 
 
-def attack_area(enemy: "Enemy", atk: EnemyCard) -> Set[Tuple[int, int]] | None:
+def attack_area(
+    enemy: "Enemy", atk: EnemyCard, target: "Hero | None" = None
+) -> Set[Tuple[int, int]] | None:
     """Return absolute board coordinates affected by ``atk``."""
     if atk.area == "Global":
         return None
+
+    base = enemy.position
+    if atk.area == "Impact hex + adj." and target is not None:
+        base = target.position
+
     rel = AREA_MAP.get(atk.area, set())
-    return {(enemy.position.x + dx, enemy.position.y + dy) for dx, dy in rel}
+    return {(base.x + dx, base.y + dy) for dx, dy in rel}
 
 
 def format_card(card: Card) -> str:
@@ -386,7 +394,7 @@ def apply_enemy_attack(
     damage_reduction = hero.damage_reduction
     hero.damage_reduction = 0
 
-    area = attack_area(enemy, atk)
+    area = attack_area(enemy, atk, hero)
     in_area = True if area is None else hero.position.as_tuple() in area
 
     if hero_card.card_type == CardType.Dodge and hero_card.speed >= atk.speed:

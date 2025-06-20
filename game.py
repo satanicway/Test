@@ -47,14 +47,19 @@ def format_card(card: Card) -> str:
 
 
 class Deck:
-    """Deck of card IDs managed in a deque."""
+    """Deck of :class:`Card` objects managed in a deque."""
 
-    def __init__(self, order: List[int], cards: Dict[int, Card]):
-        self.cards = deque(order)
-        self.card_defs = cards
+    def __init__(self, ordered_cards: List[Card]):
+        """Create a deck from ``ordered_cards``.
 
-    def draw(self, n: int) -> List[int]:
-        result = []
+        The list order is preserved so callers can define an exact card cycle.
+        """
+        self.cards = deque(ordered_cards)
+        self.card_defs = {card.id: card for card in ordered_cards}
+
+    def draw(self, n: int) -> List[Card]:
+        """Remove and return up to ``n`` cards from the top of the deck."""
+        result: List[Card] = []
         for _ in range(n):
             if not self.cards:
                 break
@@ -64,16 +69,17 @@ class Deck:
     def card(self, card_id: int) -> Card:
         return self.card_defs[card_id]
 
-    def peek(self, n: int = 3) -> List[int]:
-        """Return the next ``n`` card IDs without removing them."""
+    def peek(self, n: int = 3) -> List[Card]:
+        """Return the next ``n`` cards without removing them."""
         return list(self.cards)[:n]
 
-    def return_to_bottom(self, card: int) -> None:
+    def return_to_bottom(self, card: Card) -> None:
+        """Place ``card`` on the bottom of the deck."""
         self.cards.append(card)
 
 
 def create_samurai_deck(order: List[int]) -> Deck:
-    """Return a Deck with Samurai cards in the specified order."""
+    """Return a :class:`Deck` with Samurai cards in ``order``."""
     cards: Dict[int, Card] = {
         1: Card(1, "Iaijutsu Cut", CardType.LightAtk, 3, 1,
                 "+1 dmg if you were un-targeted this round."),
@@ -97,7 +103,8 @@ def create_samurai_deck(order: List[int]) -> Deck:
         12: Card(12, "Crescent Moon", CardType.HeavyAtk, 1, 3,
                  "4 dmg in 180\u00b0 front arc."),
     }
-    return Deck(order, cards)
+    ordered_cards = [cards[i] for i in order]
+    return Deck(ordered_cards)
 
 
 def parse_action(hero: 'Hero', text: str) -> Card:
@@ -116,7 +123,7 @@ class Hero:
         self.armor = 1
         self.max_stamina = 6
         self.stamina = 6
-        self.cooldown: List[List[int]] = [[], []]
+        self.cooldown: List[List[Card]] = [[], []]
 
         # Draw the starting hand
         self.hand = deck.draw(4)
@@ -125,27 +132,29 @@ class Hero:
         self.hand.extend(self.deck.draw(n))
 
     def can_play(self, card_id: int) -> bool:
-        """Return ``True`` if the card is in hand and stamina is sufficient."""
-        if card_id not in self.hand:
-            return False
-        card = self.deck.card(card_id)
-        return self.stamina >= card.stamina
+        """Return ``True`` if ``card_id`` is in hand and stamina suffices."""
+        for card in self.hand:
+            if card.id == card_id:
+                return self.stamina >= card.stamina
+        return False
 
     def play_card(self, card_id: int) -> Card:
         """Remove a card from hand, pay its stamina cost and start cooldown."""
-        if not self.can_play(card_id):
-            raise ValueError("Cannot play card")
-        card = self.deck.card(card_id)
-        self.stamina -= card.stamina
-        self.hand.remove(card_id)
-        self.cooldown[0].append(card_id)
-        return card
+        for idx, card in enumerate(self.hand):
+            if card.id == card_id:
+                if self.stamina < card.stamina:
+                    raise ValueError("Cannot play card")
+                self.stamina -= card.stamina
+                self.hand.pop(idx)
+                self.cooldown[0].append(card)
+                return card
+        raise ValueError("Card not in hand")
 
     def end_round(self) -> None:
         """Advance cooldown slots, refresh stamina and redraw up to 4 cards."""
         expired = self.cooldown.pop()
-        for cid in expired:
-            self.deck.return_to_bottom(cid)
+        for card in expired:
+            self.deck.return_to_bottom(card)
         self.cooldown.insert(0, [])
         self.stamina = self.max_stamina
         self.draw(4 - len(self.hand))
@@ -214,8 +223,8 @@ def battle() -> None:
 
         print(f"Stamina: {hero.stamina}")
         print("Hand:")
-        for cid in hero.hand:
-            print("  ", format_card(hero.deck.card(cid)))
+        for card in hero.hand:
+            print("  ", format_card(card))
 
         choice = input("Choose card id: ")
         try:

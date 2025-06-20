@@ -28,28 +28,8 @@ class Card:
     extra_rule: str = ""
 
 
-
-
-def _generate_cards() -> Dict[int, Card]:
-    """Create the seven default cards."""
-    cards: Dict[int, Card] = {
-        1: Card(1, "Quick Slash", CardType.LightAtk, 1, 1),
-        2: Card(2, "Heavy Strike", CardType.HeavyAtk, 4, 3),
-        3: Card(3, "Evasive Roll", CardType.Dodge, 2, 1),
-        4: Card(4, "Shield Block", CardType.Block, 2, 1),
-        5: Card(5, "Riposte", CardType.Parry, 3, 2),
-        6: Card(6, "Focus", CardType.Utility, 0, 0, "Draw 1 card"),
-        7: Card(7, "Power Lunge", CardType.HeavyAtk, 5, 4),
-    }
-    return cards
-
-
-CARDS: Dict[int, Card] = _generate_cards()
-
-
-def format_card(card_id: int) -> str:
+def format_card(card: Card) -> str:
     """Return a user friendly description of the card."""
-    card = CARDS[card_id]
     extra = f" - {card.extra_rule}" if card.extra_rule else ""
     return (
         f"{card.id}: {card.name} [{card.card_type.name}] "
@@ -58,11 +38,11 @@ def format_card(card_id: int) -> str:
 
 
 class Deck:
-    """Deck of Time card IDs managed in a deque."""
+    """Deck of card IDs managed in a deque."""
 
-    def __init__(self):
-        ids = list(CARDS.keys())
-        self.cards = deque(ids)
+    def __init__(self, order: List[int], cards: Dict[int, Card]):
+        self.cards = deque(order)
+        self.card_defs = cards
 
     def draw(self, n: int) -> List[int]:
         result = []
@@ -72,12 +52,43 @@ class Deck:
             result.append(self.cards.popleft())
         return result
 
+    def card(self, card_id: int) -> Card:
+        return self.card_defs[card_id]
+
     def peek(self, n: int = 3) -> List[int]:
         """Return the next ``n`` card IDs without removing them."""
         return list(self.cards)[:n]
 
     def return_to_bottom(self, card: int) -> None:
         self.cards.append(card)
+
+
+def create_samurai_deck(order: List[int]) -> Deck:
+    """Return a Deck with Samurai cards in the specified order."""
+    cards: Dict[int, Card] = {
+        1: Card(1, "Iaijutsu Cut", CardType.LightAtk, 3, 1,
+                "+1 dmg if you were un-targeted this round."),
+        2: Card(2, "Riposte", CardType.Parry, 2, 2, "Next Heavy +2 dmg."),
+        3: Card(3, "Cross-Step", CardType.Dodge, 3, 1, "Move 1 before resolving."),
+        4: Card(4, "Twin Strikes", CardType.LightAtk, 2, 1,
+                "Chain: you may immediately play card #6 at 0 Stamina."),
+        5: Card(5, "Great Kesa", CardType.HeavyAtk, 1, 3,
+                "5 dmg; unusable if Stamina <= 2."),
+        6: Card(6, "Draw Cut", CardType.LightAtk, 3, 1,
+                "Counts as Parry if resolving before an attack."),
+        7: Card(7, "Guarded Stance", CardType.Block, 1, 1,
+                "Reduce next hit by 2."),
+        8: Card(8, "Ki Focus", CardType.Utility, 0, 0, "Refresh 1 cooldown slot."),
+        9: Card(9, "Shadow Step", CardType.Dodge, 3, 1,
+                "Teleport to any adjacent back-hex."),
+        10: Card(10, "Flourish", CardType.LightAtk, 2, 1,
+                 "Pull aggro: you become priority target next round."),
+        11: Card(11, "Zen Recovery", CardType.Utility, 0, 0,
+                 "Gain 1 Stamina; skip attack."),
+        12: Card(12, "Crescent Moon", CardType.HeavyAtk, 1, 3,
+                 "4 dmg in 180\u00b0 front arc."),
+    }
+    return Deck(order, cards)
 
 
 class Hero:
@@ -151,10 +162,12 @@ def choose_enemy() -> Enemy:
 
 
 def main() -> None:
-    """Display all default cards."""
+    """Display all Samurai cards in the provided order."""
+    order = list(range(1, 13))
+    deck = create_samurai_deck(order)
     print("Available cards:")
-    for cid in sorted(CARDS):
-        print(" ", format_card(cid))
+    for cid in order:
+        print(" ", format_card(deck.card(cid)))
 
 
 if __name__ == "__main__":

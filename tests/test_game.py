@@ -145,6 +145,24 @@ class TestGameMechanics(unittest.TestCase):
         self.assertEqual(hero.hp, hp_before - expected_dmg)
         self.assertEqual(enemy.next_damage_bonus, 0)
 
+    def test_riposte_grants_and_consumes_heavy_bonus(self):
+        deck = create_samurai_deck(DEFAULT_ORDER)
+        hero = Hero(deck)
+        enemy = EnemyOni()
+
+        riposte = next(c for c in hero.hand if c.id == 2)
+        atk = OniPatternDeck[3]  # Double Swipe speed 2
+
+        apply_enemy_attack(hero, riposte, atk, True, enemy)
+        self.assertEqual(hero.heavy_bonus, 2)
+
+        heavy = hero.deck.card(5)
+        hp_before = enemy.hp
+        apply_hero_card(hero, enemy, heavy)
+
+        self.assertEqual(enemy.hp, hp_before - 7)
+        self.assertEqual(hero.heavy_bonus, 0)
+
     def test_cross_step_fails_if_still_in_area(self):
         deck = create_samurai_deck(DEFAULT_ORDER)
         hero = Hero(deck)

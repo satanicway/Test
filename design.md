@@ -39,7 +39,7 @@ Skill delta: Beginners react with what’s visible; experts preload their deck s
 11Zen RecoveryUtility—0Gain 1 Stamina; skip attack.
 12Crescent MoonHeavy Atk134 dmg in 180° front arc.
 
-Design Note: Total Stamina = 6. Cards force tough trade-offs; e.g., using both Heavy Attacks back-to-back leaves you exhausted and vulnerable, mirroring Souls fatigue reddit.com reddit.com.
+Design Note: Total Stamina = 6. Even with a single action each round, enemies like the Oni can drain your meter and certain cards chain into extra plays. Spending both Heavy Attacks back‑to‑back may leave too little Stamina to Parry or Dodge after a drain, capturing the feel of Souls fatigue reddit.com reddit.com.
 
 5 Enemy Pattern Decks (6 cards each, looped; no shuffle mid-fight)
 Oni (Oversized Club, Range 2)
@@ -67,7 +67,7 @@ Predictive Deck Cycle – players know exactly when key cards return, rewarding 
 
 Hard Windows – parry demands a perfect speed match; dodge demands correct arc exit. Errors are punished with 6–8 dmg hits; success = 0 dmg.
 
-Stamina Discipline – reckless heavy-attack spam depletes the meter, leaving no cost to dodge the inevitable Smash. Discipline mirrors Souls attrition reddit.com.
+Stamina Discipline – Stamina fully refreshes each round during cooldown, but reckless heavy‑attack spam can still leave you unable to play key reactions if the meter is drained by enemy effects (e.g., Rage Roar) or by chaining multiple cards in one turn. This mirrors Souls attrition despite the per‑round reset.
 
 Resource Compression Under Pressure – Oni’s Rage Roar drains Stamina globally, emulating Dark Souls’ stamina tax on blocking; only teams that manage resources stay alive.
 
@@ -95,7 +95,7 @@ Turn Structure
 2. Draw Target token.
 3. Heroes simultaneously select & play 1 action.
 4. Resolve by speed (fast → slow).
-5. Move hero cards to cooldown; draw to 4.
+5. Move hero cards to cooldown; refresh Stamina back to its maximum; draw to 4.
 6. Advance enemy deck (loop).
 
 Key Systems

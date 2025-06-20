@@ -468,8 +468,6 @@ def apply_hero_card(hero: "Hero", enemy: Enemy, card: Card) -> None:
         if card.id == 9:
             # Shadow Step teleports to a back hex (behind enemy)
             hero.position = enemy.position + (-1, -1)
-        if card.id == 7:
-            hero.damage_reduction = 2
     elif card.card_type == CardType.Block:
         hero.damage_reduction = 2
         print("You brace for impact...")

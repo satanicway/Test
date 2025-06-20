@@ -155,6 +155,7 @@ class Hero:
         self.max_stamina = 6
         self.stamina = 6
         self.cooldown: List[List[Card]] = [[], []]
+        self.heavy_bonus = 0
 
         # Draw the starting hand
         self.hand = deck.draw(4)
@@ -272,16 +273,21 @@ def battle() -> None:
         # Phase 4: resolve by speed
         hero_first = card.speed >= atk.speed
         damage = max(0, atk.damage - hero.armor)
-        hero_damage = 4 if card.card_type == CardType.HeavyAtk else 2 if card.card_type == CardType.LightAtk else 0
 
         def resolve_enemy() -> None:
             nonlocal damage
             if card.card_type == CardType.Dodge and card.speed >= atk.speed:
-                print("You dodge the attack!")
-                return
-            if card.card_type == CardType.Parry and card.speed == atk.speed:
-                print("Parry successful!")
-                return
+                moved = input("Did you move out of the danger area? (y/n): ")
+                if moved.lower().startswith("y"):
+                    print("You dodge the attack!")
+                    return
+                print("Dodge failed!")
+            if card.card_type == CardType.Parry:
+                if card.speed == atk.speed:
+                    print("Parry successful!")
+                    hero.heavy_bonus += 2
+                    return
+                print("Parry failed!")
             actual = damage
             if card.card_type == CardType.Block:
                 actual = max(0, actual - 2)
@@ -289,9 +295,14 @@ def battle() -> None:
             print(f"Enemy hits you for {actual} damage. HP now {hero.hp}")
 
         def resolve_hero() -> None:
-            if hero_damage:
-                enemy.hp -= hero_damage
-                print(f"You hit enemy for {hero_damage} damage. Enemy HP {enemy.hp}")
+            if card.card_type == CardType.HeavyAtk:
+                dmg = 4 + hero.heavy_bonus
+                hero.heavy_bonus = 0
+                enemy.hp -= dmg
+                print(f"You hit enemy for {dmg} damage. Enemy HP {enemy.hp}")
+            elif card.card_type == CardType.LightAtk:
+                enemy.hp -= 2
+                print(f"You hit enemy for 2 damage. Enemy HP {enemy.hp}")
             elif card.card_type == CardType.Dodge:
                 print("You attempt a dodge...")
             elif card.card_type == CardType.Parry:

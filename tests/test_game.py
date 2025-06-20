@@ -1,5 +1,13 @@
 import unittest
-from game import Hero, create_samurai_deck, EnemyOni
+from game import (
+    Hero,
+    create_samurai_deck,
+    EnemyOni,
+    EnemySamurai,
+    apply_enemy_attack,
+    OniPatternDeck,
+    SamuraiPatternDeck,
+)
 
 DEFAULT_ORDER = list(range(1, 13))
 
@@ -41,6 +49,56 @@ class TestGameMechanics(unittest.TestCase):
         for _ in range(len(enemy.pattern)):
             enemy.advance()
         self.assertEqual(enemy.telegraph(), first)
+
+    def test_rage_roar_drains_stamina(self):
+        deck = create_samurai_deck(DEFAULT_ORDER)
+        hero = Hero(deck)
+        enemy = EnemyOni()
+        atk = OniPatternDeck[2]  # Rage Roar
+        prev = hero.stamina
+        apply_enemy_attack(hero, hero.hand[0], atk, False, enemy)
+        self.assertEqual(hero.stamina, max(0, prev - 1))
+
+    def test_double_swipe_hits_twice(self):
+        deck = create_samurai_deck(DEFAULT_ORDER)
+        hero = Hero(deck)
+        enemy = EnemyOni()
+        atk = OniPatternDeck[3]  # Double Swipe
+        hero_card = hero.hand[0]
+        hp_before = hero.hp
+        apply_enemy_attack(hero, hero_card, atk, False, enemy)
+        expected = hp_before - ((atk.damage - hero.armor) * 2)
+        self.assertEqual(hero.hp, expected)
+
+    def test_recuperate_buffs_next_attack(self):
+        deck = create_samurai_deck(DEFAULT_ORDER)
+        hero = Hero(deck)
+        enemy = EnemyOni()
+        recup = OniPatternDeck[5]
+        swing = OniPatternDeck[0]
+        apply_enemy_attack(hero, hero.hand[0], recup, False, enemy)
+        self.assertEqual(enemy.next_damage_bonus, 1)
+        hp_before = hero.hp
+        apply_enemy_attack(hero, hero.hand[0], swing, False, enemy)
+        self.assertEqual(enemy.next_damage_bonus, 0)
+        dmg = (swing.damage + 1 - hero.armor)
+        self.assertEqual(hero.hp, hp_before - dmg)
+
+    def test_parry_counter_and_focused_stare(self):
+        deck = create_samurai_deck(DEFAULT_ORDER)
+        hero = Hero(deck)
+        enemy = EnemySamurai()
+        parry_counter = SamuraiPatternDeck[3]
+        stare = SamuraiPatternDeck[5]
+        strike = SamuraiPatternDeck[4]
+        apply_enemy_attack(hero, hero.hand[0], parry_counter, False, enemy)
+        self.assertEqual(enemy.next_damage_bonus, 4)
+        apply_enemy_attack(hero, hero.hand[0], stare, False, enemy)
+        self.assertEqual(enemy.index, 0)
+        hp_before = hero.hp
+        apply_enemy_attack(hero, hero.hand[0], strike, False, enemy)
+        expected_dmg = strike.damage + 4 - hero.armor
+        self.assertEqual(hero.hp, hp_before - expected_dmg)
 
 if __name__ == '__main__':
     unittest.main()

@@ -277,6 +277,8 @@ class Enemy:
         self.pattern = pattern
         self.index = 0
         self.target_token: TargetToken | None = None
+        # Buff applied to the next damaging attack
+        self.next_damage_bonus = 0
 
     def telegraph(self) -> EnemyCard:
         """Return the upcoming card without advancing the deck."""
@@ -312,14 +314,39 @@ def draw_target() -> TargetToken:
 
 
 def apply_enemy_attack(
-    hero: "Hero", hero_card: Card, atk: EnemyCard, hero_first: bool
+    hero: "Hero", hero_card: Card, atk: EnemyCard, hero_first: bool, enemy: Enemy
 ) -> None:
     """Resolve the enemy's attack against ``hero`` given the played card."""
-    damage = max(0, atk.damage - hero.armor)
 
-    if hero.damage_reduction:
-        damage = max(0, damage - hero.damage_reduction)
-        hero.damage_reduction = 0
+    # Oni and Samurai utility cards can modify upcoming attacks or the deck
+    if enemy.name == "Oni":
+        if atk.attack == "Rage Roar":
+            hero.stamina = max(0, hero.stamina - 1)
+            print("Oni's roar drains your stamina!")
+            return
+        if atk.attack == "Recuperate":
+            enemy.next_damage_bonus += 1
+            print("Oni gathers strength for its next strike.")
+            return
+    if enemy.name == "Samurai":
+        if atk.attack == "Parry Counter":
+            enemy.next_damage_bonus += 4
+            print("Samurai prepares a lethal counter.")
+            return
+        if atk.attack == "Focused Stare":
+            enemy.index = 0
+            print("Samurai resets its stance.")
+            return
+
+    hits = 2 if atk.attack == "Double Swipe" else 1
+
+    # Consume any stored damage bonus on the first hit only
+    base_damage = atk.damage + enemy.next_damage_bonus
+    enemy.next_damage_bonus = 0
+
+    # Handle defensive card effects
+    damage_reduction = hero.damage_reduction
+    hero.damage_reduction = 0
 
     if hero_card.card_type == CardType.Dodge and hero_card.speed >= atk.speed:
         moved = input("Did you move out of the danger area? (y/n): ")
@@ -339,11 +366,22 @@ def apply_enemy_attack(
         if hero_card.card_type == CardType.Parry or hero_card.id == 6:
             print("Parry failed!")
 
-    if hero_card.card_type == CardType.Block:
-        damage = max(0, damage - 2)
+    block_reduction = 2 if hero_card.card_type == CardType.Block else 0
 
-    hero.hp -= damage
-    print(f"Enemy hits you for {damage} damage. HP now {hero.hp}")
+    total = 0
+    for i in range(hits):
+        dmg = base_damage if i == 0 else atk.damage
+        dmg = max(0, dmg - hero.armor)
+        if damage_reduction:
+            dmg = max(0, dmg - damage_reduction)
+            damage_reduction = 0
+        if block_reduction:
+            dmg = max(0, dmg - block_reduction)
+            block_reduction = 0
+        hero.hp -= dmg
+        total += dmg
+
+    print(f"Enemy hits you for {total} damage. HP now {hero.hp}")
 
 
 def apply_hero_card(hero: "Hero", enemy: Enemy, card: Card) -> None:
@@ -403,9 +441,9 @@ def resolve_turn(hero: "Hero", enemy: Enemy, card: Card, atk: EnemyCard) -> None
     if hero_first:
         apply_hero_card(hero, enemy, card)
         if enemy.hp > 0:
-            apply_enemy_attack(hero, card, atk, True)
+            apply_enemy_attack(hero, card, atk, True, enemy)
     else:
-        apply_enemy_attack(hero, card, atk, False)
+        apply_enemy_attack(hero, card, atk, False, enemy)
         if hero.hp > 0:
             apply_hero_card(hero, enemy, card)
 

@@ -138,6 +138,30 @@ def create_samurai_deck(order: List[int]) -> Deck:
     return Deck(ordered_cards)
 
 
+def prompt_deck_order() -> List[int]:
+    """Return a deck order chosen by the player or the default order."""
+    default_order = list(range(1, 13))
+    prompt = (
+        "Enter desired card order (1-12 separated by spaces) or press Enter for"
+        " default: "
+    )
+    while True:
+        text = input(prompt).strip()
+        if not text:
+            print("Using default order.\n")
+            return default_order
+        parts = text.replace(",", " ").split()
+        try:
+            order = [int(p) for p in parts]
+        except ValueError:
+            print("Please enter only numbers.\n")
+            continue
+        if sorted(order) != default_order:
+            print("Order must contain numbers 1-12 exactly once.\n")
+            continue
+        return order
+
+
 def parse_action(hero: 'Hero', text: str) -> Card:
     """Parse a user's card selection and return the ``Card`` object."""
     card_id = int(text)
@@ -238,7 +262,8 @@ def draw_target() -> TargetToken:
 
 def battle() -> None:
     """Simple command line battle following the five-phase loop."""
-    hero = Hero(create_samurai_deck(list(range(1, 13))))
+    order = prompt_deck_order()
+    hero = Hero(create_samurai_deck(order))
     enemy = choose_enemy()
 
     print(f"An enemy {enemy.name} approaches!\n")

@@ -201,10 +201,15 @@ class Enemy:
         self.hp = hp
         self.pattern = pattern
         self.index = 0
+        self.target_token: TargetToken | None = None
 
     def telegraph(self) -> EnemyCard:
         """Return the upcoming card without advancing the deck."""
         return self.pattern[self.index]
+
+    def set_target(self, token: TargetToken) -> None:
+        """Store which hero is targeted this round."""
+        self.target_token = token
 
     def advance(self) -> None:
         """Move to the next card, looping back to the start when needed."""
@@ -251,7 +256,8 @@ def battle() -> None:
 
         # Phase 2: draw a target token
         token = draw_target()
-        print(f"Target token drawn: {token.value}")
+        enemy.set_target(token)
+        print(f"Target token drawn: {token.value}. You are targeted.")
 
         # Phase 3: hero selects a card
         print(f"Stamina: {hero.stamina}")

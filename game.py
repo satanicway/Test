@@ -162,11 +162,32 @@ def prompt_deck_order() -> List[int]:
         return order
 
 
-def parse_action(hero: 'Hero', text: str) -> Card:
-    """Parse a user's card selection and return the ``Card`` object."""
-    card_id = int(text)
-    card = hero.play_card(card_id)
-    return card
+def select_card(hero: "Hero") -> Card:
+    """Prompt the player to choose a card from ``hero``'s hand.
+
+    Displays stamina, the current hand and the next few cards in the deck. The
+    chosen card is removed from the hand, its stamina cost is paid and it enters
+    the cooldown row.
+    """
+
+    while True:
+        print(f"Stamina: {hero.stamina}")
+        print("Hand:")
+        for c in hero.hand:
+            print("  ", format_card(c))
+        upcoming = ", ".join(card.name for card in hero.deck.peek())
+        print(f"Upcoming: {upcoming}\n")
+
+        text = input("Choose card id: ")
+        try:
+            card_id = int(text)
+        except ValueError:
+            print("Invalid input\n")
+            continue
+        if not hero.can_play(card_id):
+            print("Cannot play that card\n")
+            continue
+        return hero.play_card(card_id)
 
 
 class Hero:
@@ -260,6 +281,59 @@ def draw_target() -> TargetToken:
     return random.choice(list(TargetToken))
 
 
+def apply_enemy_attack(hero: "Hero", hero_card: Card, atk: EnemyCard) -> None:
+    """Resolve the enemy's attack against ``hero`` given the played card."""
+    damage = max(0, atk.damage - hero.armor)
+    if hero_card.card_type == CardType.Dodge and hero_card.speed >= atk.speed:
+        moved = input("Did you move out of the danger area? (y/n): ")
+        if moved.lower().startswith("y"):
+            print("You dodge the attack!")
+            return
+        print("Dodge failed!")
+    if hero_card.card_type == CardType.Parry:
+        if hero_card.speed == atk.speed:
+            print("Parry successful!")
+            hero.heavy_bonus += 2
+            return
+        print("Parry failed!")
+    if hero_card.card_type == CardType.Block:
+        damage = max(0, damage - 2)
+    hero.hp -= damage
+    print(f"Enemy hits you for {damage} damage. HP now {hero.hp}")
+
+
+def apply_hero_card(hero: "Hero", enemy: Enemy, card: Card) -> None:
+    """Apply the effects of ``card`` when used by ``hero``."""
+    if card.card_type == CardType.HeavyAtk:
+        dmg = 4 + hero.heavy_bonus
+        hero.heavy_bonus = 0
+        enemy.hp -= dmg
+        print(f"You hit enemy for {dmg} damage. Enemy HP {enemy.hp}")
+    elif card.card_type == CardType.LightAtk:
+        enemy.hp -= 2
+        print(f"You hit enemy for 2 damage. Enemy HP {enemy.hp}")
+    elif card.card_type in (CardType.Dodge, CardType.Parry):
+        action = "dodge" if card.card_type == CardType.Dodge else "parry"
+        print(f"You attempt a {action}...")
+    elif card.card_type == CardType.Block:
+        print("You brace for impact...")
+    else:
+        print("You perform the action.")
+
+
+def resolve_turn(hero: "Hero", enemy: Enemy, card: Card, atk: EnemyCard) -> None:
+    """Resolve one turn comparing ``card`` speed against ``atk`` speed."""
+    hero_first = card.speed >= atk.speed
+    if hero_first:
+        apply_hero_card(hero, enemy, card)
+        if enemy.hp > 0:
+            apply_enemy_attack(hero, card, atk)
+    else:
+        apply_enemy_attack(hero, card, atk)
+        if hero.hp > 0:
+            apply_hero_card(hero, enemy, card)
+
+
 def battle() -> None:
     """Simple command line battle following the five-phase loop."""
     order = prompt_deck_order()
@@ -285,70 +359,10 @@ def battle() -> None:
         print(f"Target token drawn: {token.value}. You are targeted.")
 
         # Phase 3: hero selects a card
-        print(f"Stamina: {hero.stamina}")
-        print("Hand:")
-        for card in hero.hand:
-            print("  ", format_card(card))
+        card = select_card(hero)
 
-        choice = input("Choose card id: ")
-        try:
-            card_id = int(choice)
-        except ValueError:
-            print("Invalid input\n")
-            continue
-        if not hero.can_play(card_id):
-            print("Cannot play that card\n")
-            continue
-        card = hero.play_card(card_id)
-
-        # Phase 4: resolve by speed
-        hero_first = card.speed >= atk.speed
-        damage = max(0, atk.damage - hero.armor)
-
-        def resolve_enemy() -> None:
-            nonlocal damage
-            if card.card_type == CardType.Dodge and card.speed >= atk.speed:
-                moved = input("Did you move out of the danger area? (y/n): ")
-                if moved.lower().startswith("y"):
-                    print("You dodge the attack!")
-                    return
-                print("Dodge failed!")
-            if card.card_type == CardType.Parry:
-                if card.speed == atk.speed:
-                    print("Parry successful!")
-                    hero.heavy_bonus += 2
-                    return
-                print("Parry failed!")
-            actual = damage
-            if card.card_type == CardType.Block:
-                actual = max(0, actual - 2)
-            hero.hp -= actual
-            print(f"Enemy hits you for {actual} damage. HP now {hero.hp}")
-
-        def resolve_hero() -> None:
-            if card.card_type == CardType.HeavyAtk:
-                dmg = 4 + hero.heavy_bonus
-                hero.heavy_bonus = 0
-                enemy.hp -= dmg
-                print(f"You hit enemy for {dmg} damage. Enemy HP {enemy.hp}")
-            elif card.card_type == CardType.LightAtk:
-                enemy.hp -= 2
-                print(f"You hit enemy for 2 damage. Enemy HP {enemy.hp}")
-            elif card.card_type == CardType.Dodge:
-                print("You attempt a dodge...")
-            elif card.card_type == CardType.Parry:
-                print("You attempt a parry...")
-            else:
-                print("You perform the action.")
-
-        if hero_first:
-            resolve_hero()
-            if enemy.hp > 0:
-                resolve_enemy()
-        else:
-            resolve_enemy()
-            if hero.hp > 0:
-                resolve_hero()
+        # Phase 4: resolve actions
+        resolve_turn(hero, enemy, card, atk)
 
         print()
 

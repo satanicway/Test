@@ -1,24 +1,54 @@
 import React, {useState} from 'react';
-import {View, Text, Button, StyleSheet} from 'react-native';
-import contracts from '../../assets/contracts.json';
+import {
+  View,
+  Text,
+  Button,
+  StyleSheet,
+  Image,
+  TouchableOpacity,
+  ScrollView,
+} from 'react-native';
+import monsters from '../../assets/data/monsters.json';
 
 export default function ContractsScreen({navigation}) {
-  const [contract, setContract] = useState(null);
-  const getRandom = () => {
-    const random = contracts[Math.floor(Math.random() * contracts.length)];
-    setContract(random);
+  const [selected, setSelected] = useState([]);
+
+  const getRandomMonsters = () => {
+    const shuffled = [...monsters].sort(() => 0.5 - Math.random());
+    setSelected(shuffled.slice(0, 4));
+  };
+
+  const openDetails = monster => {
+    navigation.navigate('MonsterDetail', {monster});
   };
 
   return (
     <View style={styles.container}>
-      <Button title="Draw Contract" onPress={getRandom} />
-      {contract && <Text style={styles.text}>{contract}</Text>}
+      <Button title="Draw Monsters" onPress={getRandomMonsters} />
+      <ScrollView contentContainerStyle={styles.list}>
+        {selected.map(monster => (
+          <TouchableOpacity
+            key={monster.name}
+            style={styles.item}
+            onPress={() => openDetails(monster)}>
+            <Image source={{uri: monster.image}} style={styles.thumb} />
+            <Text style={styles.name}>{monster.name}</Text>
+            <Text style={styles.short}>
+              {monster.description.slice(0, 30)}...
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
       <Button title="Back" onPress={() => navigation.goBack()} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20},
-  text: {marginVertical: 20, textAlign: 'center'},
+  container: {flex: 1, padding: 20},
+  list: {alignItems: 'center', paddingVertical: 20},
+  item: {marginVertical: 10, alignItems: 'center'},
+  thumb: {width: 80, height: 80, marginBottom: 5},
+  name: {fontWeight: 'bold'},
+  short: {textAlign: 'center'},
 });

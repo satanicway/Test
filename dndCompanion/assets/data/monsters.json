@@ -1,0 +1,27 @@
+[
+  {
+    "name": "Goblin Raider",
+    "image": "https://placehold.co/100x100.png?text=Goblin",
+    "description": "A sneaky goblin known for ambushing caravans and stealing supplies."
+  },
+  {
+    "name": "Cave Troll",
+    "image": "https://placehold.co/100x100.png?text=Troll",
+    "description": "A massive troll that dwells in dark caves. It is slow but incredibly strong."
+  },
+  {
+    "name": "Mountain Ogre",
+    "image": "https://placehold.co/100x100.png?text=Ogre",
+    "description": "An ogre that roams the mountains looking for unsuspecting travelers to rob."
+  },
+  {
+    "name": "Young Dragon",
+    "image": "https://placehold.co/100x100.png?text=Dragon",
+    "description": "A youthful dragon still learning to use its fiery breath."
+  },
+  {
+    "name": "Phantom Stalker",
+    "image": "https://placehold.co/100x100.png?text=Phantom",
+    "description": "A mysterious spirit that follows adventurers, feeding on their fear."
+  }
+]

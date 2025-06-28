@@ -1,0 +1,5 @@
+[
+  {"name": "Goblin", "type": "Humanoid"},
+  {"name": "Ogre", "type": "Giant"},
+  {"name": "Specter", "type": "Undead"}
+]

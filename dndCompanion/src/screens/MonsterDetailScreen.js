@@ -14,7 +14,7 @@ export default function MonsterDetailScreen({route, navigation}) {
     <View style={styles.container}>
       <TouchableOpacity
         style={styles.backButton}
-        onPress={() => navigation.goBack()}>
+        onPress={() => navigation.navigate('Home')}>
         <Text style={styles.backText}>Back</Text>
       </TouchableOpacity>
       <TouchableOpacity onPress={() => navigation.goBack()} style={styles.imageWrapper}>

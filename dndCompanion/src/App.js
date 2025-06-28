@@ -7,7 +7,7 @@ import JourneyScreen from './screens/JourneyScreen';
 import MysteryScreen from './screens/MysteryScreen';
 import MonsterScreen from './screens/MonsterScreen';
 import MonsterDetailScreen from './screens/MonsterDetailScreen';
-import SearchScreen from './screens/SearchScreen';
+import MonsterSearchScreen from './screens/MonsterSearchScreen';
 
 const Stack = createStackNavigator();
 
@@ -20,7 +20,7 @@ export default function App() {
         <Stack.Screen name="Journey" component={JourneyScreen} />
         <Stack.Screen name="Mystery" component={MysteryScreen} />
         <Stack.Screen name="Monster" component={MonsterScreen} />
-        <Stack.Screen name="Search" component={SearchScreen} />
+        <Stack.Screen name="Search" component={MonsterSearchScreen} />
         <Stack.Screen
           name="MonsterDetail"
           component={MonsterDetailScreen}

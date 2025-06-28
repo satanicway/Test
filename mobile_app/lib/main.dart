@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'theme.dart';
 
 void main() {
   runApp(const MyApp());
@@ -12,9 +13,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Flutter Demo',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
+      theme: AppTheme.lightTheme,
       home: const MyHomePage(title: 'Flutter Home Page'),
     );
   }
@@ -24,6 +23,18 @@ class MyHomePage extends StatelessWidget {
   final String title;
 
   const MyHomePage({super.key, required this.title});
+
+  void _fadePush(BuildContext context, Widget page) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (_, a1, a2) => page,
+        transitionsBuilder: (_, a1, __, child) => FadeTransition(
+          opacity: a1,
+          child: child,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,30 +47,30 @@ class MyHomePage extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             ElevatedButton(
-              onPressed: () => Navigator.push(
+              onPressed: () => _fadePush(
                 context,
-                MaterialPageRoute(builder: (context) => const ContractsScreen()),
+                const ContractsScreen(),
               ),
               child: const Text('Contracts'),
             ),
             ElevatedButton(
-              onPressed: () => Navigator.push(
+              onPressed: () => _fadePush(
                 context,
-                MaterialPageRoute(builder: (context) => const JourneyScreen()),
+                const JourneyScreen(),
               ),
               child: const Text('Journey'),
             ),
             ElevatedButton(
-              onPressed: () => Navigator.push(
+              onPressed: () => _fadePush(
                 context,
-                MaterialPageRoute(builder: (context) => const MysteryScreen()),
+                const MysteryScreen(),
               ),
               child: const Text('Mystery'),
             ),
             ElevatedButton(
-              onPressed: () => Navigator.push(
+              onPressed: () => _fadePush(
                 context,
-                MaterialPageRoute(builder: (context) => const MonsterScreen()),
+                const MonsterScreen(),
               ),
               child: const Text('Monster'),
             ),

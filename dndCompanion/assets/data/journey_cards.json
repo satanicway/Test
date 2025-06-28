@@ -1,0 +1,12 @@
+[
+  {"id": 1, "text": "Venture across the perilous mountains", "image": "https://placehold.co/200x120.png?text=Journey+1"},
+  {"id": 2, "text": "Sail the treacherous seas to the Storm Isle", "image": "https://placehold.co/200x120.png?text=Journey+2"},
+  {"id": 3, "text": "Escort a caravan through the haunted woods", "image": "https://placehold.co/200x120.png?text=Journey+3"},
+  {"id": 4, "text": "Traverse the scorching desert in search of ruins", "image": "https://placehold.co/200x120.png?text=Journey+4"},
+  {"id": 5, "text": "Cross the frozen tundra to reach the northern outpost", "image": "https://placehold.co/200x120.png?text=Journey+5"},
+  {"id": 6, "text": "Navigate the dense jungle for a lost temple", "image": "https://placehold.co/200x120.png?text=Journey+6"},
+  {"id": 7, "text": "Climb the cliffs to the dragon's lair", "image": "https://placehold.co/200x120.png?text=Journey+7"},
+  {"id": 8, "text": "Ride the plains to deliver urgent news", "image": "https://placehold.co/200x120.png?text=Journey+8"},
+  {"id": 9, "text": "Follow the mysterious river to its source", "image": "https://placehold.co/200x120.png?text=Journey+9"},
+  {"id": 10, "text": "Descend into the underdark seeking allies", "image": "https://placehold.co/200x120.png?text=Journey+10"}
+]

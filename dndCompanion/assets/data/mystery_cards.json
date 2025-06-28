@@ -1,0 +1,12 @@
+[
+  {"id": 1, "text": "Who stole the ancient crown?", "image": "https://placehold.co/200x120.png?text=Mystery+1"},
+  {"id": 2, "text": "Why is the village cursed?", "image": "https://placehold.co/200x120.png?text=Mystery+2"},
+  {"id": 3, "text": "What lies beneath the ruins?", "image": "https://placehold.co/200x120.png?text=Mystery+3"},
+  {"id": 4, "text": "Who is the masked stranger?", "image": "https://placehold.co/200x120.png?text=Mystery+4"},
+  {"id": 5, "text": "Where did the lost caravan go?", "image": "https://placehold.co/200x120.png?text=Mystery+5"},
+  {"id": 6, "text": "What creature roams the sewers?", "image": "https://placehold.co/200x120.png?text=Mystery+6"},
+  {"id": 7, "text": "Who opened the forbidden vault?", "image": "https://placehold.co/200x120.png?text=Mystery+7"},
+  {"id": 8, "text": "Why are the dead rising?", "image": "https://placehold.co/200x120.png?text=Mystery+8"},
+  {"id": 9, "text": "What dark power sleeps in the forest?", "image": "https://placehold.co/200x120.png?text=Mystery+9"},
+  {"id": 10, "text": "Who betrayed the guild?", "image": "https://placehold.co/200x120.png?text=Mystery+10"}
+]

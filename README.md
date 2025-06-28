@@ -2,6 +2,32 @@
 
 This repository contains a very small prototype for a deterministic card based combat system inspired by Dark Souls. The code in `game.py` implements the round structure described in `design.md`.
 
+## Project Purpose
+
+The goal of this repository is to provide a lightweight sandbox for
+experimenting with a deterministic card‑driven combat loop.  It models a
+"Souls‑like" encounter using a fixed‑order hero deck and predictable enemy
+patterns.  The code focuses on clarity over presentation and runs entirely in
+the terminal.
+
+## Setup
+
+1. Ensure Python 3.11+ is available on your system.
+2. Clone the repository.
+3. No external packages are required.
+
+Run the minimal demo with:
+
+```bash
+python3 game.py
+```
+
+Execute the unit tests with:
+
+```bash
+python3 -m unittest
+```
+
 ## Card System
 
 Heroes fight using a fixed order deck of action cards. At the start of play you choose the order of your 12 cards and draw the top four as your hand. Each card has a speed and stamina cost. When you play a card:

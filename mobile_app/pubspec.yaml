@@ -17,3 +17,9 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    # Add high-resolution artwork files for your app in assets/images.
+    # Once available, include them here:
+    # - assets/images/monsters.png
+    # - assets/images/journey_cards.png
+    # - assets/images/mystery_cards.png

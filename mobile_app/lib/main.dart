@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:math';
 import 'theme.dart';
+
+const List<Map<String, String>> monsters = [
+  {'name': 'Goblin', 'type': 'Humanoid'},
+  {'name': 'Ogre', 'type': 'Giant'},
+  {'name': 'Specter', 'type': 'Undead'},
+];
 
 void main() {
   runApp(const MyApp());
@@ -75,6 +82,13 @@ class MyHomePage extends StatelessWidget {
               child: const Text('Monster'),
             ),
             ElevatedButton(
+              onPressed: () => _fadePush(
+                context,
+                const SearchScreen(),
+              ),
+              child: const Text('Search'),
+            ),
+            ElevatedButton(
               onPressed: () => SystemNavigator.pop(),
               child: const Text('Close'),
             ),
@@ -121,14 +135,90 @@ class MysteryScreen extends StatelessWidget {
   }
 }
 
-class MonsterScreen extends StatelessWidget {
+class MonsterScreen extends StatefulWidget {
   const MonsterScreen({super.key});
+
+  @override
+  State<MonsterScreen> createState() => _MonsterScreenState();
+}
+
+class _MonsterScreenState extends State<MonsterScreen> {
+  Map<String, String>? monster;
+
+  void getRandom() {
+    setState(() {
+      monster = monsters[Random().nextInt(monsters.length)];
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Monster')),
-      body: const Center(child: Text('Monster Screen')),
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ElevatedButton(
+              key: const Key('randomMonsterBtn'),
+              onPressed: getRandom,
+              child: const Text('Random Monster'),
+            ),
+            if (monster != null) ...[
+              Text(monster!['name']!, key: const Key('monsterName')),
+              Text(monster!['type']!),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class SearchScreen extends StatefulWidget {
+  const SearchScreen({super.key});
+
+  @override
+  State<SearchScreen> createState() => _SearchScreenState();
+}
+
+class _SearchScreenState extends State<SearchScreen> {
+  final TextEditingController controller = TextEditingController();
+  List<Map<String, String>> results = monsters;
+
+  void search(String query) {
+    setState(() {
+      results = monsters
+          .where((m) => m['name']!
+              .toLowerCase()
+              .contains(query.toLowerCase()))
+          .toList();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Search')),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: TextField(
+              key: const Key('searchField'),
+              controller: controller,
+              onChanged: search,
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              children: results
+                  .map((m) => ListTile(title: Text(m['name']!)))
+                  .toList(),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

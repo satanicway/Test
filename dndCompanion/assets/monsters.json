@@ -1,5 +1,6 @@
 [
-  {"name": "Goblin", "type": "Humanoid"},
-  {"name": "Ogre", "type": "Giant"},
-  {"name": "Specter", "type": "Undead"}
+  {"name": "Orc", "type": "Humanoid"},
+  {"name": "Jack the Ripper", "type": "Humanoid"},
+  {"name": "Dullahan", "type": "Undead"},
+  {"name": "Strigoi", "type": "Undead"}
 ]

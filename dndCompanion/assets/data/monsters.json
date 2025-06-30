@@ -1,27 +1,22 @@
 [
   {
-    "name": "Goblin Raider",
-    "image": "https://placehold.co/100x100.png?text=Goblin",
-    "description": "A sneaky goblin known for ambushing caravans and stealing supplies."
+    "name": "Orc",
+    "image": "Monster_Orc.png",
+    "description": "Medium humanoid (orc), chaotic evil. Armor Class 13 (hide armor). Hit Points 15 (2d8 + 6). Speed 30 ft. STR 16 (+3), DEX 12 (+1), CON 16 (+3), INT 7 (-2), WIS 11 (+0), CHA 10 (+0). Aggressive. Greataxe +5 to hit (1d12+3 slashing)."
   },
   {
-    "name": "Cave Troll",
-    "image": "https://placehold.co/100x100.png?text=Troll",
-    "description": "A massive troll that dwells in dark caves. It is slow but incredibly strong."
+    "name": "Jack the Ripper",
+    "image": "Monster_Jack.png",
+    "description": "Medium humanoid, chaotic evil. Armor Class 15 (leather armor). Hit Points 45 (6d8 + 18). Speed 30 ft. STR 14 (+2), DEX 16 (+3), CON 16 (+3), INT 12 (+1), WIS 12 (+1), CHA 14 (+2). Sneak Attack. Multiattack with dagger (1d4+3 piercing)."
   },
   {
-    "name": "Mountain Ogre",
-    "image": "https://placehold.co/100x100.png?text=Ogre",
-    "description": "An ogre that roams the mountains looking for unsuspecting travelers to rob."
+    "name": "Dullahan",
+    "image": "Monster_Dullahan.png",
+    "description": "Medium undead, lawful evil. Armor Class 17 (plate). Hit Points 85 (10d8 + 40). Speed 30 ft. STR 18 (+4), DEX 12 (+1), CON 18 (+4), INT 11 (+0), WIS 13 (+1), CHA 15 (+2). Frightful Head. Headless Charge. Greatsword +7 to hit (2d6+4 slashing)."
   },
   {
-    "name": "Young Dragon",
-    "image": "https://placehold.co/100x100.png?text=Dragon",
-    "description": "A youthful dragon still learning to use its fiery breath."
-  },
-  {
-    "name": "Phantom Stalker",
-    "image": "https://placehold.co/100x100.png?text=Phantom",
-    "description": "A mysterious spirit that follows adventurers, feeding on their fear."
+    "name": "Strigoi",
+    "image": "Monster_Strigoi.png",
+    "description": "Medium undead, chaotic evil. Armor Class 16 (natural armor). Hit Points 75 (10d8 + 30). Speed 30 ft. STR 17 (+3), DEX 16 (+3), CON 16 (+3), INT 14 (+2), WIS 12 (+1), CHA 18 (+4). Regeneration. Bite +6 to hit (1d6+3 piercing plus 1d6 necrotic)."
   }
 ]

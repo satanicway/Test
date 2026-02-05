@@ -14,3 +14,4 @@ python3 spellrift_balance_sim.py --sims 20000 --seed 42
 ```
 
 Use `--sims` to configure the number of simulation runs.
+Use `--max-rounds-safety` to cap pathological long combats in the abstract model.

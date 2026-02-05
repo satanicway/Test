@@ -1,47 +1,16 @@
-# D&D Companion App
+# Spellrift Dungeons — Balance Simulation Workspace
 
-This project is now a **React Native** application targeting both Android and iOS.
-It provides quick adventure hooks and monster lookups for your D&D 5e games.
+This repository now contains only artifacts related to **Spellrift Dungeons**.
 
-## Features
+## Contents
 
-* **Home Screen** with buttons for `Contracts`, `Journey`, `Mystery`, `Monster`, and `Search`.
-* Each button opens a dedicated screen displaying random data from local JSON files or a searchable list of monsters.
-* Basic stack navigation and simple placeholder components.
+- `spellrift_balance_sim.py` — Monte Carlo simulator for Spellrift Dungeons alpha balance testing.
+- `SIM_GDD_GAP_PLAN.md` — Gap analysis and implementation roadmap versus GDD v0.4.2.
 
-## Development
-
-1. Install [Node.js](https://nodejs.org/) and `npm`.
-2. Install the React Native CLI dependencies for your platform (Android Studio, Xcode, etc.).
-3. Clone this repository and run `npm install` inside `dndCompanion`.
-
-### Running on Android
+## Quick start
 
 ```bash
-cd dndCompanion
-npm run android
+python3 spellrift_balance_sim.py --sims 20000 --seed 42
 ```
 
-### Running on iOS
-
-```bash
-cd dndCompanion
-npm run ios
-```
-
-### Building an APK
-
-```bash
-cd dndCompanion
-npm run android --variant=release
-```
-
-### Building an IPA
-
-```bash
-cd dndCompanion
-npm run ios --configuration Release
-```
-
-The React Native CLI will start the Metro bundler and deploy the app to the
-connected simulator or device.
+Use `--sims` to configure the number of simulation runs.
